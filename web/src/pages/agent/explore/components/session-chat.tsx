@@ -127,7 +127,7 @@ export function SessionChat({ session }: SessionChatProps) {
               </div>
             ) : derivedMessages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-text-secondary">
-                No messages in this session
+                {t('common.noMessagesInSession')}
               </div>
             ) : (
               <div className="w-full pr-5">

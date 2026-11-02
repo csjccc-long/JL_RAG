@@ -13,6 +13,7 @@ import { TagRenameId } from '@/constants/knowledge';
 import { IModalProps } from '@/interfaces/common';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
+import { isGoDatasetBackend } from '@/utils/api-proxy-scheme';
 import { Check } from 'lucide-react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,9 +40,14 @@ function FlowTypeCards({ value, onChange }: FlowTypeCardProps) {
     [onChange],
   );
 
+  // The compilation flow is served by the Go backend only.
+  const flowTypes = isGoDatasetBackend()
+    ? [FlowType.Flow, FlowType.Compiler, FlowType.Agent]
+    : [FlowType.Flow, FlowType.Agent];
+
   return (
     <section className="flex gap-10">
-      {[FlowType.Flow, FlowType.Compiler, FlowType.Agent].map((val) => {
+      {flowTypes.map((val) => {
         const isActive = value === val;
         const config = FlowTypeConfig[val];
         const Icon = config.icon;

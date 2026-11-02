@@ -83,7 +83,7 @@ function DocGeneratorForm({ node }: INextOperatorForm) {
             name="output_format"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Output Format</FormLabel>
+                <FormLabel>{t('flow.outputFormat')}</FormLabel>
                 <FormControl>
                   <RAGFlowSelect
                     {...field}
@@ -111,7 +111,7 @@ function DocGeneratorForm({ node }: INextOperatorForm) {
                   <PromptEditor
                     {...field}
                     showToolbar={true}
-                    placeholder="Enter markdown content..."
+                    placeholder={t('flow.enterMarkdownContent')}
                   ></PromptEditor>
                 </FormControl>
                 <FormMessage />
@@ -192,9 +192,9 @@ function DocGeneratorForm({ node }: INextOperatorForm) {
                 name="header"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Header Text</FormLabel>
+                    <FormLabel>{t('flow.headerText')}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Header text" />
+                      <Input {...field} placeholder={t('flow.headerText')} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -206,9 +206,9 @@ function DocGeneratorForm({ node }: INextOperatorForm) {
                 name="footer"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Footer Text</FormLabel>
+                    <FormLabel>{t('flow.footerText')}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Footer text" />
+                      <Input {...field} placeholder={t('flow.footerText')} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -222,7 +222,7 @@ function DocGeneratorForm({ node }: INextOperatorForm) {
                     <FormItem>
                       <FormLabel>{t('flow.watermarkText')}</FormLabel>
                       <FormControl>
-                        <Input {...field} placeholder="Watermark text" />
+                        <Input {...field} placeholder={t('flow.watermarkText')} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

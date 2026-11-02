@@ -14,6 +14,9 @@
  *  limitations under the License.
  */
 
+// Product name shown in the UI, e.g. the welcome banner on the home page.
+export const APP_NAME = '金流RAG';
+
 export const fileIconMap = {
   aep: 'aep.svg',
   ai: 'ai.svg',

@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from '@/components/language-switcher';
 import SvgIcon from '@/components/svg-icon';
 import { useAuth } from '@/hooks/auth-hooks';
 import {
@@ -24,6 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { APP_NAME } from '@/constants/common';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, UseFormReturn } from 'react-hook-form';
@@ -203,7 +205,7 @@ function LoginFormContent({
                     height={20}
                     style={{ marginRight: 5 }}
                   />
-                  Sign in with {item.display_name}
+                  {t('signInWith', { name: item.display_name })}
                 </div>
               </Button>
             ))}
@@ -376,15 +378,20 @@ const Login = () => {
         <BgSvg isPaused />
 
         <div className="z-20 absolute top-3 flex flex-col items-center mb-12 w-full text-text-primary">
-          <div className="flex items-center mb-4 w-full pl-10 pt-10 ">
-            <div className="w-12 h-12 p-2 rounded-lg flex items-center justify-center mr-3">
-              <img
-                src={'/logo.svg'}
-                alt="logo"
-                className="size-8 mr-[12] cursor-pointer"
-              />
+          <div className="flex items-center justify-between mb-4 w-full pl-10 pr-6 pt-10">
+            <div className="flex items-center">
+              <div className="w-12 h-12 p-2 rounded-lg flex items-center justify-center mr-3">
+                <img
+                  src={'/logo.svg'}
+                  alt="logo"
+                  className="size-8 mr-[12] cursor-pointer"
+                />
+              </div>
+              <div className="text-xl font-bold self-center">{APP_NAME}</div>
             </div>
-            <div className="text-xl font-bold self-center">RAGFlow</div>
+            {/* Language can be switched before signing in, so that users who
+                prefer Chinese are not forced through an English login page. */}
+            <LanguageSwitcher />
           </div>
           <h1 className="text-[36px] font-medium  text-center mb-2">
             {t('title')}

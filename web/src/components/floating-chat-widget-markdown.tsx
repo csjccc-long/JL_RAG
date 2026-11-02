@@ -270,7 +270,7 @@ const FloatingChatWidgetMarkdown = ({
               <TooltipTrigger asChild>
                 <Info className={styles.referenceIcon} />
               </TooltipTrigger>
-              <TooltipContent>Reference unavailable</TooltipContent>
+              <TooltipContent>{t('common.referenceUnavailable')}</TooltipContent>
             </Tooltip>
           );
         }

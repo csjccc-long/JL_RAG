@@ -25,6 +25,7 @@ import { SharedFrom } from '@/constants/chat';
 import { useSetModalState } from '@/hooks/common-hooks';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { useSetAgent } from '@/hooks/use-agent-request';
+import { isGoDatasetBackend } from '@/utils/api-proxy-scheme';
 import { ReactFlowProvider } from '@xyflow/react';
 import {
   ChevronDown,
@@ -326,14 +327,15 @@ export default function Agent() {
                 {t('flow.historyVersion')}
               </AgentDropdownMenuItem>
               <DropdownMenuSeparator />
-              {isPipeline || (
-                <AgentDropdownMenuItem
-                  onClick={() => navigateToAgentLogs(id as string)()}
-                >
-                  <Logs />
-                  {t('flow.log')}
-                </AgentDropdownMenuItem>
-              )}
+              {isPipeline ||
+                (isGoDatasetBackend() && (
+                  <AgentDropdownMenuItem
+                    onClick={() => navigateToAgentLogs(id as string)()}
+                  >
+                    <Logs />
+                    {t('flow.log')}
+                  </AgentDropdownMenuItem>
+                ))}
               <DropdownMenuSeparator />
               <AgentDropdownMenuItem onClick={handleExportJson}>
                 <Upload />

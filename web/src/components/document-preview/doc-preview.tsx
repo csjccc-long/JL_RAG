@@ -27,6 +27,7 @@ import {
 import classNames from 'classnames';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
   isZipLikeBlob,
@@ -160,6 +161,7 @@ export const DocPreviewer: React.FC<DocPreviewerProps> = ({
   className,
   url,
 }) => {
+  const { t } = useTranslation();
   const editor = useDocxEditor({ initialFileName: 'document.docx' });
   const { importDocxFile, status, totalPages } = editor;
   const { layout } = useDocxPageLayout(editor);
@@ -268,7 +270,11 @@ export const DocPreviewer: React.FC<DocPreviewerProps> = ({
       {/* Toolbar */}
       <div className="flex items-center justify-between shrink-0 px-4 py-2 border-b border-border-normal bg-background-paper">
         <span className="text-sm text-muted-foreground">
-          {loading ? 'Loading...' : error ? '' : `Page ${pageCount || '-'}`}
+          {loading
+            ? t('common.loading')
+            : error
+              ? ''
+              : t('knowledgeDetails.pageOf', { page: pageCount || '-' })}
         </span>
         <div className="flex items-center gap-1">
           <button
@@ -276,7 +282,7 @@ export const DocPreviewer: React.FC<DocPreviewerProps> = ({
             disabled={loading || !!error || zoomScale <= minZoom}
             className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 transition-opacity"
             onClick={handleZoomOut}
-            aria-label="Zoom out"
+            aria-label={t('knowledgeDetails.zoomOut')}
           >
             <ZoomOut className="w-4 h-4" />
           </button>
@@ -288,7 +294,7 @@ export const DocPreviewer: React.FC<DocPreviewerProps> = ({
             disabled={loading || !!error || zoomScale >= maxZoom}
             className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 transition-opacity"
             onClick={handleZoomIn}
-            aria-label="Zoom in"
+            aria-label={t('knowledgeDetails.zoomIn')}
           >
             <ZoomIn className="w-4 h-4" />
           </button>
@@ -310,11 +316,10 @@ export const DocPreviewer: React.FC<DocPreviewerProps> = ({
           <div className="flex items-center justify-center h-full p-8">
             <div className="border border-dashed border-border-normal rounded-xl p-8 max-w-2xl text-center">
               <p className="text-2xl font-bold mb-4">
-                Preview is not available for this Word document
+                {t('knowledgeDetails.wordPreviewUnavailable')}
               </p>
               <p className="italic text-sm text-muted-foreground leading-relaxed">
-                @extend-ai/react-docx supports modern <code>.docx</code> files
-                only.
+                {t('knowledgeDetails.docxOnlySupported')}
                 <br />
                 {error}
               </p>

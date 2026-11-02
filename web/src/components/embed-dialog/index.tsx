@@ -36,6 +36,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SharedFrom } from '@/constants/chat';
 import {
+  APP_NAME,
   LanguageAbbreviation,
   LanguageAbbreviationMap,
   ThemeEnum,
@@ -327,8 +328,8 @@ window.addEventListener('message',e=>{
             <form className="space-y-5">
               <Tabs defaultValue="embed" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="embed">Embed Setup</TabsTrigger>
-                  <TabsTrigger value="widget">Widget Customization</TabsTrigger>
+                  <TabsTrigger value="embed">{t('common.embedSetup')}</TabsTrigger>
+                  <TabsTrigger value="widget">{t('common.widgetCustomization')}</TabsTrigger>
                 </TabsList>
                 <TabsContent value="embed" className="space-y-5">
                   <FormField
@@ -438,33 +439,39 @@ window.addEventListener('message',e=>{
                 </TabsContent>
                 <TabsContent value="widget" className="space-y-5">
                   <div className="rounded-md border border-border p-3 text-xs text-text-secondary">
-                    These settings apply to the floating widget embed.
+                    {t('common.widgetSettingsTip')}
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <RAGFlowFormItem name="widgetTitle" label="Widget title">
+                    <RAGFlowFormItem
+                      name="widgetTitle"
+                      label={t('common.widgetTitle')}
+                    >
                       <Input placeholder="Chat Support"></Input>
                     </RAGFlowFormItem>
-                    <RAGFlowFormItem name="widgetSubtitle" label="Subtitle">
+                    <RAGFlowFormItem
+                      name="widgetSubtitle"
+                      label={t('common.widgetSubtitle')}
+                    >
                       <Input placeholder="We typically reply instantly"></Input>
                     </RAGFlowFormItem>
                     <RAGFlowFormItem
                       name="widgetFooterText"
-                      label="Footer text"
+                      label={t('common.footerText')}
                     >
-                      <Input placeholder="Powered by RAGFlow"></Input>
+                      <Input placeholder={`Powered by ${APP_NAME}`}></Input>
                     </RAGFlowFormItem>
                     <RAGFlowFormItem
                       name="widgetFooterLink"
-                      label="Footer redirect link"
+                      label={t('common.footerRedirectLink')}
                     >
-                      <Input placeholder="https://ragflow.io"></Input>
+                      <Input placeholder="https://example.com"></Input>
                     </RAGFlowFormItem>
                     <FormField
                       control={form.control}
                       name="widgetAccentColor"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Widget accent color</FormLabel>
+                          <FormLabel>{t('common.widgetAccentColor')}</FormLabel>
                           <FormControl>
                             <div className="flex items-center gap-3">
                               <Input
@@ -488,7 +495,7 @@ window.addEventListener('message',e=>{
                       name="widgetBackgroundColor"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Background color</FormLabel>
+                          <FormLabel>{t('common.backgroundColor')}</FormLabel>
                           <FormControl>
                             <div className="flex items-center gap-3">
                               <Input
@@ -512,7 +519,7 @@ window.addEventListener('message',e=>{
                       name="widgetTextColor"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Text color</FormLabel>
+                          <FormLabel>{t('common.textColor')}</FormLabel>
                           <FormControl>
                             <div className="flex items-center gap-3">
                               <Input
@@ -536,7 +543,7 @@ window.addEventListener('message',e=>{
                       name="widgetHeaderTextColor"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Header text color</FormLabel>
+                          <FormLabel>{t('common.headerTextColor')}</FormLabel>
                           <FormControl>
                             <div className="flex items-center gap-3">
                               <Input
@@ -560,7 +567,7 @@ window.addEventListener('message',e=>{
                       name="widgetFooterTextColor"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Footer text color</FormLabel>
+                          <FormLabel>{t('common.footerTextColor')}</FormLabel>
                           <FormControl>
                             <div className="flex items-center gap-3">
                               <Input
@@ -628,18 +635,6 @@ window.addEventListener('message',e=>{
             <span>{token} </span>
             <CopyToClipboard text={token}></CopyToClipboard>
           </div>
-          <a
-            className="cursor-pointer text-accent-primary inline-block"
-            href={
-              isAgent
-                ? 'https://ragflow.io/docs/dev/http_api_reference#create-session-with-agent'
-                : 'https://ragflow.io/docs/dev/http_api_reference#create-session-with-chat-assistant'
-            }
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t(`${isAgent ? 'flow' : 'chat'}.howUseId`)}
-          </a>
         </section>
       </DialogContent>
     </Dialog>

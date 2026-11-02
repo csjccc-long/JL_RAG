@@ -23,7 +23,16 @@ import {
 } from 'react-router';
 import FallbackComponent from './components/fallback-component';
 import { IS_ENTERPRISE } from './pages/admin/utils';
+import { getApiProxyScheme } from './utils/api-proxy-scheme';
 import authorizationUtil from './utils/authorization-util';
+
+/**
+ * Screens that only the Go backend implements: skills spaces, knowledge
+ * compilation, pipeline logs, agent run logs and the admin console. The
+ * Python backend does not serve them, so on a Python build those routes
+ * are not registered at all and the screens stay unreachable.
+ */
+const hasGoOnlyModules = getApiProxyScheme() !== 'python';
 
 export enum Routes {
   Root = '/',
@@ -274,10 +283,14 @@ const routeConfigOptions = [
         path: Routes.Files,
         Component: () => import('@/pages/files'),
       },
-      {
-        path: Routes.Skills,
-        Component: () => import('@/pages/skills'),
-      },
+      ...(hasGoOnlyModules
+        ? [
+            {
+              path: Routes.Skills,
+              Component: () => import('@/pages/skills'),
+            },
+          ]
+        : []),
       {
         path: Routes.UserSetting,
         Component: () => import('@/pages/user-setting'),
@@ -322,11 +335,15 @@ const routeConfigOptions = [
             path: `${Routes.UserSetting}${Routes.ChatChannel}`,
             Component: () => import('@/pages/user-setting/chat-channel'),
           },
-          {
-            path: `${Routes.UserSetting}${Routes.CompilationTemplates}`,
-            Component: () =>
-              import('@/pages/user-setting/compilation-templates'),
-          },
+          ...(hasGoOnlyModules
+            ? [
+                {
+                  path: `${Routes.UserSetting}${Routes.CompilationTemplates}`,
+                  Component: () =>
+                    import('@/pages/user-setting/compilation-templates'),
+                },
+              ]
+            : []),
         ],
       },
       {
@@ -337,38 +354,46 @@ const routeConfigOptions = [
       },
     ],
   },
-  {
-    path: Routes.CompilationTemplatesCreateNext,
-    layout: false,
-    Component: () =>
-      import('@/pages/user-setting/compilation-templates/create-next'),
-  },
-  {
-    path: `${Routes.CompilationTemplatesCreateNext}/:id`,
-    layout: false,
-    Component: () =>
-      import('@/pages/user-setting/compilation-templates/create-next'),
-  },
-  {
-    path: Routes.CompilationTemplatesEditNext,
-    layout: false,
-    Component: () =>
-      import('@/pages/user-setting/compilation-templates/edit-next'),
-  },
-  {
-    path: `${Routes.CompilationTemplatesEditNext}/:id`,
-    layout: false,
-    Component: () =>
-      import('@/pages/user-setting/compilation-templates/edit-next'),
-  },
+  ...(hasGoOnlyModules
+    ? [
+        {
+          path: Routes.CompilationTemplatesCreateNext,
+          layout: false,
+          Component: () =>
+            import('@/pages/user-setting/compilation-templates/create-next'),
+        },
+        {
+          path: `${Routes.CompilationTemplatesCreateNext}/:id`,
+          layout: false,
+          Component: () =>
+            import('@/pages/user-setting/compilation-templates/create-next'),
+        },
+        {
+          path: Routes.CompilationTemplatesEditNext,
+          layout: false,
+          Component: () =>
+            import('@/pages/user-setting/compilation-templates/edit-next'),
+        },
+        {
+          path: `${Routes.CompilationTemplatesEditNext}/:id`,
+          layout: false,
+          Component: () =>
+            import('@/pages/user-setting/compilation-templates/edit-next'),
+        },
+      ]
+    : []),
   {
     path: `${Routes.SearchShare}`,
     Component: () => import('@/pages/next-search/share'),
   },
-  {
-    path: `${Routes.DatasetBase}${Routes.Compilation}/:id`,
-    Component: () => import('@/pages/dataset/compilation'),
-  },
+  ...(hasGoOnlyModules
+    ? [
+        {
+          path: `${Routes.DatasetBase}${Routes.Compilation}/:id`,
+          Component: () => import('@/pages/dataset/compilation'),
+        },
+      ]
+    : []),
   {
     path: Routes.Agent,
     children: [
@@ -383,14 +408,18 @@ const routeConfigOptions = [
       },
     ],
   },
-  {
-    path: `${Routes.AgentLogPage}/:id`,
-    Component: () => import('@/pages/agents/agent-log-page'),
-  },
-  {
-    path: `${Routes.DataflowResult}`,
-    Component: () => import('@/pages/dataflow-result'),
-  },
+  ...(hasGoOnlyModules
+    ? [
+        {
+          path: `${Routes.AgentLogPage}/:id`,
+          Component: () => import('@/pages/agents/agent-log-page'),
+        },
+        {
+          path: `${Routes.DataflowResult}`,
+          Component: () => import('@/pages/dataflow-result'),
+        },
+      ]
+    : []),
   {
     path: Routes.Chunk,
     children: [
@@ -413,59 +442,63 @@ const routeConfigOptions = [
       },
     ],
   },
-  {
-    path: Routes.Admin,
-    Component: () => import('@/pages/admin/layouts/root-layout'),
-    children: [
-      {
-        path: Routes.Admin,
-        Component: () => import('@/pages/admin/login'),
-      },
-      {
-        path: Routes.Admin,
-        Component: () => import('@/pages/admin/layouts/authorized-layout'),
-        children: [
-          {
-            path: `${Routes.AdminUserManagement}/:id`,
-            Component: () => import('@/pages/admin/user-detail'),
-          },
-          {
-            Component: () => import('@/pages/admin/layouts/navigation-layout'),
-            children: [
-              {
-                path: Routes.AdminServices,
-                Component: () => import('@/pages/admin/service-status'),
-              },
-              {
-                path: Routes.AdminUserManagement,
-                Component: () => import('@/pages/admin/users'),
-              },
-              {
-                path: Routes.AdminSandboxSettings,
-                Component: () => import('@/pages/admin/sandbox-settings'),
-              },
-              ...(IS_ENTERPRISE
-                ? [
+  ...(hasGoOnlyModules
+    ? [
+        {
+          path: Routes.Admin,
+          Component: () => import('@/pages/admin/layouts/root-layout'),
+          children: [
+            {
+              path: Routes.Admin,
+              Component: () => import('@/pages/admin/login'),
+            },
+            {
+              path: Routes.Admin,
+              Component: () => import('@/pages/admin/layouts/authorized-layout'),
+              children: [
+                {
+                  path: `${Routes.AdminUserManagement}/:id`,
+                  Component: () => import('@/pages/admin/user-detail'),
+                },
+                {
+                  Component: () => import('@/pages/admin/layouts/navigation-layout'),
+                  children: [
                     {
-                      path: Routes.AdminWhitelist,
-                      Component: () => import('@/pages/admin/whitelist'),
+                      path: Routes.AdminServices,
+                      Component: () => import('@/pages/admin/service-status'),
                     },
                     {
-                      path: Routes.AdminRoles,
-                      Component: () => import('@/pages/admin/roles'),
+                      path: Routes.AdminUserManagement,
+                      Component: () => import('@/pages/admin/users'),
                     },
                     {
-                      path: Routes.AdminMonitoring,
-                      Component: () => import('@/pages/admin/monitoring'),
+                      path: Routes.AdminSandboxSettings,
+                      Component: () => import('@/pages/admin/sandbox-settings'),
                     },
-                  ]
-                : []),
-            ],
-          },
-        ],
-      },
-    ],
-  } satisfies LazyRouteConfig,
+                    ...(IS_ENTERPRISE
+                      ? [
+                          {
+                            path: Routes.AdminWhitelist,
+                            Component: () => import('@/pages/admin/whitelist'),
+                          },
+                          {
+                            path: Routes.AdminRoles,
+                            Component: () => import('@/pages/admin/roles'),
+                          },
+                          {
+                            path: Routes.AdminMonitoring,
+                            Component: () => import('@/pages/admin/monitoring'),
+                          },
+                        ]
+                      : []),
+                  ],
+                },
+              ],
+            },
+          ],
+        } satisfies LazyRouteConfig,
+      ]
+    : []),
 ];
 
 const wrapRoutes = (routes: LazyRouteConfig[]): RouteObject[] =>

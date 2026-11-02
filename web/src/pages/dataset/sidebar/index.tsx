@@ -19,6 +19,7 @@ import { formatPureDate } from '@/utils/date';
 
 import { IDataset } from '@/interfaces/database/dataset';
 import { useParams } from 'react-router';
+import { isGoDatasetBackend } from '@/utils/api-proxy-scheme';
 import { getBackendLanguage } from '@/utils/backend-runtime';
 
 type PropType = {
@@ -66,11 +67,15 @@ export function SideBar({ dataset: data }: PropType) {
             },
           ]
         : []),
-      {
-        icon: <LucideBookText className="size-[1em]" />,
-        label: 'Artifacts',
-        key: Routes.Compilation,
-      },
+      ...(isGoDatasetBackend()
+        ? [
+            {
+              icon: <LucideBookText className="size-[1em]" />,
+              label: t('knowledgeDetails.artifacts'),
+              key: Routes.Compilation,
+            },
+          ]
+        : []),
     ];
 
     return list;

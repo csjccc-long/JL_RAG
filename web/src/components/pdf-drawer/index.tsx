@@ -22,6 +22,7 @@ import { IModalProps } from '@/interfaces/common';
 import { IReferenceChunk } from '@/interfaces/database/chat';
 import { IChunk } from '@/interfaces/database/dataset';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import PdfPreview from '../document-preview/pdf-preview';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../ui/sheet';
 
@@ -39,6 +40,7 @@ export const PdfSheet = ({
   width = '50vw',
   height,
 }: IProps) => {
+  const { t } = useTranslation();
   const getDocumentUrl = useGetDocumentUrl(documentId);
   const url = getDocumentUrl(documentId);
   const { highlights, setWidthAndHeight } = useGetChunkHighlights(chunk);
@@ -52,7 +54,7 @@ export const PdfSheet = ({
         }}
       >
         <SheetHeader>
-          <SheetTitle>Document Previewer</SheetTitle>
+          <SheetTitle>{t('knowledgeDetails.documentPreviewer')}</SheetTitle>
         </SheetHeader>
         {url && documentId && (
           <PdfPreview

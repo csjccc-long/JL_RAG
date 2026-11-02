@@ -61,8 +61,11 @@ export function Sidebar({ selection, onSelect }: SidebarProps) {
   // provider's instance list on mount — instance details are fetched
   // lazily by the right pane only when the user clicks a provider.
   const addedSet = useMemo(() => {
+    // Only light the "configured" dot when the backend reports it. Older
+    // backends omit the flag, so providers they list simply render without
+    // a dot instead of claiming an instance that may not exist.
     return new Set(
-      addedProviders.filter((p) => p.has_instance).map((p) => p.name),
+      addedProviders.filter((p) => p.has_instance === true).map((p) => p.name),
     );
   }, [addedProviders]);
 

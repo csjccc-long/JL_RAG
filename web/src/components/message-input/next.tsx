@@ -264,9 +264,9 @@ export function NextMessageInput({
           <div className="flex items-center justify-center rounded-full border p-2.5">
             <Upload className="size-6 text-muted-foreground" />
           </div>
-          <p className="font-medium text-sm">Drag & drop files here</p>
+          <p className="font-medium text-sm">{t('common.dragDropFiles')}</p>
           <p className="text-muted-foreground text-xs">
-            Upload max 5 files each up to 5MB
+            {t('common.uploadMaxFiles')}
           </p>
         </div>
       </FileUploadDropzone>
@@ -283,7 +283,7 @@ export function NextMessageInput({
           <button
             type="button"
             onMouseDown={handleResizeStart}
-            aria-label="Drag to resize height"
+            aria-label={t('common.dragToResize')}
             className="absolute -top-0.5 left-1/2 z-10 flex h-1 w-12 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full border border-border-default bg-bg-card transition-colors hover:border-accent-primary"
           >
             <span className="h-0.5 w-full rounded-full bg-border-button" />
@@ -341,7 +341,7 @@ export function NextMessageInput({
                   data-testid="chat-detail-attach"
                 >
                   <Paperclip className="size-3.5" />
-                  <span className="sr-only">Attach file</span>
+                  <span className="sr-only">{t('common.attachFile')}</span>
                 </Button>
               </FileUploadTrigger>
             )}
@@ -395,7 +395,7 @@ export function NextMessageInput({
                 data-testid="chat-detail-send"
               >
                 <Send />
-                <span className="sr-only">Send message</span>
+                <span className="sr-only">{t('common.sendMessage')}</span>
               </Button>
             </div>
           )}

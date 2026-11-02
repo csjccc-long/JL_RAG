@@ -9,6 +9,7 @@ import {
   isAgentStructured,
 } from '@/utils/canvas-util';
 import { t } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { flatten, isEmpty, toLower } from 'lodash';
 import get from 'lodash/get';
 import { MessageSquareCode } from 'lucide-react';
@@ -393,6 +394,7 @@ export function useFilterQueryVariableOptionsByTypes({
 }
 
 export function useBuildComponentIdOptions(nodeId?: string, parentId?: string) {
+  const { t } = useTranslation();
   const nodes = useGraphStore((state) => state.nodes);
 
   // Limit the nodes inside iteration to only reference peer nodes with the same parentId and other external nodes other than their parent nodes
@@ -424,8 +426,8 @@ export function useBuildComponentIdOptions(nodeId?: string, parentId?: string) {
 
   return [
     {
-      label: <span>Component Output</span>,
-      title: 'Component Output',
+      label: <span>{t('flow.componentOutput')}</span>,
+      title: t('flow.componentOutput'),
       options: componentIdOptions,
     },
   ];

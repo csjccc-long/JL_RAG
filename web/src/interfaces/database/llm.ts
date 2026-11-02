@@ -45,7 +45,9 @@ export interface IAvailableProvider {
   name: string;
   model_types: string[];
   url: { default?: string; [key: string]: string | undefined };
-  has_instance: boolean;
+  // Older backends omit this flag entirely when listing providers; treat a
+  // missing value as "unknown" rather than "not configured".
+  has_instance?: boolean;
 }
 
 export interface IProviderInstance {

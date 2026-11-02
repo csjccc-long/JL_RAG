@@ -245,6 +245,10 @@ export const useFetchNextKnowledgeListByPage = () => {
 export const useGetDatasetFilter = (): { filter: IDatasetFilter } => {
   const { data } = useQuery({
     queryKey: [KnowledgeApiAction.FetchDatasetFilter],
+    // The Python backend has no `?type=filter` variant of the dataset list API
+    // and rejects the extra `type` parameter, so the filter options are only
+    // fetched from a backend that implements it.
+    enabled: isGoDatasetBackend(),
     queryFn: async () => {
       const { data } = await datasetFilter();
       if (data.code === 0) {

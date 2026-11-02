@@ -48,6 +48,77 @@ export const supportedLanguages = supportedLanguageCodes.map((code) => {
 export const DEFAULT_LANGUAGE_CODE =
   import.meta.env.VITE_DEFAULT_LANGUAGE_CODE || LanguageAbbreviation.En;
 
+const BROWSER_LANGUAGE_ALIASES: Record<string, LanguageAbbreviation> = {
+  zh: LanguageAbbreviation.Zh,
+  'zh-cn': LanguageAbbreviation.Zh,
+  'zh-sg': LanguageAbbreviation.Zh,
+  'zh-my': LanguageAbbreviation.Zh,
+  'zh-hans': LanguageAbbreviation.Zh,
+  'zh-tw': LanguageAbbreviation.ZhTraditional,
+  'zh-hk': LanguageAbbreviation.ZhTraditional,
+  'zh-mo': LanguageAbbreviation.ZhTraditional,
+  'zh-hant': LanguageAbbreviation.ZhTraditional,
+  no: LanguageAbbreviation.En,
+  nb: LanguageAbbreviation.En,
+  nn: LanguageAbbreviation.En,
+};
+
+/**
+ * Resolve the browser preferred language to one of the supported languages.
+ * Matching order: exact locale (e.g. pt-br) -> region-less locale (e.g. pt for
+ * pt-BR) -> undefined when the browser language is not supported.
+ */
+export const detectBrowserLanguage = (): LanguageAbbreviation | undefined => {
+  if (typeof navigator === 'undefined') {
+    return undefined;
+  }
+
+  const candidates =
+    navigator.languages && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language];
+
+  for (const candidate of candidates) {
+    const locale = candidate?.toLowerCase();
+    if (!locale) {
+      continue;
+    }
+
+    // Chinese needs extra care: zh-Hant/zh-TW/zh-HK must map to Traditional,
+    // every other Chinese locale (zh, zh-CN, zh-SG, zh-Hans) to Simplified.
+    if (locale === 'zh' || locale.startsWith('zh-')) {
+      return (
+        BROWSER_LANGUAGE_ALIASES[locale] ||
+        (/hant|tw|hk|mo/.test(locale)
+          ? LanguageAbbreviation.ZhTraditional
+          : LanguageAbbreviation.Zh)
+      );
+    }
+
+    const alias = BROWSER_LANGUAGE_ALIASES[locale];
+    if (alias) {
+      return alias;
+    }
+
+    const exact = supportedLanguageCodes.find(
+      (code) => code.toLowerCase() === locale,
+    );
+    if (exact) {
+      return exact as LanguageAbbreviation;
+    }
+
+    const base = locale.split('-')[0];
+    const byBase = supportedLanguageCodes.find(
+      (code) => code.toLowerCase().split('-')[0] === base,
+    );
+    if (byBase) {
+      return byBase as LanguageAbbreviation;
+    }
+  }
+
+  return undefined;
+};
+
 const resources = {
   [LanguageAbbreviation.En]: translation_en,
 };
@@ -121,9 +192,12 @@ export const changeLanguageAsync = async (
 };
 
 export const initLanguage = async (): Promise<void> => {
-  const currentLng = storage.getLanguage() || DEFAULT_LANGUAGE_CODE;
+  const storedLng = storage.getLanguage();
+  // An explicit user choice always wins; otherwise follow the browser language
+  // so that a Chinese browser opens the app in Chinese out of the box.
+  const currentLng = storedLng || detectBrowserLanguage() || DEFAULT_LANGUAGE_CODE;
 
-  await changeLanguageAsync(currentLng);
+  await changeLanguageAsync(currentLng, { persist: !!storedLng });
 };
 
 export default i18n;

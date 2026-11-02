@@ -19,7 +19,6 @@ import { useTranslate } from '@/hooks/common-hooks';
 import {
   LlmKeys,
   useAddProviderInstance,
-  useFetchAddedProviders,
   useFetchProviderInstances,
   useUpdateProviderInstance,
 } from '@/hooks/use-llm-request';
@@ -98,13 +97,14 @@ const SettingModelV2: FC = () => {
     [],
   );
 
-  const { data: addedProviders } = useFetchAddedProviders();
+  // Always load the instances of the selected provider. This used to be
+  // gated on the provider reporting `has_instance`, but older backends do
+  // not return that flag, which left the pane showing an empty "new
+  // instance" draft even though instances were already configured.
   const providerQueryName = useMemo(() => {
     if (selection === 'default') return '';
-    return addedProviders.some((p) => p.name === selection && p.has_instance)
-      ? selection
-      : '';
-  }, [selection, addedProviders]);
+    return selection;
+  }, [selection]);
   const { data: instances, loading: instancesLoading } =
     useFetchProviderInstances(providerQueryName);
   const queryClient = useQueryClient();

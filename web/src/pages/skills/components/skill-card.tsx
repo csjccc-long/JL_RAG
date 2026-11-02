@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Eye, Tag, Trash2 } from 'lucide-react';
 import React, { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Skill } from '../types';
 
 interface SkillCardProps {
@@ -52,6 +53,7 @@ const SkillCard: React.FC<SkillCardProps> = ({
   onDelete,
   formatRelative,
 }) => {
+  const { t } = useTranslation();
   const fileCount = skill.files.filter((f) => !f.is_dir).length;
   const filesLoading = skill.files.length === 0 && (skill as any)._folderId;
 
@@ -105,18 +107,17 @@ const SkillCard: React.FC<SkillCardProps> = ({
                         </Button>
                       </AlertDialogTrigger>
                     </TooltipTrigger>
-                    <TooltipContent>Delete</TooltipContent>
+                    <TooltipContent>{t('common.delete')}</TooltipContent>
                   </Tooltip>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Skill</AlertDialogTitle>
+                      <AlertDialogTitle>{t('skills.deleteSkillTitle')}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Are you sure you want to delete this skill? This action
-                        cannot be undone.
+                        {t('skills.deleteSkillDescription')}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={() =>
                           onDelete(

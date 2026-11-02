@@ -44,12 +44,15 @@ export const LocalLlmConfigs: Record<string, ProviderConfig> = {
     ],
     'https://docs.aimlapi.com/quickstart/simple-model',
   ),
-  [LLMFactory.Ollama]: buildLocalConfig(
-    LLMFactory.Ollama,
-    'Ollama',
-    false,
-    undefined,
-    'https://github.com/infiniflow/ragflow/blob/main/docs/guides/models/deploy_local_llm.mdx',
+  [LLMFactory.Ollama]: withApiKeyTooltip(
+    buildLocalConfig(
+      LLMFactory.Ollama,
+      'Ollama',
+      false,
+      undefined,
+      undefined,
+    ),
+    'setting.ollamaApiKeyTip',
   ),
   [LLMFactory.Xinference]: buildLocalConfig(
     LLMFactory.Xinference,
@@ -207,6 +210,23 @@ export const LocalLlmConfigs: Record<string, ProviderConfig> = {
   //   'https://docs.tokenpony.cn/#/',
   // ),
 };
+
+/**
+ * Attach a tooltip to the `api_key` field of a provider config. Local
+ * deployments (Ollama etc.) do not need a real key, so the hint avoids the
+ * impression that one must be issued before the provider can be used.
+ */
+function withApiKeyTooltip(
+  config: ProviderConfig,
+  tooltipKey: string,
+): ProviderConfig {
+  return {
+    ...config,
+    fields: config.fields.map((field) =>
+      field.name === 'api_key' ? { ...field, tooltip: tooltipKey } : field,
+    ),
+  };
+}
 
 /**
  * Build the default configuration for local factories
