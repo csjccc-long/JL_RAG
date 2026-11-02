@@ -19,7 +19,8 @@ Key configurations:
 For PDF files, select one of the following:
 
 - **DeepDoc** (default): RAGFlow's built-in model. Best suited for scanned documents or complex layouts with tables.
-- **MinerU**: Industry-leading for complex elements such as mathematical formulas and complex layouts.
+- **PaddleOCR**: Remote OCR through an official or self-hosted PaddleOCR service.
+- **SoMark**: Layout-aware OCR through the SoMark hosted API or a compatible deployment.
 - **Naive**: Simple text extraction. Use it for clean, text-based PDFs without complex elements.
 
 For image files:

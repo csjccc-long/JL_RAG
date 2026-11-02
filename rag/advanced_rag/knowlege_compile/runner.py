@@ -30,7 +30,17 @@ RAPTOR over the whole document and are still driven from the task executor
 (``run_tree_templates``), which owns the doc-store reload + ``RaptorService``.
 """
 
+
 from __future__ import annotations
+
+"""
+本质上是编排层工具
+这个模块是知识编译的“非树模板执行核心”，
+它把文档 chunk 按模板分批并发抽取结构化知识，
+再统一做 merge、去重、flush、dataset graph 重建和可选 synthesis，
+既能被任务执行器直接调用，也能被 rag.flow 的 Compiler 组件复用；
+它专门处理非 RAPTOR 树模板，树模板另走独立的 RAPTOR 路径。
+"""
 
 import asyncio
 import logging

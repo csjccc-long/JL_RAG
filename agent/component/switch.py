@@ -20,7 +20,16 @@ from typing import Any
 
 from agent.component.base import ComponentBase, ComponentParamBase
 from common.connection_utils import timeout
+"""
+一个“分支分流组件”，它属于 Agent 工作流里的条件判断节点。
 
+它的作用是：
+
+读取前面节点产出的变量
+按条件做判断
+根据判断结果决定下一步走哪条分支
+如果都不满足，就走默认分支（ELSE / Other）
+"""
 
 class SwitchParam(ComponentParamBase):
     """

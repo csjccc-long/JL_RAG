@@ -819,13 +819,6 @@ func (s *MemoryService) DeleteMemory(ctx context.Context, userID, memoryID strin
 		return err
 	}
 
-	// TODO: Delete associated message index - Implementation pending MessageService
-	if s.docEngine != nil && engine.IsOceanBaseFamily(s.docEngine.GetType()) {
-		if err := s.docEngine.DropChunkStore(ctx, memoryIndexName(memory.TenantID), memoryID); err != nil {
-			return fmt.Errorf("delete memory messages: %w", err)
-		}
-	}
-
 	// Delete memory record
 	if err := s.memoryDAO.DeleteByID(ctx, dao.DB, memoryID); err != nil {
 		return errors.New("failed to delete memory")
@@ -851,12 +844,8 @@ func (s *MemoryService) ForgetMessage(ctx context.Context, userID string, memory
 	forgetTime := now.Format("2006-01-02 15:04:05")
 	messageDocID := fmt.Sprintf("%s_%d", memoryID, messageID)
 	updates := map[string]interface{}{
-		"forget_at": forgetTime,
-	}
-	// OceanBase/SeekDB memory tables contain forget_at but no forget_at_flt.
-	// Keep the existing companion-field update for other engines.
-	if !engine.IsOceanBaseFamily(s.docEngine.GetType()) {
-		updates["forget_at_flt"] = now.UnixMilli()
+		"forget_at":     forgetTime,
+		"forget_at_flt": now.UnixMilli(),
 	}
 	condition := map[string]interface{}{
 		"id": messageDocID,

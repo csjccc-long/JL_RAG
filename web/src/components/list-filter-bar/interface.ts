@@ -29,8 +29,7 @@ export type FilterCollection = {
   list: FilterType[];
   canSearch?: boolean;
 };
-export type FilterValue = Record<
-  string,
-  Array<string> | Record<string, Array<string>>
->;
+export type FilterValue = {
+  [key: string]: string[] | FilterValue;
+};
 export type FilterChange = (value: FilterValue) => void;

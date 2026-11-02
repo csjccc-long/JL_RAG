@@ -14,13 +14,14 @@
 #  limitations under the License.
 
 """
-Chunk Post-Processor Module.
+分块后处理模块。
 
-Provides post-processing functions for chunks:
-- Keyword extraction
-- Question generation
-- Metadata generation
-- Content tagging
+提供针对文本块的后处理函数：
+
+关键词提取
+问题生成
+元数据生成
+内容标签
 """
 
 import asyncio

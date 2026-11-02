@@ -29,7 +29,13 @@ from docx.image.exceptions import (
 )
 from rag.utils.lazy_image import LazyImage
 
-
+"""
+使用 python-docx 打开文件或二进制内容。
+遍历段落中的文本片段（runs），根据 from_page、to_page 范围收集文本。
+检查 Word 保存的已渲染分页标记，据此估算页码。
+遍历文档表格，将单元格整理成 DataFrame，再用内容类型判断规则推测表头和数据行，转换为文本。
+返回段落和表格结果
+"""
 class RAGFlowDocxParser:
     def get_picture(self, document, paragraph):
         imgs = paragraph._element.xpath(".//pic:pic")

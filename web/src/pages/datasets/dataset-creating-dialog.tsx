@@ -61,10 +61,11 @@ export function InputForm({ onOk }: IModalProps<any>) {
       pipeline_id: z.string().optional(),
     })
     .superRefine((data, ctx) => {
+      const chunkMethod = data[ChunkMethodName];
       // When parseType === BuiltIn, chunk_method is required
       if (
         data.parseType === ParseType.BuiltIn &&
-        (!data[ChunkMethodName] || data[ChunkMethodName].trim() === '')
+        (typeof chunkMethod !== 'string' || chunkMethod.trim() === '')
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -133,6 +134,7 @@ export function InputForm({ onOk }: IModalProps<any>) {
                 <Input
                   placeholder={t('knowledgeList.namePlaceholder')}
                   {...field}
+                  value={typeof field.value === 'string' ? field.value : ''}
                 />
               </FormControl>
               <FormMessage />

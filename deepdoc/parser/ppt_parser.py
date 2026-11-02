@@ -18,7 +18,60 @@ import logging
 from io import BytesIO
 from pptx import Presentation
 
+"""
+1. 读取 PPT 文件
+它使用了：
 
+from pptx import Presentation
+也就是 Python 的 python-pptx 库来打开 PPT 文件。
+
+支持两种输入：
+
+文件路径
+内存中的二进制数据 BytesIO
+这意味着它既能处理磁盘上的 .pptx，也能处理上传后的内存对象。
+
+2. 遍历每一页幻灯片
+在 __call__() 里：
+
+ppt.slides 遍历每一页
+按 from_page 和 to_page 做分页过滤
+对每页 slide 继续处理
+所以它是“按页抽取内容”的解析器。
+
+3. 提取文本元素
+__extract(shape) 会递归处理每个 shape：
+
+如果 shape 含有 text_frame，提取段落文本
+如果是列表项，识别项目符号并保留层级
+如果是表格，读取表格内容
+如果是分组对象（group shape），继续递归展开
+忽略不含文字的形状
+这保证了 PPT 中常见的：
+
+标题
+正文
+列表
+表格
+组合元素
+都可以被提取成文本。
+
+4. 处理列表和层级
+__get_bulleted_text(paragraph) 会检测段落是否有项目符号，例如：
+
+a:buChar
+a:buAutoNum
+a:buBlip
+如果有，就在前面加层级标识，例如：
+
+"  .text" 这种形式
+这样后续文本保留了列表结构，而不是直接丢失。
+
+5. 按位置排序
+__sort_shapes(shapes) 会根据 top 和 left 排序页面中的元素，保证文本按页面布局顺序输出，而不是随机顺序。
+
+这很重要，因为 PPT 中文本通常是有布局顺序的。
+"""
 class RAGFlowPptParser:
     def __init__(self):
         super().__init__()

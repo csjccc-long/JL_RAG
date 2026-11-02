@@ -34,6 +34,41 @@ from common.misc_utils import thread_pool_exec
 
 _logger = logging.getLogger(__name__)
 
+"""
+定义组件参数基类：ComponentParamBase
+
+负责保存每个组件的输入、输出、描述、重试策略、异常处理等通用配置。
+提供参数更新、序列化、校验、兼容旧字段警告等能力。
+让不同组件的参数结构保持统一，便于配置读取和运行时注入。
+定义组件运行基类：ComponentBase
+
+封装组件的通用生命周期：
+初始化
+读取输入
+解析变量引用
+执行组件逻辑
+设置输出
+处理异常和取消
+记录耗时
+这意味着具体组件只需要实现自己的 _invoke() 或 _invoke_async()，不必重复写通用逻辑。
+统一输入输出管理
+
+set_input_value() / get_input_value()
+set_output() / output()
+reset()
+这些方法把组件的状态管理抽象成标准接口，后续流程引擎可以统一调度。
+处理模板变量替换
+
+像 {a@b}、{sys.xxx}、{env.xxx} 这样的表达式会在这里被解析和替换。
+这是工作流编排中“组件之间传递数据”的关键机制。
+提供异常和取消机制
+
+check_if_canceled()
+exception_handler()
+get_exception_default_value()
+能让组件在中断、错误或超时时能有统一处理方式。
+"""
+
 _FEEDED_DEPRECATED_PARAMS = "_feeded_deprecated_params"
 _DEPRECATED_PARAMS = "_deprecated_params"
 _USER_FEEDED_PARAMS = "_user_feeded_params"

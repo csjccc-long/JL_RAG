@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
+import { JsonSchemaDataType, VariableType } from '../../constant';
 import { useGetVariableLabelOrTypeByValue } from '../../hooks/use-get-begin-query';
 import { QueryVariable } from '../components/query-variable';
 import { NameInput } from './name-input';
@@ -80,7 +81,11 @@ export function DynamicGroupVariable({
               name={`${variableFieldName}.${index}.value`}
               className="flex-1 min-w-0"
               hideLabel
-              types={firstType && fields.length > 1 ? [firstType] : []}
+              types={
+                firstType && fields.length > 1
+                  ? [firstType as JsonSchemaDataType | VariableType]
+                  : []
+              }
               onChange={(val) => {
                 const type = getType(val);
                 if (type && index === 0) {

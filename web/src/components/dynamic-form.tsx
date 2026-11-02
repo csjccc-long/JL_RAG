@@ -171,7 +171,7 @@ export interface DynamicFormRef {
 // Generate Zod validation schema based on field configurations
 export const generateSchema = (fields: FormFieldConfig[]): ZodSchema<any> => {
   const schema: Record<string, ZodSchema> = {};
-  const nestedSchemas: Record<string, Record<string, ZodSchema>> = {};
+  const nestedSchemas: Record<string, Record<string, any>> = {};
 
   fields.forEach((field) => {
     let fieldSchema: ZodSchema;
@@ -395,7 +395,11 @@ export const RenderField = ({
 }) => {
   if (field.render) {
     if (field.type === FormFieldType.Custom && field.hideLabel) {
-      return <div className="w-full">{field.render({})}</div>;
+      return (
+        <div className="w-full">
+          {field.render({} as ControllerRenderProps)}
+        </div>
+      );
     }
     return (
       <RAGFlowFormItem
@@ -756,12 +760,12 @@ const DynamicForm = {
             ...fieldErrors,
           } as any;
 
-          for (const key in combinedErrors) {
-            if (Array.isArray(combinedErrors[key])) {
-              combinedErrors[key] = combinedErrors[key][0];
+          const mutableErrors = combinedErrors as Record<string, unknown>;
+          for (const key in mutableErrors) {
+            if (Array.isArray(mutableErrors[key])) {
+              mutableErrors[key] = mutableErrors[key][0];
             }
           }
-          console.log('combinedErrors', combinedErrors);
           return {
             values: Object.keys(combinedErrors).length ? {} : data,
             errors: combinedErrors,
@@ -785,7 +789,7 @@ const DynamicForm = {
         });
 
         const subscriptions = Object.keys(dependencyMap).map((depField) => {
-          return form.watch((values: any, { name }) => {
+          return form.watch((_values: any, { name }) => {
             if (name === depField && dependencyMap[depField]) {
               dependencyMap[depField].forEach((dependentField) => {
                 form.trigger(dependentField as any);
@@ -1043,6 +1047,6 @@ const DynamicForm = {
   },
 };
 
-DynamicForm.Root.displayName = 'DynamicFormRoot';
+Object.assign(DynamicForm.Root, { displayName: 'DynamicFormRoot' });
 
 export { DynamicForm };

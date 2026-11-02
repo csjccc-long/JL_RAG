@@ -714,16 +714,6 @@ export default {
       autoMetadataTip:
         "Génère automatiquement des métadonnées. S'applique aux nouveaux fichiers lors de l'analyse. Les fichiers existants nécessitent une ré-analyse pour être mis à jour (les segments sont conservés). Des tokens supplémentaires seront consommés par le modèle d'indexation spécifié dans 'Configuration'.",
       autoMetadata: 'Métadonnées automatiques',
-      mineruOptions: 'Options MinerU',
-      mineruParseMethod: "Méthode d'analyse",
-      mineruParseMethodTip:
-        "Méthode d'analyse des PDF : auto (détection automatique), txt (extraction de texte), ocr (reconnaissance optique de caractères)",
-      mineruFormulaEnable: 'Reconnaissance de formules',
-      mineruFormulaEnableTip:
-        'Activer la reconnaissance de formules. Note : peut ne pas fonctionner correctement pour les documents en cyrillique.',
-      mineruTableEnable: 'Reconnaissance de tableaux',
-      mineruTableEnableTip:
-        "Activer la reconnaissance et l'extraction de tableaux.",
       overlappedPercent: 'Pourcentage de chevauchement (%)',
       generationScopeTip:
         "Détermine si RAPTOR est généré pour l'ensemble de la base ou pour un seul fichier.",
@@ -1232,27 +1222,6 @@ Applicable lorsque vous avez besoin que le LLM résume le document entier.
       paddleocrAlgorithm: 'Algorithme PaddleOCR',
       paddleocrAlgorithmMessage:
         'Veuillez sélectionner un algorithme PaddleOCR',
-      mineruApiserver: 'Serveur API MinerU',
-      mineruApiserverMessage: "Veuillez saisir l'URL du serveur API MinerU !",
-      mineruApiserverPlaceholder: 'Ex. : http://host.docker.internal:9987',
-      mineruOutputDir: 'Répertoire de sortie MinerU',
-      mineruOutputDirMessage:
-        'Veuillez saisir le répertoire de sortie MinerU !',
-      mineruOutputDirPlaceholder: '/tmp/mineru',
-      mineruBackend: 'Backend MinerU',
-      mineruBackendMessage: 'Veuillez sélectionner un backend MinerU !',
-      mineruSelectBackend: 'Sélectionner le backend de traitement',
-      mineruServerUrl: 'URL du serveur MinerU',
-      mineruServerUrlMessage: "Veuillez saisir l'URL du serveur MinerU !",
-      mineruServerUrlPlaceholder: 'Ex. : http://votre-serveur-vllm:30000',
-      mineruDeleteOutput: 'Supprimer les fichiers de sortie',
-      mineruDeleteOutputMessage:
-        'Valeur invalide pour la suppression des fichiers de sortie',
-      opendataloaderApiserver: 'Serveur API OpenDataLoader',
-      opendataloaderApiserverMessage:
-        'Veuillez saisir le serveur API OpenDataLoader !',
-      opendataloaderApiserverPlaceholder:
-        'http://votre-service-opendataloader:9383',
       modify: 'Modifier',
       systemModelSettings: 'Définir les modèles par défaut',
       chatModel: 'Modèle de chat',
@@ -1770,30 +1739,6 @@ Exemple : Virtual Hosted Style`,
       systemModelDescription:
         'Veuillez compléter ces paramètres avant de commencer',
       dataSources: 'Sources de données',
-      mineru: {
-        modelNameRequired: 'Le nom du modèle est obligatoire',
-        apiServerRequired:
-          'La configuration du serveur API MinerU est obligatoire',
-        serverUrlBackendLimit:
-          "L'adresse URL du serveur MinerU est uniquement disponible pour le backend client HTTP",
-        apiserver: 'Configuration du serveur API MinerU',
-        outputDir: 'Chemin du répertoire de sortie MinerU',
-        backend: 'Type de backend de traitement MinerU',
-        serverUrl: 'Adresse URL du serveur MinerU',
-        deleteOutput: 'Supprimer les fichiers de sortie après traitement',
-        selectBackend: 'Sélectionner le backend de traitement',
-        backendOptions: {
-          pipeline: 'Traitement par pipeline standard',
-          vlmTransformers: 'Modèle de langage visuel avec Transformers',
-          vlmVllmEngine: 'Modèle de langage visuel avec moteur vLLM',
-          vlmHttpClient: 'Modèle de langage visuel via client HTTP',
-          vlmMlxEngine: 'Modèle de langage visuel avec moteur MLX',
-          vlmVllmAsyncEngine:
-            'Modèle de langage visuel avec moteur vLLM asynchrone (Expérimental)',
-          vlmLmdeployEngine:
-            'Modèle de langage visuel avec moteur LMDeploy (Expérimental)',
-        },
-      },
       modelTypes: {
         chat: 'Chat',
         embedding: 'Embedding',

@@ -1,5 +1,6 @@
 import { Operator } from '../constant';
 import AgentForm from '../form/agent-form';
+import AgentTeamForm from '../form/agent-team-form';
 import ArXivForm from '../form/arxiv-form';
 import BeginForm from '../form/begin-form';
 import BingForm from '../form/bing-form';
@@ -71,6 +72,9 @@ export const FormConfigMap = {
   },
   [Operator.Agent]: {
     component: AgentForm,
+  },
+  [Operator.AgentTeam]: {
+    component: AgentTeamForm,
   },
   [Operator.DuckDuckGo]: {
     component: DuckDuckGoForm,

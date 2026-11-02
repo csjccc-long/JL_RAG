@@ -22,7 +22,9 @@ import requests
 
 from agent.tools.base import ToolBase, ToolMeta, ToolParamBase
 from common.connection_utils import timeout
-
+"""
+它是一个“科学文献检索工具”，用于让 Agent 从 BGPT 平台搜索论文并提取结构化证据。
+"""
 BGPT_SEARCH_URL = "https://bgpt.pro/api/mcp-search"
 
 

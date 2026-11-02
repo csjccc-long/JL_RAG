@@ -21,7 +21,9 @@ from duckduckgo_search import DDGS
 from agent.tools.base import ToolMeta, ToolParamBase, ToolBase
 from common.connection_utils import timeout
 
-
+"""
+“提供一个 DuckDuckGo 搜索工具，让 Agent 能在现实世界中检索网页和新闻，并把结果整理成适合后续推理的统一格式。”
+"""
 class DuckDuckGoParam(ToolParamBase):
     """
     Define the DuckDuckGo component parameters.

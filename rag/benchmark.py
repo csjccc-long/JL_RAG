@@ -36,7 +36,7 @@ from tqdm import tqdm
 global max_docs
 max_docs = sys.maxsize
 
-
+# 该类用于进行benchmark测试
 class Benchmark:
     def __init__(self, kb_id):
         self.kb_id = kb_id

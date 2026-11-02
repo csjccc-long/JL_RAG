@@ -52,6 +52,7 @@ import { ButtonEdge } from './edge';
 import styles from './index.module.less';
 import { RagNode } from './node';
 import { AgentNode } from './node/agent-node';
+import { AgentTeamNode } from './node/agent-team-node';
 import { BeginNode } from './node/begin-node';
 import { CategorizeNode } from './node/categorize-node';
 import { ChunkerNode } from './node/chunker-node';
@@ -92,6 +93,7 @@ export const nodeTypes: NodeTypes = {
   iterationNode: IterationNode,
   iterationStartNode: IterationStartNode,
   agentNode: AgentNode,
+  agentTeamNode: AgentTeamNode,
   toolNode: ToolNode,
   fileNode: FileNode,
   parserNode: ParserNode,
@@ -266,7 +268,12 @@ function AgentCanvas({ drawerVisible, hideDrawer }: IProps) {
     clearActiveDropdown,
     removePlaceholderNode,
   ]);
-  const { lastNode, setDerivedMessages, startButNotFinishedNodeIds } =
+  const {
+    lastNode,
+    lastFinishedNodeMap,
+    setDerivedMessages,
+    startButNotFinishedNodeIds,
+  } =
     useNodeLoading({
       currentEventListWithoutMessageById,
     });
@@ -310,6 +317,7 @@ function AgentCanvas({ drawerVisible, hideDrawer }: IProps) {
           addCanvasNode,
           showFormDrawer,
           lastNode,
+          lastFinishedNodeMap,
           currentSendLoading,
           startButNotFinishedNodeIds,
         }}

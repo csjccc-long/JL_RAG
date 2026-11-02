@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import { useCallback, useEffect } from 'react';
 import { ChunkTextMode } from '../../constant';
 import styles from '../../index.module.less';
-import { IChunk } from '../../interface';
+import { IChunk } from '@/interfaces/database/dataset';
 import { useParserInit } from './hook';
 import { IObjContainerProps } from './interface';
 export const ObjectContainer = (props: IObjContainerProps) => {

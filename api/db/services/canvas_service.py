@@ -425,7 +425,7 @@ async def completion(tenant_id, agent_id, session_id=None, **kwargs):
     conv = conv.to_dict()
     await thread_pool_exec(API4ConversationService.append_message, conv["id"], conv)
 
-
+# 转换为OpenAI格式
 async def completion_openai(tenant_id, agent_id, question, session_id=None, stream=True, **kwargs):
     tiktoken_encoder = tiktoken.get_encoding("cl100k_base")
     prompt_tokens = len(tiktoken_encoder.encode(str(question)))

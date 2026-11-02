@@ -213,7 +213,7 @@ const FileLogsPage: FC = () => {
       return filterCollection;
     }
     if (active === LogTabs.DATASET_LOGS) {
-      const list = filterCollection.filter((item, index) => index === 0);
+      const list = filterCollection.filter((_item, index) => index === 0);
       return list;
     }
     return [];
@@ -335,7 +335,11 @@ const FileLogsPage: FC = () => {
       {/* Table */}
       <FileLogsTable
         data={tableList}
-        pagination={pagination}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: pagination.total ?? 0,
+        }}
         setPagination={handlePaginationChange}
         pageCount={10}
         active={active}

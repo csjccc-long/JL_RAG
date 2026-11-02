@@ -14,14 +14,19 @@
 #  limitations under the License.
 
 """
-Chunk Service Module.
+分块服务模块。
 
-Provides [`ChunkService`](rag/svr/task_executor_refactor/chunk_service.py:50) for document chunking,
-post-processing (keywords, questions, metadata, tags), MinIO upload, and chunk insertion into document store.
+提供 ChunkService
+ 用于文档分块、
 
-This module orchestrates the chunk building pipeline by delegating to:
-- [`chunk_builder`](rag/svr/task_executor_refactor/chunk_builder.py): Parser selection and document chunking
-- [`chunk_post_processor`](rag/svr/task_executor_refactor/chunk_post_processor.py): Post-processing functions
+后处理（关键词、问题、元数据、标签）、MinIO 上传以及将分块插入文档存储。
+
+该模块通过委托以下组件来编排分块构建管道：
+
+chunk_builder
+：解析器选择与文档分块
+chunk_post_processor
+：后处理函数
 """
 
 import asyncio

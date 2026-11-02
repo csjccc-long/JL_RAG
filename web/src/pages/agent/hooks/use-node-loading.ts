@@ -78,9 +78,18 @@ export const useNodeLoading = ({
   const startButNotFinishedNodeIds = useMemo(() => {
     return startNodeIds.filter((x) => !finishNodeIds.includes(x));
   }, [finishNodeIds, startNodeIds]);
-
+  const lastFinishedNodeMap = useMemo(() => {
+    return currentEventListWithoutMessage
+      .filter((item) => item.event === MessageEventType.NodeFinished)
+      .reduce<Record<string, INodeData>>((nodes, item) => {
+        const node = item.data as INodeData;
+        nodes[node.component_id] = node;
+        return nodes;
+      }, {});
+  }, [currentEventListWithoutMessage]);
   return {
     lastNode,
+    lastFinishedNodeMap,
     startButNotFinishedNodeIds,
     filterFinishedNodeList,
     setDerivedMessages,

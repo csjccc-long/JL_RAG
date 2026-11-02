@@ -32,6 +32,17 @@ from common import settings
 from common.connection_utils import timeout
 from common.constants import SANDBOX_ARTIFACT_BUCKET, SANDBOX_ARTIFACT_EXPIRE_DAYS
 
+"""
+“提供一个安全的代码执行沙箱工具，让 Agent 可以在运行时执行 Python 或 JavaScript 代码，并把结果、附件和错误统一整理成可继续消费的输出。”
+
+它不是普通的脚本运行器，而是一个“可编程工具”，用于让 Agent 在需要时动态计算、处理数据、生成图表、输出文件等。
+
+
+
+
+
+"""
+
 
 SYSTEM_OUTPUT_KEYS = frozenset(
     {

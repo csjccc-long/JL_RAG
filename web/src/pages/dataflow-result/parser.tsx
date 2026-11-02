@@ -10,7 +10,21 @@ import FormatPreserEditor from './components/parse-editer';
 import RerunButton from './components/rerun-button';
 import { TimelineNodeType } from './constant';
 import { useChangeChunkTextMode } from './hooks';
-import { IChunk, IDslComponent } from './interface';
+import { IChunk } from '@/interfaces/database/dataset';
+import { IDslComponent } from './interface';
+import type { ParserEditorValue } from './components/parse-editer/interface';
+
+const parserEditorKeys = [
+  'text',
+  'html',
+  'markdown',
+  'json',
+  'chunks',
+] as const;
+
+function isParserEditorKey(key: string): key is ParserEditorValue['key'] {
+  return parserEditorKeys.includes(key as (typeof parserEditorKeys)[number]);
+}
 interface IProps {
   isReadonly: boolean;
   isChange: boolean;
@@ -38,27 +52,46 @@ const ParserContainer = (props: IProps) => {
   const [selectedChunkIds, setSelectedChunkIds] = useState<string[]>([]);
   const [newChunkIndex, setNewChunkIndex] = useState<number | undefined>();
   const { changeChunkTextMode, textMode } = useChangeChunkTextMode();
-  const initialValue = useMemo(() => {
-    const outputs = data?.value?.obj?.params?.outputs;
-    const key = outputs?.output_format?.value;
-    if (!outputs || !key)
-      return {
-        key: '' as 'text' | 'html' | 'json' | 'chunks',
-        type: '',
-        value: [],
-      };
-    const value = outputs[key as keyof typeof outputs]?.value;
-    const type = outputs[key as keyof typeof outputs]?.type;
-    console.log('outputs-->', outputs, data, key, value);
-    return {
-      key: key as 'text' | 'html' | 'json' | 'chunks',
-      type,
-      value,
-      params: data?.value?.obj?.params,
-    };
+  const initialValue = useMemo<ParserEditorValue>(() => {
+    const outputs = data.value.obj.params.outputs as unknown as Record<
+      string,
+      { type?: string; value?: unknown }
+    >;
+    const key = outputs.output_format?.value;
+    if (typeof key !== 'string' || !isParserEditorKey(key)) {
+      return { key: '', type: '', value: [] };
+    }
+
+    const output = outputs[key];
+    const type = output?.type ?? '';
+    const params = data.value.obj.params;
+
+    if (key === 'json' || key === 'chunks') {
+      const value = Array.isArray(output?.value)
+        ? output.value.map((item) =>
+            Object.fromEntries(
+              Object.entries(item as Record<string, unknown>).map(([name, value]) => [
+                name,
+                String(value ?? ''),
+              ]),
+            ),
+          )
+        : [];
+      return { key, type, value, params };
+    }
+
+    if (key !== 'text' && key !== 'html' && key !== 'markdown') {
+      return { key: '', type: '', value: [] };
+    }
+
+    const value =
+      typeof output?.value === 'string'
+        ? output.value
+        : String(output?.value ?? '');
+    return { key, type, value, params };
   }, [data]);
 
-  const [initialText, setInitialText] = useState(initialValue);
+  const [initialText, setInitialText] = useState<ParserEditorValue>(initialValue);
 
   useEffect(() => {
     setInitialText(initialValue);
@@ -99,9 +132,12 @@ const ParserContainer = (props: IProps) => {
   }, [data, initialText, reRunFunc, setIsChange]);
 
   const handleRemoveChunk = useCallback(async () => {
-    if (selectedChunkIds.length > 0) {
+    if (
+      selectedChunkIds.length > 0 &&
+      Array.isArray(initialText.value)
+    ) {
       initialText.value = initialText.value.filter(
-        (_item: any, index: number) => !selectedChunkIds.includes(index + ''),
+        (_item, index) => !selectedChunkIds.includes(String(index)),
       );
       setIsChange(true);
       setSelectedChunkIds([]);
@@ -124,7 +160,9 @@ const ParserContainer = (props: IProps) => {
   const selectAllChunk = useCallback(
     (checked: boolean) => {
       setSelectedChunkIds(
-        checked ? initialText.value.map((_x: any, index: number) => index) : [],
+        checked && Array.isArray(initialText.value)
+          ? initialText.value.map((_item, index) => String(index))
+          : [],
       );
     },
     [initialText.value],
@@ -136,14 +174,17 @@ const ParserContainer = (props: IProps) => {
 
   const handleCreateChunk = useCallback(
     (text: string) => {
+      if (!Array.isArray(initialText.value)) return;
       const newText = [...initialText.value, { text: text || ' ' }];
       setNewChunkIndex(newText.length - 1);
       setInitialText({
-        ...initialText,
-        value: newText as any,
+        key: 'chunks',
+        type: initialText.type,
+        value: newText,
+        params: initialText.params ?? data.value.obj.params,
       });
     },
-    [initialText],
+    [data.value.obj.params, initialText],
   );
 
   useEffect(() => {
@@ -193,7 +234,10 @@ const ParserContainer = (props: IProps) => {
               <CheckboxSets
                 selectAllChunk={selectAllChunk}
                 removeChunk={handleRemoveChunk}
-                checked={selectedChunkIds.length === initialText.value.length}
+                checked={
+                  Array.isArray(initialText.value) &&
+                  selectedChunkIds.length === initialText.value.length
+                }
                 selectedChunkIds={selectedChunkIds}
               />
             )}

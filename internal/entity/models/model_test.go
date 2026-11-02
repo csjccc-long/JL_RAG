@@ -94,7 +94,7 @@ func setupProviderTestDir(t *testing.T, configFileNames ...string) (dir string, 
 }
 
 func TestHostedProviderConfigsLoadSharedDrivers(t *testing.T) {
-	dir, restore := setupProviderTestDir(t, "mineru.json", "paddleocr.json")
+	dir, restore := setupProviderTestDir(t, "paddleocr.json")
 	defer restore()
 
 	err := InitProviderManager(dir)
@@ -103,20 +103,6 @@ func TestHostedProviderConfigsLoadSharedDrivers(t *testing.T) {
 	}
 
 	pm := GetProviderManager()
-
-	minerU := pm.FindProvider("MinerU.Net")
-	if minerU == nil {
-		t.Fatal("MinerU.Net provider not found")
-	}
-	if _, ok := minerU.ModelDriver.(*MinerUModel); !ok {
-		t.Fatalf("MinerU.Net ModelDriver=%T, want *models.MinerUModel", minerU.ModelDriver)
-	}
-	if minerU.Class != "mineru.net" {
-		t.Errorf("MinerU.Net class=%q", minerU.Class)
-	}
-	if minerU.URLSuffix.DocumentParse != "v4/extract/task" {
-		t.Errorf("MinerU.Net doc_parse suffix=%q", minerU.URLSuffix.DocumentParse)
-	}
 
 	paddleOCR := pm.FindProvider("PaddleOCR.Net")
 	if paddleOCR == nil {
@@ -134,7 +120,7 @@ func TestHostedProviderConfigsLoadSharedDrivers(t *testing.T) {
 }
 
 func TestLocalOCRProviderConfigsLoadLocalDrivers(t *testing.T) {
-	dir, restore := setupProviderTestDir(t, "mineru_local.json", "paddleocr_local.json")
+	dir, restore := setupProviderTestDir(t, "paddleocr_local.json")
 	defer restore()
 
 	err := InitProviderManager(dir)
@@ -143,17 +129,6 @@ func TestLocalOCRProviderConfigsLoadLocalDrivers(t *testing.T) {
 	}
 
 	pm := GetProviderManager()
-
-	minerU := pm.FindProvider("MinerU")
-	if minerU == nil {
-		t.Fatal("MinerU provider not found")
-	}
-	if _, ok := minerU.ModelDriver.(*MinerULocalModel); !ok {
-		t.Fatalf("MinerU ModelDriver=%T, want *models.MinerULocalModel", minerU.ModelDriver)
-	}
-	if minerU.URLSuffix.DocumentParse != "file_parse" {
-		t.Errorf("MinerU doc_parse suffix=%q", minerU.URLSuffix.DocumentParse)
-	}
 
 	paddleOCR := pm.FindProvider("PaddleOCR")
 	if paddleOCR == nil {

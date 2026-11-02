@@ -4,17 +4,53 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Literal
+"""
+用户提问
+    ↓
+[1. formalize_question] 问题形式化
+    - 理解对话历史
+    - 提取独立问题
+    - 生成搜索关键词和同意性搜索关键词
+    ↓
+[2. route] 路由决策
+    判断问题类型（factual/comparative/analytical...）
+    选择执行策略（low/medium/high/ultra）
+    决定是否需要分解
+    ↓
+[3. pre_search] 初步搜索（仅需要分解时）
+    执行混合搜索（全文+向量）
+    收集初步证据
+    合并到共享知识库池
+    ↓
+[4. planner] 规划分解
+    将问题分解为子问题（claims）
+    确定每个子问题的优先级和工具
+    生成工作计划
+    ↓
+[5. orchestrator_loop] 执行循环
+ 5.1 对每个 claim 启动智能体  agnet 执行搜索
+ 5.2 智能体执行搜索（多工具）
+ 5.3 收集证据，生成 AgentResult
+ 5.4 交叉检查（防止先验知识）
+ 5.5 充分性判定（SufficiencyVerdict）
+ 5.6 决策阶梯（ANSWER/RECONCILE/CONTINUE）
+ 5.7 不足则重新规划/补充搜索
+    ↓
+[6. formalize_answer] 答案生成
+    ↓
+最终答案（流式输出）
+"""
 
 # ═══════════════════════════════════════════════════════════════
 # Route
 # ═══════════════════════════════════════════════════════════════
 
-
+# 这是 RAGFlow 中 Agentic RAG 的核心数据模型，定义了整个多跳检索系统的状态、策略和结果结构。
 @dataclass
 class RouteDecision:
     question: str
     thinking_mode: str
-    question_type: str  # factual | comparative | analytical | procedural | exploratory | verification | summarization
+    question_type: str  # 事实性 | 比较性 | 分析性 | 程序性 | 探索性 | 验证性 | 总结性
     requires_decomposition: bool
     suggests_compilation: str | None
     execution_strategy: str
@@ -42,9 +78,8 @@ class ExecutionStrategy:
     available_tools: list[str]
     sufficiency_threshold: float
     fallback_to_direct_llm: bool
-    # Min cross-check floor for a self-verified claim. Any claim scoring below
-    # this becomes a hard veto (its localized evidence gap must not be averaged
-    # away by stronger sibling claims). Default 0.5 == the cross-check pass bar.
+    # 自验证声明的最低交叉核验阈值。
+    # 任何得分低于此值的声明将被硬性否决（其本地化的证据缺口不得被更强的同级声明平均化）。默认值0.5即交叉核验通过门槛。
     fusion_min_cross: float = 0.5
     # ── Decision-ladder operating points (Sufficient Context redesign) ──
     # These are monotonic product-policy thresholds — NOT trained weights. They
@@ -62,7 +97,7 @@ class ExecutionStrategy:
 # Plan & Claims
 # ═══════════════════════════════════════════════════════════════
 
-
+# 这个类表示一个待处理的声明，包含声明的ID、描述、优先级、是否已验证、置信度、建议的工具、代理结果等信息。
 @dataclass
 class ClaimTarget:
     claim_id: str
@@ -76,7 +111,7 @@ class ClaimTarget:
 
 @dataclass
 class WorkflowPlan:
-    plan_type: str  # direct | fact_decomposition | comparative_decomposition | procedural_decomposition | exploratory_decomposition
+    plan_type: str  #直接式 | 事实分解 | 比较分解 | 程序分解 | 探索性分解
     claims: list[ClaimTarget]
     max_iterations: int
 

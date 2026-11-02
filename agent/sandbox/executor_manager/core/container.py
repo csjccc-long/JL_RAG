@@ -24,9 +24,34 @@ from utils.common import async_run_command
 
 from core.logger import logger
 
+
+"""
+
+gVisor = 在"容器"和"内核"之间，插入一个"假内核"。
+ -Sentry 是一个用 Go 写的"迷你操作系统"，它实现了 Linux 内核的核心功能
+ -Sentry 虽然是个"假内核"，但它不能直接碰宿主的文件系统
+ -Gofer 是一个用 Go 写的"文件系统代理"，它负责把 Sentry 的文件系统请求通过 9P协议 转发给宿主的文件系统
+这个模块负责管理沙箱执行容器的生命周期。它会在服务启动时创建一组可复用的 Python 和 Node.js 容器，并把它们放进队列，供后续代码执行任务使用；当容器出现异常、失效或退出时，它会自动重建；当任务执行结束后，它会把容器释放回池中，等待下一次复用。
+
+它的核心职责包括：
+
+初始化容器池
+创建隔离执行容器
+ - 设置容器运行时为 runsc
+ - 设置容器工作目录为 /workspace
+   - 创建一个只读(容器根目录)的 /tmp 目录，大小为 50M
+检查容器是否健康并正在运行
+分配空闲容器给当前任务
+任务结束后回收容器
+在服务关闭时清理所有容器资源
+从实现上看，它使用 Docker 来启动带有隔离参数的运行环境，例如 --runtime=runsc、--read-only、--memory、--security-opt seccomp 等，这说明它的目标不是直接在宿主机运行代码，而是把代码放到一个受限制、可回收的安全环境里执行。
+"""
+
 _CONTAINER_QUEUES: dict[SupportLanguage, Queue] = {}
 _CONTAINER_LOCK: asyncio.Lock = asyncio.Lock()
 _CONTAINER_EXECUTION_SEMAPHORES: dict[SupportLanguage, asyncio.Semaphore] = {}
+
+
 
 
 async def init_containers(size: int) -> tuple[int, int]:

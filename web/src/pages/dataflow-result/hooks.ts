@@ -4,6 +4,7 @@ import { useSetModalState, useShowDeleteConfirm } from '@/hooks/common-hooks';
 import { useGetKnowledgeSearchParams } from '@/hooks/route-hook';
 import { useFetchMessageTrace } from '@/hooks/use-agent-request';
 import { useCreateChunk, useDeleteChunk } from '@/hooks/use-chunk-request';
+import { IChunk } from '@/interfaces/database/dataset';
 import kbService, { getPipelineDetail } from '@/services/knowledge-service';
 import { formatSecondsToHumanReadable } from '@/utils/date';
 import { buildChunkHighlights } from '@/utils/document-util';
@@ -26,7 +27,7 @@ import {
   PipelineResultSearchParams,
   TimelineNodeType,
 } from './constant';
-import { IChunk, IDslComponent, IPipelineFileLogDetail } from './interface';
+import { IDslComponent, IPipelineFileLogDetail } from './interface';
 
 export const useFetchPipelineFileLogDetail = ({
   isAgent = false,
@@ -80,7 +81,7 @@ export const useGetChunkHighlights = (selectedChunk?: IChunk) => {
 
   const highlights: IHighlight[] = useMemo(() => {
     return selectedChunk
-      ? buildChunkHighlights(selectedChunk as any, size)
+      ? buildChunkHighlights(selectedChunk, size)
       : [];
   }, [selectedChunk, size]);
 

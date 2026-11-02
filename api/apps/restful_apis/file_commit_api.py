@@ -13,7 +13,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
+""""这组接口实现了“类 Git 的文件提交（Commit）系统”：通过统一的 FileCommitService，
+为 Workspace 文件、Dataset Artifact 页面等实体提供提交记录、版本快照、差异对比、历史回放与内容回溯能力，
+使知识库具备可审计、可回滚、可协作的“知识版本治理”能力。"""
 import logging
 from functools import wraps
 from quart import request

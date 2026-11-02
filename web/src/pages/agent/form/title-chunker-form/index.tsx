@@ -70,10 +70,7 @@ export enum TitleChunkerRulesField {
   Group = 'groupRules',
 }
 
-export type TitleChunkerFormSchemaType = z.infer<typeof FormSchema> & {
-  rules: z.infer<typeof rulesSchema>;
-  hierarchy: string;
-};
+export type TitleChunkerFormSchemaType = z.infer<typeof FormSchema>;
 
 type LevelItemProps = {
   index: number;

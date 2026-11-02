@@ -34,6 +34,39 @@ from common.connection_utils import timeout
 from common.mcp_tool_call_conn import MCPToolBinding, MCPToolCallSession, mcp_tool_metadata_to_openai_tool
 from rag.prompts.generator import citation_plus, citation_prompt, full_question, kb_prompt, message_fit_in, structured_output_prompt
 
+"""
+把工具注册到 Agent
+
+在 __init__() 里，代码会遍历 self._param.tools
+逐个加载工具对象，并把它们放进 self.tools
+同时还支持 MCP 工具（模型上下文协议工具）
+也就是把“可调用能力”绑定到当前 Agent 上
+生成工具的 OpenAI/LLM schema
+
+self.tool_meta 会保存工具的元数据
+这些工具会被转换成模型可理解的函数调用结构
+这样 LLM 能知道：
+工具叫什么
+参数是什么
+什么时候应该调用
+负责工具调用与多轮推理
+
+self.toolcall_session = LLMToolPluginCallSession(self.tools, self.callback)
+这一步把工具执行器挂到模型的工具调用机制中
+之后模型可以在推理过程中选择调用某个工具，执行后再继续生成回答
+处理提示词和输出格式
+
+_prepare_prompt_variables()
+_fit_messages()
+_append_system_prompt()
+这些逻辑会整理上下文、控制长度、增加 schema 约束
+如果要求 JSON 结构输出，还会强制格式化
+处理流式输出与工具生成结果
+
+stream_output_with_tools_async()
+stream_output_with_tools_async 负责流式返回内容，并在工具调用后继续拼接回答
+_collect_tool_artifact_markdown() 也会把工具返回的附件、图片或下载链接整理成 Markdown 展示
+"""
 _logger = logging.getLogger(__name__)
 
 

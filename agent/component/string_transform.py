@@ -25,7 +25,14 @@ from agent.component.base import ComponentParamBase
 from common.connection_utils import timeout
 from .message import Message
 
+"""
+一个“字符串处理组件”，它属于 Agent 工作流里的一个节点，用来对文本/字符串做转换和拼接。
 
+它的核心功能有两类：
+
+split：把一个字符串按分隔符拆成多个子串
+merge：把多个变量或模板片段合并成一个字符串
+"""
 class StringTransformParam(ComponentParamBase):
     """
     Define the code sandbox component parameters.

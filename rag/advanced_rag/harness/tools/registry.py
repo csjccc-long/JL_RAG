@@ -10,7 +10,12 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {}
 # Each tool registers a callable with signature:
 #   async def fn(tools, **kwargs) -> dict  # {"chunks": [...], ...}
 
-
+"""
+统一管理所有搜索/导航/分析工具
+为 LLM 提供标准化的 function schema
+让工具实现和调用端解耦
+成为整个 advanced RAG 工具调用框架的通信中枢
+"""
 def register_tool(name: str, schema: dict, fn: callable, requires_compilation: bool = False, compilation_type: str | tuple[str, ...] | None = None, processing_time: str = "fast") -> None:
     TOOL_REGISTRY[name] = {
         "name": name,

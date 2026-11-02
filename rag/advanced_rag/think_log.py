@@ -14,22 +14,12 @@
 #  limitations under the License.
 #
 
-"""Surface selected internal INFO logs to the client as ``<think>`` content.
+"""将选定的内部 INFO 级别日志作为 <think> 内容暴露给客户端。
 
-During an agentic ``rag_agent`` turn we attach a context-scoped logging sink so
-the pipeline's bracket-tagged progress logs — ``[Agentic RAG]``,
-``[Formalizing the question]``, ``[Preliminary search]``, ``[Planner]``,
-``[Orchestrator]``, ``[Agentic research]``, ``[Hybrid search]``,
-``[BM25 search]``, ``[Web search]``, ``[Composing the answer]``,
-``[Tool loop]``, ``[Function tool]`` … — can be streamed to the front end as
-reasoning without instrumenting every call site. The tags double as
-human-readable stage labels, so the same message serves the backend log and
-the user-facing thinking stream.
+在 agentic rag_agent 轮次中，我们附加了一个上下文作用域的日志接收器（sink），
+以便将管道中带有括号标记的进度日志——如 [Agentic RAG]、[Formalizing the question]、[Preliminary search]、[Planner]、[Orchestrator]、[Agentic research]、[Hybrid search]、[BM25 search]、[Web search]、[Composing the answer]、[Tool loop]、[Function tool] 等——作为推理过程流式传输到前端，而无需在每个调用点进行埋点。这些标记同时充当了人类可读的阶段标签，因此同一条消息既可用于后端日志，也可用于面向用户的思考流。
 
-The sink is stored in a :class:`contextvars.ContextVar`, so only the async task
-tree of the current request (which inherits the context) forwards its logs —
-concurrent requests stay isolated. Logs emitted from ``thread_pool_exec``
-workers that did not inherit the context are simply skipped.
+该接收器存储在一个 :class:contextvars.ContextVar 中，因此只有当前请求的异步任务树（继承了该上下文）会转发其日志——并发请求之间保持隔离。从 thread_pool_exec 工作线程发出的、未继承该上下文的日志将被直接跳过。
 """
 
 from __future__ import annotations

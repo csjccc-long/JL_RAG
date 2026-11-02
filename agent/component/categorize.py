@@ -26,7 +26,57 @@ from agent.component.llm import LLMParam, LLM
 from common.connection_utils import timeout
 from rag.llm.chat_model import ERROR_PREFIX
 
+"""
+1. 定义分类参数
+CategorizeParam 里有几个关键字段：
 
+category_description：分类规则和示例
+query：要分类的文本来源
+message_history_window_size：看最近多少条历史消息参与分类
+它还在 update_prompt() 里动态拼装一个系统提示词，用来告诉模型：
+
+这是一个分类任务
+需要从多个类别里选一个
+只返回类别名，不要解释
+这相当于把“分类规则”固化进 prompt。
+
+2. 生成分类提示词
+在 update_prompt() 里，它会遍历 category_description：
+
+把每个类别的例子整理成 USER: "..." → Category
+把每个类别的说明也写进 prompt
+最终生成一个带示例和规则的分类系统 prompt
+这样模型就知道“什么样的输入属于哪个类别”。
+
+3. 读取输入并构造分类上下文
+get_input_elements() 中，它会读取 query 变量，通常默认是 sys.query，也就是当前用户问题。
+
+在 _invoke_async() 中，它会：
+
+取最近几条历史消息
+把最后一条消息替换成当前 query
+组装一个格式化后的 user_prompt
+调用模型做分类
+4. 调用 LLM 做分类
+它不是自己写规则判断，而是调用 LLMBundle.async_chat()，把 prompt 和上下文发给 LLM：
+
+让模型判断当前问题属于哪个类别
+返回内容通常是某个类别名
+如果模型返回异常前缀 ERROR_PREFIX，它会抛异常。
+
+5. 解析模型返回并决定下一步分支
+分类结果不是直接输出文本，而是做了进一步处理：
+
+统计每个类别在答案中出现的次数
+取出现次数最多的类别作为 max_category
+然后从 category_description[max_category]["to"] 取出对应下一跳的组件 ID
+写入输出字段：
+category_name
+_next
+也就是说，这个节点不仅“归类”，还负责“告诉流程接下来该去哪个节点”。
+
+
+"""
 class CategorizeParam(LLMParam):
     """
     Define the categorize component parameters.

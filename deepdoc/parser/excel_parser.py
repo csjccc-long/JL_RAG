@@ -21,7 +21,17 @@ from openpyxl import Workbook, load_workbook
 
 from rag.nlp import find_codec
 from rag.utils.lazy_image import LazyImage
+"""
+它负责读取电子表格、清理数据，并按不同用途转换成文本、HTML 表格或 Markdown，供后续分块和检索使用。
 
+主要处理流程
+读取文件：_load_excel_to_workbook() 根据文件头识别 Excel；如果不是常见 Excel 格式，就尝试按 CSV 读取并转换为工作簿。读取 Excel 失败时，还会尝试用 pandas 作为备用方案。
+限制有效行范围：_get_actual_row_count() 和 _get_rows_limited() 用来避免把工作表中仅因格式设置而产生的大量空行都读进来。
+转换成检索文本：__call__() 将每个工作表的首行视为列名，把后续每一行转成类似“列名：单元格值”的文本；每行成为一个结果项，并在适当情况下附上工作表名称。
+转换成 HTML：html() 将工作表输出为 HTML 表格，按 chunk_rows 分块，并在每个块中重复表头。
+转换成 Markdown：markdown() 尝试输出 Markdown 表格，读取 Excel 失败时回退到 CSV。
+统计行数：row_number() 根据文件扩展名统计 Excel 工作表的行数，或 CSV/TXT 的文本行数。
+"""
 # copied from `/openpyxl/cell/cell.py`
 ILLEGAL_CHARACTERS_RE = re.compile(r"[\000-\010]|[\013-\014]|[\016-\037]")
 

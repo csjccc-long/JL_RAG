@@ -196,5 +196,4 @@ To add a new document engine (e.g., Milvus, Qdrant):
 ## Current Status
 
 - ✅ Elasticsearch: Fully implemented and functional
-- ⏳ Infinity: Placeholder implementation, waiting for official Go SDK
-- 📋 OceanBase: Not implemented (removed from requirements)
+- ✅ Infinity: Implemented for indexed retrieval and metadata operations

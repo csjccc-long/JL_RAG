@@ -18,7 +18,37 @@ import ast
 import os
 from agent.component.base import ComponentBase, ComponentParamBase
 from api.utils.api_utils import timeout
+"""
+对上一层组件传入的对象/列表数据做结构化处理，比如筛选字段、过滤、更新、删除、重命名和合并，然后把处理后的结果输出给下游节点。
 
+它本质上是一个数据转换和清洗组件，属于工作流里的“中间处理器”。
+select_keys
+
+只保留指定字段
+例如从一个对象中筛掉多余字段，只留下 id、name 等
+literal_eval
+
+把字符串内容按 Python 字面量语法进行还原
+例如 "{"a": 1}" 这种字符串会被转成真正的字典对象
+这是一个“安全的字符串转对象”逻辑
+combine
+
+把多个对象合并成一个对象
+如果有重复 key，就把值合并成列表
+filter_values
+
+根据规则过滤对象列表
+例如筛选 status == "done"、name contains "foo" 等
+append_or_update
+
+给对象增加新字段，或者覆盖已有字段
+remove_keys
+
+删除某些字段
+rename_keys
+
+重命名字段名
+"""
 
 class DataOperationsParam(ComponentParamBase):
     """

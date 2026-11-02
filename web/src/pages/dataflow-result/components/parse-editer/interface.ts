@@ -1,15 +1,35 @@
 import { CheckedState } from '@radix-ui/react-checkbox';
+import { IChunk } from '@/interfaces/database/dataset';
 import { ChunkTextMode } from '../../constant';
-import { ComponentParams, IChunk } from '../../interface';
+import { ComponentParams } from '../../interface';
 import { parserKeyMap } from './json-parser';
 
+export type JsonEditorValue = {
+  key: keyof typeof parserKeyMap;
+  type: string;
+  value: Array<Record<string, string>>;
+  params: ComponentParams;
+};
+
+export type ObjectEditorValue = {
+  key: 'text' | 'html' | 'markdown';
+  type: string;
+  value: string;
+  params: ComponentParams;
+};
+
+export type ParserEditorValue =
+  | JsonEditorValue
+  | ObjectEditorValue
+  | {
+      key: '';
+      type: '';
+      value: [];
+      params?: undefined;
+    };
+
 export interface FormatPreserveEditorProps {
-  initialValue: {
-    key: keyof typeof parserKeyMap | 'text' | 'html';
-    type: string;
-    value: Array<{ [key: string]: string }>;
-    params: ComponentParams;
-  };
+  initialValue: ParserEditorValue;
   onSave: (value: any) => void;
   className?: string;
   isSelect?: boolean;
@@ -24,14 +44,7 @@ export interface FormatPreserveEditorProps {
 }
 
 export type IJsonContainerProps = {
-  initialValue: {
-    key: keyof typeof parserKeyMap;
-    type: string;
-    value: {
-      [key: string]: string;
-    }[];
-    params: ComponentParams;
-  };
+  initialValue: JsonEditorValue;
   isChunck?: boolean;
   handleCheck: (e: CheckedState, index: number) => void;
   selectedChunkIds: string[] | undefined;
@@ -52,12 +65,7 @@ export type IJsonContainerProps = {
 };
 
 export type IObjContainerProps = {
-  initialValue: {
-    key: string;
-    type: string;
-    value: string;
-    params: ComponentParams;
-  };
+  initialValue: ObjectEditorValue;
   isChunck?: boolean;
   handleCheck: (e: CheckedState, index: number) => void;
   unescapeNewlines: (text: string) => string;

@@ -94,7 +94,7 @@ Try our cloud service at [https://cloud.ragflow.io](https://cloud.ragflow.io).
 - 2025-12-26 Supports 'Memory' for AI agent.
 - 2025-11-19 Supports Gemini 3 Pro.
 - 2025-11-12 Supports data synchronization from Confluence, S3, Notion, Discord, Google Drive.
-- 2025-10-23 Supports MinerU & Docling as document parsing methods.
+- 2025-10-23 Supports DeepDoc, PaddleOCR, and SoMark as document parsing methods.
 - 2025-10-15 Supports orchestrable ingestion pipeline.
 - 2025-08-08 Supports OpenAI's latest GPT-5 series models.
 - 2025-08-01 Supports agentic workflow and MCP.

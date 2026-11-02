@@ -42,7 +42,79 @@ from common.connection_utils import timeout
 from common.misc_utils import get_uuid
 from rag.llm import FACTORY_DEFAULT_BASE_URL
 
+"""
+1. 定义浏览器节点参数
+BrowserParam 继承自 LLMParam，它在初始化里设置了浏览器节点的关键配置，例如：
 
+prompts：用户要浏览器完成的任务文本
+max_steps：最大执行步数
+headless：是否无头运行浏览器
+enable_default_extensions：是否启用默认扩展
+persist_session：是否保留浏览器会话
+upload_sources：允许上传的文件/URL
+它还在 check() 里做参数校验，确保配置值合法。
+
+2. 负责输入准备和变量解析
+_prepare_input_values() 和 _resolve_text() 这类方法会把流程里的变量转换成字符串，然后再供浏览器任务使用。
+
+例如：
+
+如果输入来自上游组件
+或者引用了 {sys.query}、变量模板
+它都会统一解析成最终文本
+这让浏览器节点能真正接收工作流中的动态上下文。
+
+3. 处理上传文件和 URL
+_prepare_upload_files() 会处理两类内容：
+
+本地文件引用
+HTTP URL
+对于 URL，它会调用 _prepare_upload_url_file() 去下载到临时目录；
+对于文件 ID，它会从 FileService 里取出对应文件内容并准备上传。
+
+这样浏览器任务在打开网页时，可以“带上”用户提供的文件或网络资源。
+
+4. 组装浏览器执行任务
+_invoke() 里最关键的逻辑是：
+
+先整理用户输入
+把上传文件准备好
+构造任务文本
+把任务交给 browser-use 这类浏览器自动化框架
+执行后收集页面结果
+它会使用 asyncio.run(self._run_browser_use_async(...)) 调用浏览器运行器。
+
+5. 调用 browser-use 执行真实页面操作
+    ###from browser_use import Agent as BrowserUseAgent, Browser as BrowserUseBrowser###
+    这里的agent类和browser类来自browser_use库
+_run_browser_use_async() 是核心执行入口。
+它做了几步：
+
+调用 _build_browser_llm() 创建模型实例
+根据当前配置构造 Browser 对象
+通过 BrowserUseAgent 执行网页任务
+支持浏览器持久化 profile
+支持可选浏览器路径和无头/有头模式
+关闭浏览器对象，避免资源泄漏
+这部分其实是把本项目的工作流和外部浏览器自动化库连接起来。
+
+6. 处理下载文件
+_save_downloads() 会把浏览器下载到临时目录的文件，保存回 RAGFlow 的文件系统中，并写入 FileService。
+
+它会：
+
+扫描下载目录
+读取文件
+上传到目标目录
+记录 file_id、文件名、大小等信息
+将这些信息保存到输出字段 downloaded_files
+7. 把结果写回组件输出
+最后在 _invoke() 中：
+
+self.set_output("content", ...)
+self.set_output("downloaded_files", downloaded_files)
+也就是说，浏览器任务的最终结果会被写回工作流里的输出字段，供后续组件继续使用。
+"""
 class BrowserParam(LLMParam):
     """
     Parameters for Browser node.

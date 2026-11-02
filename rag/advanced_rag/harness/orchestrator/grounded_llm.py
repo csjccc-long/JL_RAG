@@ -1,19 +1,14 @@
-"""LLM groundedness review (draft review) for the orchestrator.
+"""编排器的 LLM 依据性审查（草稿审查）。
 
-Inspired by Google's Sufficient Context Agent — it reviews the *intermediate
-draft* (each claim's report) against the retrieved snippets to decide whether
-the draft is actually grounded in the evidence.
+灵感源自 Google 的 Sufficient Context Agent——它根据检索到的文本片段审查中间草稿（每个主张的报告），
+以判定草稿是否真正有证据依据。
 
-This complements the code-level grounded check (``cross_check_claim`` /
-``_grounded_hit``, which is lexical: it only catches missing entities / digits).
-The LLM review is *semantic*: it catches assertions whose relation or claim is
-not supported by the evidence even when the entity is present (e.g. evidence
-says "Ithaca is a birthplace" but the report claims "hometown is Ithaca", or
-the evidence only mentions a medication was prescribed while the report
-over-claims "the patient is well").
+这补充了代码层面的依据性检查（cross_check_claim / _grounded_hit，
+该检查是词汇层面的：仅能捕捉缺失的实体/数字）。
+LLM 审查是语义层面的：它能捕捉到即使实体存在但关系或主张仍无证据支持的情况
+（例如，证据表明“伊萨卡是出生地”，但报告声称“家乡是伊萨卡”；或者证据仅提及开具了某种药物，而报告却过度声称“患者已康复”）。
 
-Ungrounded assertions are fed back into the decision ladder as hard violations,
-so a hallucinated / over-claimed draft forces a caveated answer or a re-search.
+无依据的主张将作为严重违规项反馈到决策阶梯中，因此，存在幻觉或过度声称的草稿会强制生成带有保留条件的回答或重新进行检索。
 """
 
 from __future__ import annotations

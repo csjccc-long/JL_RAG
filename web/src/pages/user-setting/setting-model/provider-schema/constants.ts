@@ -55,7 +55,6 @@ export const LIST_MODEL_PROVIDERS = new Set<string>([
   // LLMFactory.XunFeiSpark,
   // LLMFactory.GPUStack,
   // LLMFactory.FishAudio,
-  // LLMFactory.MinerU,
   // LLMFactory.PaddleOCR,
 ]);
 

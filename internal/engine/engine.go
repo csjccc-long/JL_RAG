@@ -32,9 +32,6 @@ type EngineType string
 const (
 	EngineElasticsearch EngineType = "elasticsearch"
 	EngineInfinity      EngineType = "infinity"
-	EngineOceanBase     EngineType = "oceanbase"
-	EngineSeekDB        EngineType = "seekdb"
-	EngineSereneDB      EngineType = "serenedb"
 )
 
 // DocEngine document storage engine interface
@@ -100,12 +97,6 @@ func Type(docEngine DocEngine) EngineType {
 		return EngineType("unknown")
 	}
 	return EngineType(docEngine.GetType())
-}
-
-// IsOceanBaseFamily reports whether a configured engine uses the shared
-// OceanBase/SeekDB SQL implementation.
-func IsOceanBaseFamily(engineName string) bool {
-	return engineName == string(EngineOceanBase) || engineName == string(EngineSeekDB)
 }
 
 type MessageQueue interface {

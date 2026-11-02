@@ -5,7 +5,61 @@ from copy import deepcopy
 
 _LOG = logging.getLogger(__name__)
 
+"""
+1. 查看一个 chunk 的上下文(按召回的上下滑动窗口)
+函数：open_context
 
+作用：
+
+根据某个 chunk_id，在当前已检索到的结果里找到它的位置
+自动扩展前后相邻的 chunk
+返回一个更完整的局部上下文窗口
+这个很像“打开一段上下文”，方便模型在精确证据附近继续判断，而不是只看单条 chunk。
+
+2. 对比多个来源
+函数：compare_sources
+
+作用：
+
+输入多个 chunk_id
+从当前 kbinfos 里找到对应 chunk
+汇总这些 chunk 来自哪些文档
+返回包含这些来源信息的结果
+它适合用来判断：
+
+这些信息是不是来自不同文档
+证据是否分散
+来源是否一致
+3. 在单个文档中按关键词筛查
+函数：grep_within
+
+作用：
+
+指定 doc_id 和 pattern
+只在该文档内查找关键词
+再调用搜索模块里的关键词裁剪逻辑，保留命中句子及其邻接句子
+返回更聚焦的证据段
+这个功能非常适合：
+
+“我已经知道这个文档可能是对的，但只想看与关键词相关的那一段”
+对文档内做局部精读
+4. 获取相邻 chunk
+函数：request_adjacent
+
+作用：
+
+给定一个 chunk_id
+读取它前一个或后一个方向的相邻 chunk
+可设置 count 控制扩充数量
+它更像“往前/往后继续看证据”，适合做上下文连续追踪。
+
+这是一个什么层次的工具
+它是 RAG 流程中的“二次检查层”：
+
+第一步：检索找证据 → search.py
+第二步：导航定位相关文档/结构 → navigation.py
+第三步：在已有结果上做细查与扩展 → inspector.py
+"""
 async def open_context(tools, chunk_id: str, width: int = 500) -> dict:
     """Expand context around a chunk by looking up adjacent chunks in kbinfos."""
     chunks = tools.kbinfos.get("chunks", [])

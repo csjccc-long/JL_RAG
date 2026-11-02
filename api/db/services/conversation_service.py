@@ -28,7 +28,7 @@ import json
 
 from rag.prompts.generator import chunks_format
 
-
+# 这个模块用于管理对话会话的服务逻辑，包括获取会话列表、创建或获取特定会话、处理对话消息和参考信息，以及与对话相关的异步完成操作。
 logger = logging.getLogger(__name__)
 
 

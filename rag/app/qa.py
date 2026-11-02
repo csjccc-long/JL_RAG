@@ -32,6 +32,14 @@ from markdown import markdown
 
 from common.float_utils import get_float
 
+"""
+qa.py 是 问答（Q&A）文档解析器：它把不同格式的问答资料识别成“问题—答案”对，并将每一对构造成可检索的 chunk。
+
+它支持 Excel、CSV/TXT、PDF、Markdown 和 DOCX。不同格式的识别方式不同：表格文件读取两列问答；Markdown 和 DOCX 利用标题层级识别问题、把后续内容作为答案；PDF 则通过 OCR、版面分析和问题编号识别问答，并处理相关图片或表格。
+
+最终 chunk 会带上“问题 / 答案”文本和分词字段；PDF/DOCX 中的图片、位置或表格内容也会按格式一并处理
+"""
+
 
 class Excel(ExcelParser):
     def __call__(self, fnm, binary=None, callback=None):

@@ -70,6 +70,7 @@ DOC_STOP_PARSING_INVALID_STATE_ERROR_CODE = "DOC_STOP_PARSING_INVALID_STATE"
 
 
 def _decode_chunk_image_base64(image_base64):
+    """将图片数据解码为二进制数据"""
     if not isinstance(image_base64, str) or not image_base64.strip():
         return None, "`image_base64` must be a non-empty string"
     try:
@@ -82,6 +83,7 @@ def _decode_chunk_image_base64(image_base64):
 
 
 def _store_chunk_image_or_error(dataset_id, chunk_id, image_binary):
+    """尝试存储图片数据，如果失败则返回错误消息"""
     try:
         store_chunk_image(dataset_id, chunk_id, image_binary)
     except Exception:
@@ -95,6 +97,21 @@ def _store_chunk_image_or_error(dataset_id, chunk_id, image_binary):
 
 
 class Chunk(BaseModel):
+    """表示一个文档的片段（chunk）
+    包括:
+    - id: 文档片段的ID
+    - content: 文档片段的内容
+    - document_id: 文档的ID
+    - docnm_kwd: 文档名称
+    - important_keywords: 重要的关键词列表
+    - tag_kwd: 标签关键词列表
+    - questions: 问题列表
+    - question_tks: 问题的词元列表
+    - image_id: 图片的ID
+    - doc_type_kwd: 文档类型关键词
+
+    """
+
     id: str = ""
     content: str = ""
     document_id: str = ""
@@ -117,6 +134,7 @@ class Chunk(BaseModel):
 
 
 def _map_doc(doc):
+    """将数据库中的文档映射为API返回的文档"""
     key_mapping = {
         "chunk_num": "chunk_count",
         "kb_id": "dataset_id",
@@ -139,6 +157,7 @@ def _map_doc(doc):
 
 
 def _get_query_id_list(args, name: str) -> list[str]:
+    """从请求参数中获取指定名称的ID列表，支持逗号分隔的字符串和重复参数"""
     values = args.getlist(name) if hasattr(args, "getlist") else [args.get(name)]
     ids: list[str] = []
     seen: set[str] = set()
@@ -152,12 +171,14 @@ def _get_query_id_list(args, name: str) -> list[str]:
 
 
 def _strip_chunk_runtime_fields(chunk):
+    """从chunk中删除一些运行时字段"""
     for name in [name for name in chunk.keys() if re.search(r"(_vec$|_sm_|_tks|_ltks)", name)]:
         del chunk[name]
     return chunk
 
 
 def _get_dataset_tenant_id(dataset_id):
+    """获取知识库的租户ID"""
     ok, kb = KnowledgebaseService.get_by_id(dataset_id)
     if not ok:
         return None
@@ -165,26 +186,29 @@ def _get_dataset_tenant_id(dataset_id):
 
 
 def _compilation_template_kind(kind) -> str:
+    """将编译模板的类型标准化为小写并替换连字符为下划线"""
     if not isinstance(kind, str):
         return ""
     return kind.strip().lower().replace("-", "_")
 
 
 def _resolve_reference_metadata(req: dict, search_config: dict | None = None):
+    """
+    解析请求参数和 Search App 配置，确定是否需要返回文档元数据，以及需要返回的元数据字段
+    """
     return resolve_reference_metadata_preferences(req, search_config)
 
 
 def _enrich_chunks_with_document_metadata(chunks: list[dict], metadata_fields=None) -> None:
+    """"批量附加文档元数据到给定的文档片段列表中。"""
     enrich_chunks_with_document_metadata(chunks, metadata_fields)
 
 
 def _release_doc_counters(doc):
-    """Roll back the document's and knowledgebase's chunk/token/duration counters
-    so a re-parse starts from zero. Callers that delete a document's chunks must
-    do this, otherwise the removed counts stay in the knowledgebase total. The
-    release re-reads the row under a lock (see release_reparse_counters) so it is
-    safe against a worker still parsing the document. Returns an error result if
-    the document is gone, else None.
+    """回滚文档和知识库的块/令牌/时长计数器，以便重新解析从零开始。
+    删除文档块的调用方必须执行此操作，否则已移除的计数会保留在知识库的总计中。
+    释放操作会在锁的保护下重新读取行（参见 release_reparse_counters），因此对于仍在解析文档的工作线程是安全的。
+    如果文档已不存在则返回错误结果，否则返回 None。
     """
     try:
         release_reparse_counters(doc.id)
@@ -198,6 +222,21 @@ def _release_doc_counters(doc):
 @login_required
 @add_tenant_id_to_kwargs
 async def parse(tenant_id, dataset_id):
+    """解析指定知识库中的文档，生成文档块（chunks）
+    上传文档
+   ↓
+    Document 记录创建（未解析）
+    ↓
+    POST /datasets/xxx/chunks   ← 你正在看的接口
+    ↓
+    Document.run = RUNNING
+    ↓
+    后台 Parser Worker
+    ↓
+    Chunk 切分 → Embedding → 索引
+   ↓
+    可检索、可生成
+    """
     if not KnowledgebaseService.accessible(kb_id=dataset_id, user_id=tenant_id):
         return get_error_data_result(message=f"You don't own the dataset {dataset_id}.")
     dataset_tenant_id = _get_dataset_tenant_id(dataset_id)
@@ -275,6 +314,10 @@ async def parse(tenant_id, dataset_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def stop_parsing(tenant_id, dataset_id):
+    """停止解析指定知识库的文档。
+
+    """
+
     if not KnowledgebaseService.accessible(kb_id=dataset_id, user_id=tenant_id):
         return get_error_data_result(message=f"You don't own the dataset {dataset_id}.")
     dataset_tenant_id = _get_dataset_tenant_id(dataset_id)
@@ -330,6 +373,10 @@ async def stop_parsing(tenant_id, dataset_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def retrieval_test(tenant_id):
+    """测试知识库的检索。
+
+    """
+
     req = await get_request_json()
     if not req.get("dataset_ids"):
         return get_error_data_result("`dataset_ids` is required.")
@@ -460,6 +507,7 @@ async def retrieval_test(tenant_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def list_chunks(tenant_id, dataset_id, document_id):
+    """"获取文档下的所有chunk"""
     from rag.nlp import search
 
     if not KnowledgebaseService.accessible(kb_id=dataset_id, user_id=tenant_id):
@@ -554,6 +602,7 @@ async def list_chunks(tenant_id, dataset_id, document_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def get_chunk(tenant_id, dataset_id, document_id, chunk_id):
+    """获取chunk"""
     from rag.nlp import search
 
     if not KnowledgebaseService.accessible(kb_id=dataset_id, user_id=tenant_id):
@@ -581,28 +630,40 @@ async def get_chunk(tenant_id, dataset_id, document_id, chunk_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def get_document_structure_graph(tenant_id, dataset_id, document_id):
-    """Return per-template structure graphs for a document.
+    """返回文档中每个模板的结构图。
 
-    Response shape::
+        响应格式如下：
 
+        json
         {
-          "templates": [
+        "templates": [
             {
-              "template_id": "<id> | 'legacy:<compile_kwd>'",
-              "template_name": "<display name>",
-              "kind": "list | set | hypergraph | timeline | page_index | …",
-              "entities": [...],
-              "relations": [...]
+            "template_id": "<id> | 'legacy:<compile_kwd>'",
+            "template_name": "<显示名称>",
+            "kind": "list | set | hypergraph | timeline | page_index | …",
+            "entities": [...],
+            "relations": [...]
             },
             ...
-          ]
+        ]
         }
 
-    Rows that pre-date the ``compilation_template_ids`` stamp are surfaced
-    under a synthetic ``legacy:<compile_kwd>`` bucket so an in-flight
-    migration doesn't drop their data on the floor. Empty templates
-    (zero entities AND zero relations) are filtered out.
-    """
+        早于 compilation_template_ids 标记的行会被归入一个合成的 legacy:<compile_kwd> 桶中，
+        这样在进行中的迁移就不会丢失它们的数据。空的模板（实体和关系均为零）会被过滤掉
+
+        1. 权限校验（tenant / dataset / document）
+        2. 读取文档的解析配置（parser_config）
+        3. 解析 Compilation Template Group
+        4. 构建“模板元信息映射”
+        5. 判断是否有 keywords（两种模式）
+        6. 模式 A：keywords → 实体子图检索
+        7. 模式 B：默认 → 扫描图谱 blob → 分桶
+        8. 每个桶构建 entities + relations
+        9. 特殊处理 RAPTOR Summary Graph
+        10. 排序输出（配置顺序优先）
+        11. PageIndex 按 Chunk 顺序排序
+        12. 返回结构化 templates 列表
+            """
     from api.db.services.compilation_template_group_service import CompilationTemplateGroupService
     from api.db.services.compilation_template_service import CompilationTemplateService
     from rag.nlp import search
@@ -909,15 +970,14 @@ async def get_document_structure_graph(tenant_id, dataset_id, document_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def delete_document_structure_graph(tenant_id, dataset_id, document_id):
-    """Delete one structure-graph tab for a document.
+    """删除文档的一个结构图标签页。
 
-    Request body::
+        请求体::
 
-        {"template_id": "<template id> | legacy:<compile_kwd> | raptor"}
+        纯文本
+            {"template_id": "<模板id> | legacy:<compile_kwd> | raptor"}
 
-    Template-backed structure tabs remove both the compact graph row and
-    the underlying entity/relation rows. RAPTOR only removes the graph
-    projection row so summary chunks remain available for retrieval.
+        基于模板的结构标签页会同时移除紧凑图行和底层的实体/关系行。RAPTOR 仅移除图投影行，因此摘要块仍可用于检索。
     """
     from rag.nlp import search
 
@@ -965,6 +1025,30 @@ async def delete_document_structure_graph(tenant_id, dataset_id, document_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def add_chunk(tenant_id, dataset_id, document_id):
+    """添加一个文档的块。
+
+        请求体::
+
+        纯文本
+            {"content": "<块内容>", "important_keywords": ["<关键词1>", "<关键词2>", ...]}
+
+        块内容是必填项。
+
+        关键词是可选项。
+    1. 权限校验（tenant / dataset / document）
+    2. 校验请求参数（content / keywords / questions）
+    3. 生成唯一 chunk_id（内容 + doc_id 哈希）
+    4. 构建 Chunk 基础字段
+    5. 分词（粗 + 细）
+    6. 处理关键词 / 问题增强
+    7. 处理标签 / 特征
+    8. （可选）处理图片
+    9. 向量化（Embedding）
+    10. 写入 Doc Store
+    11. 更新文档统计计数器
+    12. 字段映射 → 返回前端
+    """
+
     from rag.nlp import rag_tokenizer, search
 
     if not KnowledgebaseService.accessible(kb_id=dataset_id, user_id=tenant_id):
@@ -1062,6 +1146,19 @@ async def add_chunk(tenant_id, dataset_id, document_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def rm_chunk(tenant_id, dataset_id, document_id):
+    """
+    1. 删除 chunk
+    2. 删除 chunk 图片
+    3. 删除 chunk 向量
+    4. 删除 chunk 统计
+    5. 删除 chunk 关联的文档
+    6. 删除 chunk 关联的文档统计
+    7. 删除 chunk 关联的文档图片
+    8. 删除 chunk 关联的文档向量
+    9. 删除 chunk 关联的文档统计
+    10. 删除 chunk 关联的文档图片统计
+    """
+
     from rag.nlp import search
 
     if not KnowledgebaseService.accessible(kb_id=dataset_id, user_id=tenant_id):
@@ -1115,6 +1212,9 @@ async def rm_chunk(tenant_id, dataset_id, document_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def update_chunk(tenant_id, dataset_id, document_id, chunk_id):
+    """更新 chunk
+
+    """
     from rag.app.qa import beAdoc, rmPrefix
     from rag.nlp import rag_tokenizer, search
 
@@ -1203,6 +1303,10 @@ async def update_chunk(tenant_id, dataset_id, document_id, chunk_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def switch_chunks(tenant_id, dataset_id, document_id):
+    """切换 chunk 可用性(启用/禁用)
+
+    """
+
     from rag.nlp import search
 
     if not KnowledgebaseService.accessible(kb_id=dataset_id, user_id=tenant_id):

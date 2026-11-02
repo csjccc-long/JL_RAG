@@ -151,7 +151,7 @@ class TestUpdatedChunk:
         "dataset_id, expected_code, expected_message",
         [
             pytest.param(INVALID_ID_32, 102, f"You don't own the dataset {INVALID_ID_32}.", marks=pytest.mark.skipif(os.getenv("DOC_ENGINE") == "infinity", reason="infinity")),
-            pytest.param(INVALID_ID_32, 102, "Can't find this chunk", marks=pytest.mark.skipif(os.getenv("DOC_ENGINE") in [None, "opensearch", "elasticsearch"], reason="elasticsearch")),
+            pytest.param(INVALID_ID_32, 102, "Can't find this chunk", marks=pytest.mark.skipif(os.getenv("DOC_ENGINE") in [None, "elasticsearch"], reason="elasticsearch")),
         ],
     )
     def test_invalid_dataset_id(self, HttpApiAuth, add_chunks, dataset_id, expected_code, expected_message):

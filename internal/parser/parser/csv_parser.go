@@ -50,20 +50,14 @@ const csvSheetName = "Data"
 
 // CSVParser reads RFC-4180 CSV data and emits HTML <table> payloads.
 type CSVParser struct {
-	ParseMethod                    string
-	OutputFormat                   string
-	ChunkRows                      int
-	TCADPAPIServer                 string
-	TCADPAPIKey                    string
-	TCADPTableResultType           string
-	TCADPMarkdownImageResponseType string
+	ParseMethod  string
+	OutputFormat string
+	ChunkRows    int
 }
 
 func NewCSVParser() *CSVParser {
 	return &CSVParser{
-		ChunkRows:                      csvDefaultChunkRows,
-		TCADPTableResultType:           "1",
-		TCADPMarkdownImageResponseType: "1",
+		ChunkRows: csvDefaultChunkRows,
 	}
 }
 
@@ -94,45 +88,13 @@ func (p *CSVParser) ConfigureFromSetup(setup map[string]any) {
 			p.ChunkRows = csvDefaultChunkRows
 		}
 	}
-	if v, ok := setup["tcadp_apiserver"].(string); ok && v != "" {
-		p.TCADPAPIServer = v
-	}
-	if v, ok := setup["tcadp_api_key"].(string); ok {
-		p.TCADPAPIKey = v
-	}
-	if v, ok := setup["table_result_type"].(string); ok && v != "" {
-		p.TCADPTableResultType = v
-	}
-	if v, ok := setup["markdown_image_response_type"].(string); ok && v != "" {
-		p.TCADPMarkdownImageResponseType = v
-	}
 }
 
 // ParseWithResult implements ParseResultProducer. It reads CSV rows
 // and renders them as HTML <table> chunks with <caption>, header row
 // repeated per chunk, and illegal-character filtering — mirroring
 // Python's RAGFlowExcelParser.html().
-// When TCADP parse_method is configured, the file is dispatched to
-// the Tencent Cloud Document Parsing API.
 func (p *CSVParser) ParseWithResult(ctx context.Context, filename string, data []byte) ParseResult {
-	method := normalizeXLSXParseMethod(p.ParseMethod)
-	switch method {
-	case "tcadp":
-		return parseSpreadsheetWithTCADP(
-			filename, data, "CSV",
-			p.TCADPAPIServer, p.TCADPAPIKey,
-			p.TCADPTableResultType, p.TCADPMarkdownImageResponseType,
-			p.OutputFormat,
-		)
-	case "", "csv":
-		// Continue with the local CSV parser.
-	default:
-		// PDF-specific methods like "DeepDOC" / "PaddleOCR" / "MinerU"
-		// are meaningless for CSV; treat them as the default CSV path,
-		// matching Python's behaviour where parse_method is irrelevant
-		// for CSV processing.
-	}
-
 	text := string(data)
 	if strings.TrimSpace(text) == "" {
 		return ParseResult{

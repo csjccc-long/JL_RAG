@@ -51,7 +51,11 @@ export function AccordionOperators({
         </OperatorAccordionTrigger>
         <AccordionContent className="flex flex-col gap-4 text-text-primary">
           <OperatorItemList
-            operators={[Operator.Agent, Operator.Retrieval]}
+            operators={[
+              Operator.Agent,
+              Operator.AgentTeam,
+              Operator.Retrieval,
+            ]}
             isCustomDropdown={isCustomDropdown}
             mousePosition={mousePosition}
           ></OperatorItemList>

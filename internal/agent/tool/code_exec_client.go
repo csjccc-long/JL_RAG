@@ -14,31 +14,11 @@
 //  limitations under the License.
 //
 
-// CodeExec sandbox client. The Python sandbox service is kept
-// as-is (we do NOT rewrite the sandbox). The Go side has a
-// client that talks to the Python sandbox subsystem via the
-// internal/agent/sandbox providers.
-//
-// The Python agent's code_exec delegates to a
-// `SandboxProvider` subsystem (agent/sandbox/providers/) with
-// three backends: self-managed (Docker + gVisor via local
-// executor_manager HTTP), Aliyun Code Interpreter (cloud), and
-// e2b (cloud SaaS). A `ProviderManager` selects one at
-// startup. The Go side's decision is recorded in
-// code_exec_sandbox_design.md:
-//
-//  1. shell out = spawn a Python subprocess that uses
-//     ProviderManager to dispatch to whichever provider the
-//     operator has configured. Reuses all three providers.
-//  2. in-process = reimplement all three provider clients in
-//     Go. No Python dep, but three SDK surfaces to maintain.
-//
-// Decision: shell out (option A). The interface here is stable —
-// when the implementation lands, callers see no change.
-//
-// Until the proto lands, CodeExecTool.InvokableRun surfaces
-// ErrCodeExecSandboxMissing (defined in code_exec.go) so callers
-// can detect the no-sandbox state.
+// CodeExec sandbox client. Python and Go expose the Local,
+// Self-Managed (executor_manager), and SSH providers. Production
+// boot installs the provider-backed client through
+// SetSandboxClient; until then CodeExec returns
+// ErrCodeExecSandboxMissing.
 package tool
 
 import (

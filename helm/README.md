@@ -2,7 +2,7 @@
 
 A Helm chart to deploy RAGFlow and its dependencies on Kubernetes.
 
-- Components: RAGFlow (web/api) and optional dependencies (Infinity/Elasticsearch/OpenSearch, MySQL, MinIO, Redis)
+- Components: RAGFlow (web/api) and optional dependencies (Infinity/Elasticsearch, MySQL, MinIO, Redis)
 - Requirements: Kubernetes >= 1.24, Helm >= 3.10
 
 ## Install
@@ -93,15 +93,13 @@ helm upgrade --install ragflow ./helm -n ragflow -f values.override.yaml
 
 ## Document Engine Selection
 
-Choose one of `infinity` (default), `elasticsearch`, or `opensearch` via `env.DOC_ENGINE`. The chart renders only the selected engine and sets the appropriate host variables.
+Choose one of `infinity` (default) or `elasticsearch` via `env.DOC_ENGINE`. The chart renders only the selected engine and sets the appropriate host variables.
 
 ```yaml
 env:
-  DOC_ENGINE: infinity   # or: elasticsearch | opensearch
-  # For elasticsearch
+  DOC_ENGINE: infinity   # or: elasticsearch
+  # Required when DOC_ENGINE is elasticsearch
   ELASTIC_PASSWORD: "<es-pass>"
-  # For opensearch
-  OPENSEARCH_PASSWORD: "<os-pass>"
 ```
 
 ## Ingress

@@ -20,7 +20,47 @@ from functools import partial
 from agent.component.base import ComponentParamBase, ComponentBase
 from api.db.services.file_service import FileService
 
+"""
+“用户填表/等待输入”组件。
+它的作用是：在流程中接收用户输入、补全表单字段，并把这些值写回到组件输出和输入缓存里，供后续节点使用。
 
+它本质上是工作流里的“输入收集节点”。
+
+1. 定义参数
+UserFillUpParam 里定义了几个核心参数：
+
+enable_tips：是否展示提示语
+tips：提示文案
+layout_recognize：布局识别配置
+这部分是说明“这个输入表单怎么展示和处理”。
+
+2. 处理输入值的解析
+_resolve_input_value() 会根据值的类型做处理：
+
+如果是文件类型，调用 FileService.get_files(...)
+如果是对象类型，尝试把 JSON 字符串转成 dict
+其他情况直接返回原值
+也就是说，它能把用户提交的不同表单值统一转换成工作流内部可消费的数据结构。
+
+3. 合并运行时输入
+_merge_runtime_inputs() 会把当前这次提交的输入合并进组件状态。
+如果没有新输入，它会返回空字典，随后会清理旧值，避免循环再次复用上一次回答。
+
+这是一个非常关键的逻辑：它避免了“等待输入节点在循环中误用历史输入”的问题。
+
+4. 组装提示语
+_invoke() 里，如果开启提示语模式，会先把 tips 里的模板变量替换成真实值。
+例如 Hello {name} 会被替换成用户实际填写的内容。
+
+这让交互更自然。
+
+5. 存储用户输入
+最后它会执行：
+
+self.set_output(k, resolved)
+self.set_input_value(k, resolved)
+也就是把用户填入的内容写回组件的输出字段，后续工作流节点就可以读取它。
+"""
 class UserFillUpParam(ComponentParamBase):
     def __init__(self):
         super().__init__()

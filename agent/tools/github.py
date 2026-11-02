@@ -22,7 +22,9 @@ from agent.tools.base import ToolParamBase, ToolMeta, ToolBase
 from common.connection_utils import timeout
 from common.http_client import DEFAULT_TIMEOUT
 
-
+"""
+这个模块是一个“GitHub 仓库搜索工具”，用于让 Agent 直接在 GitHub 上按关键词搜索项目，并把结果整理成后续可消费的文本内容。
+"""
 class GitHubParam(ToolParamBase):
     """
     Define the GitHub component parameters.

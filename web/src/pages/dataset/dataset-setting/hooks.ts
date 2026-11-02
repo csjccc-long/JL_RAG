@@ -1,4 +1,5 @@
 import { useSetModalState } from '@/hooks/common-hooks';
+import { ParseType } from '@/constants/knowledge';
 
 import { useFetchKnowledgeBaseConfiguration } from '@/hooks/use-knowledge-request';
 import { useSelectParserList } from '@/hooks/use-user-setting-request';
@@ -63,6 +64,9 @@ export const useFetchKnowledgeConfigurationOnMount = (
       ]),
       embedding_model: knowledgeDetails.embedding_model,
       chunk_method: knowledgeDetails.chunk_method,
+      parse_type: knowledgeDetails.pipeline_id
+        ? ParseType.Pipeline
+        : ParseType.BuiltIn,
     } as z.infer<typeof formSchema>;
     form.reset(formValues);
   }, [form, knowledgeDetails]);

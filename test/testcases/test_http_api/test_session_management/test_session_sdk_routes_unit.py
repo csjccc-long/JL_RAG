@@ -320,14 +320,6 @@ def _load_session_module(monkeypatch):
     deepdoc_excel_module.RAGFlowExcelParser = _StubExcelParser
     monkeypatch.setitem(sys.modules, "deepdoc.parser.excel_parser", deepdoc_excel_module)
 
-    deepdoc_mineru_module = ModuleType("deepdoc.parser.mineru_parser")
-
-    class _StubMinerUParser:
-        pass
-
-    deepdoc_mineru_module.MinerUParser = _StubMinerUParser
-    monkeypatch.setitem(sys.modules, "deepdoc.parser.mineru_parser", deepdoc_mineru_module)
-
     deepdoc_paddle_module = ModuleType("deepdoc.parser.paddleocr_parser")
 
     class _StubPaddleOCRParser:

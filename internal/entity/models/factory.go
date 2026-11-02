@@ -131,14 +131,10 @@ func (f *ModelFactory) CreateModelDriver(providerName string, baseURL map[string
 		return NewXunFeiModel(baseURL, urlSuffix), nil
 	case "deepinfra":
 		return NewDeepInfraModel(baseURL, urlSuffix), nil
-	case "mineru.net":
-		return NewMinerUModel(baseURL, urlSuffix), nil
 	case "jiekou.ai":
 		return NewJieKouAIModel(baseURL, urlSuffix), nil
 	case "302.ai":
 		return NewAI302Model(baseURL, urlSuffix), nil
-	case "mineru":
-		return NewMinerLocalUModel(baseURL, urlSuffix), nil
 	case "futurmix":
 		return NewFuturMixModel(baseURL, urlSuffix), nil
 	case "perplexity":

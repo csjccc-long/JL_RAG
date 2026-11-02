@@ -15,31 +15,26 @@
 #
 
 from copy import deepcopy
-
+# 关于 LLM 生成参数的默认值和启用标志的说明，请参阅
 GENERATION_CONFIG_KEYS = ("temperature", "top_p", "frequency_penalty", "presence_penalty", "max_tokens")
 
-# Default values for the four LLM generation parameters stored in
-# search_config.llm_setting.  When the corresponding ``_enabled`` flag is
-# ``False`` (or the key is absent), the default is used instead of whatever
-# the user may have stored in ``llm_setting``.
+#存储在 #search_config.llm_setting 中的四个 LLM 生成参数的默认值。
+#当对应的“_enabled”标志为“False”（或该键不存在）时，将使用默认值，而不是用户在“llm_setting”中可能存储的任何值。
 LLM_SETTING_DEFAULTS = {
-    "temperature": 0.1,
-    "top_p": 0.3,
-    "frequency_penalty": 0.7,
-    "presence_penalty": 0.4,
+    "temperature": 0.1, # 作用： 控制生成文本的随机性。较低的值会导致更确定性的输出，而较高的值会增加多样性和创造力。
+    "top_p": 0.3, # 作用： 控制生成文本的多样性。较低的值会限制模型选择的词汇范围，而较高的值会增加多样性和创造力。
+    "frequency_penalty": 0.7, # 作用： 控制生成文本中重复词汇的频率。较高的值会减少重复词汇的出现，而较低的值可能会增加重复性。
+    "presence_penalty": 0.4, # 作用： 控制生成文本中新词汇的引入。较高的值会鼓励模型引入新的词汇，而较低的值可能会限制新词汇的使用。
 }
 
 
 def resolve_llm_setting(llm_setting):
-    """Resolve *llm_setting* values according to their enable flags.
+    """根据各自的启用标志解析 llm_setting 中的值。
 
-    For each of the four generation parameters the dictionary may carry a
-    ``{key}_enabled`` boolean.  When the flag is ``True`` and the value
-    exists in *llm_setting*, the user-configured value is kept; otherwise
-    the default from :data:`LLM_SETTING_DEFAULTS` is substituted.
+    对于这四个生成参数，字典中可能包含一个 {key}_enabled 布尔值。当该标志为 True 且 llm_setting 中存在对应值时，保留用户配置的值；
+    否则使用 :data:LLM_SETTING_DEFAULTS 中的默认值进行替换。
 
-    Keys whose name ends with ``_enabled`` are stripped from the result so
-    they are never forwarded to the downstream LLM call.
+    名称以 _enabled 结尾的键将从结果中剔除，以确保它们不会被传递到下游的 LLM 调用中。
     """
     if not llm_setting:
         return dict(LLM_SETTING_DEFAULTS)
@@ -52,8 +47,7 @@ def resolve_llm_setting(llm_setting):
         else:
             resolved[key] = default_val
 
-    # Carry over any extra keys that are not generation parameters and not
-    # enable flags (e.g. ``llm_id``, ``model_type``).
+    # 保留所有额外的键，这些键既不是生成参数，也不是启用标志（例如 llm_id、model_type）。
     for key, val in llm_setting.items():
         if key not in resolved and not key.endswith("_enabled"):
             resolved[key] = val
@@ -71,7 +65,7 @@ def pop_generation_config(req):
         req.pop(key, None)
     return generation_config
 
-
+# 合并 LLM 生成参数
 def merge_generation_config(dialog, generation_config):
     if not generation_config:
         return

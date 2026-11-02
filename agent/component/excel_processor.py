@@ -33,7 +33,39 @@ from api.db.services.file_service import FileService
 from api.utils.api_utils import timeout
 from common import settings
 from common.misc_utils import get_uuid
+"""
+1. read
+读取 Excel 文件内容，并转成结构化数据。
 
+支持单个文件或多个文件
+支持 .xlsx 和 .csv
+读取每个 sheet
+把每张表转换成 DataFrame
+保存成 data 输出，方便后续处理
+同时生成 summary 和 markdown 表格预览
+2. merge
+合并多个 Excel 文件/表单。
+
+concat：简单拼接
+join：按某个字段合并
+最终输出一个合并后的数据集，并给出行数/列数摘要。
+
+3. transform
+对表格数据做转换。
+
+如果输入是 dict/list/表格数据
+自动转成 DataFrame
+输出结构化数据和 markdown 预览
+有利于下一步做更复杂处理或展示
+4. output
+把处理后的数据生成回 Excel 或 CSV 文件。
+
+将 DataFrame 写到 .xlsx 或 .csv
+保存到系统 storage
+生成附件标识
+输出 attachment 结构，供前端下载或继续使用
+
+"""
 
 class ExcelProcessorParam(ComponentParamBase):
     """

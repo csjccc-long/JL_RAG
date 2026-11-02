@@ -16,7 +16,9 @@
 import asyncio
 from typing import Tuple
 
-
+"""
+提供一个安全、异步、可超时的系统命令执行封装，用于让上层逻辑稳定地调用 Docker 和其他辅助命令，并统一拿到退出码和输出信息
+"""
 async def async_run_command(*args, timeout: float = 5) -> Tuple[int, str, str]:
     """Safe asynchronous command execution tool"""
     proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)

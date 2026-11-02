@@ -58,7 +58,6 @@ import { EntityTypesFormField } from '../entity-types-form-field';
 import { ExcelToHtmlFormField } from '../excel-to-html-form-field';
 import { LayoutRecognizeFormField } from '../layout-recognize-form-field';
 import { MaxTokenNumberFormField } from '../max-token-number-from-field';
-import { MinerUOptionsFormField } from '../mineru-options-form-field';
 import { ParseTypeItem } from '../parse-type-form-field';
 import { ButtonLoading } from '../ui/button';
 import { Input } from '../ui/input';
@@ -130,10 +129,6 @@ export function ChunkMethodDialog({
         html4excel: z.boolean().optional(),
         toc_extraction: z.boolean().optional(),
         image_table_context_window: z.coerce.number().optional(),
-        mineru_parse_method: z.enum(['auto', 'txt', 'ocr']).optional(),
-        mineru_formula_enable: z.boolean().optional(),
-        mineru_table_enable: z.boolean().optional(),
-        mineru_lang: z.string().optional(),
         raptor: z
           .object({
             use_raptor: z.boolean().optional(),
@@ -216,10 +211,6 @@ export function ChunkMethodDialog({
     name: 'parser_id',
     control: form.control,
   });
-  const isMineruSelected =
-    selectedTag?.toLowerCase().includes('mineru') ||
-    layoutRecognize?.toLowerCase?.()?.includes('mineru');
-
   const isPdf = documentExtension === 'pdf';
 
   const showPages = useMemo(() => {
@@ -364,12 +355,7 @@ export function ChunkMethodDialog({
             {parseType === ParseType.BuiltIn && (
               <>
                 <div className="space-y-6 border-t-0.5 border-border-button pt-6 empty:hidden">
-                  {showOne && (
-                    <>
-                      <LayoutRecognizeFormField showMineruOptions={false} />
-                      {isMineruSelected && <MinerUOptionsFormField />}
-                    </>
-                  )}
+                  {showOne && <LayoutRecognizeFormField />}
 
                   {showMaxTokenNumber && (
                     <>

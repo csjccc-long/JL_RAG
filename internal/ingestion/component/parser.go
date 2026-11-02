@@ -202,8 +202,7 @@ func (c *ParserComponent) Check() error {
 		}
 		pmLower := strings.ToLower(pm)
 		pdfWhitelist := []string{
-			"deepdoc", "plain_text", "mineru", "docling",
-			"opendataloader", "tcadp parser", "paddleocr", "somark",
+			"deepdoc", "plain_text", "paddleocr", "somark",
 		}
 		if !containsString(pdfWhitelist, pmLower) {
 			// Non-whitelist parse_method is treated as a VLM method,

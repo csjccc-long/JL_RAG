@@ -77,8 +77,6 @@ type Environments struct {
 	DeepDocCompareFilter              string `mapstructure:"deep_doc_compare_filter"`
 	DeepDocCompareCSV                 string `mapstructure:"deep_doc_compare_csv"`
 	DeepDocBatchCSV                   string `mapstructure:"deep_doc_batch_csv"`
-	OpenDataLoaderAPIServer           string `mapstructure:"open_dataloader_api_server"`        // OPENDATALOADER_APISERVER
-	OpenDataLoaderAPIKey              string `mapstructure:"open_dataloader_api_key"`           // OPENDATALOADER_API_KEY
 	PaddleOCRBaseURL                  string `mapstructure:"paddle_ocr_base_url"`               // PADDLEOCR_BASE_URL
 	PaddleOCRAPIURL                   string `mapstructure:"paddle_ocr_api_url"`                // PADDLEOCR_API_URL
 	PaddleOCRAccessToken              string `mapstructure:"paddle_ocr_access_token"`           // PADDLEOCR_ACCESS_TOKEN
@@ -96,16 +94,9 @@ type Environments struct {
 	SOMarkEnableTableImage            bool   `mapstructure:"somark_enable_table_image"`         // SOMARK_ENABLE_TABLE_IMAGE
 	SOMarkEnableImageUnderstanding    bool   `mapstructure:"somark_enable_image_understanding"` // SOMARK_ENABLE_IMAGE_UNDERSTANDING
 	SOMarkKeepHeaderFooter            bool   `mapstructure:"somark_keep_header_footer"`         // SOMARK_KEEP_HEADER_FOOTER
-	TCADPAPIServerURL                 string `mapstructure:"tcad_api_server"`                   // TCAD_API_SERVER
-	TCADPAPIKey                       string `mapstructure:"tcad_api_key"`                      // TCAD_API_KEY
 	TEIModel                          string `mapstructure:"tei_model"`                         // TEI_MODEL
 	TEIComposeProfiles                string `mapstructure:"tei_compose_profiles"`              // EnvComposeProfiles
 	TEIBaseURL                        string `mapstructure:"tei_base_url"`                      // TEI_BASE_URL
-	DoclingServerURL                  string `mapstructure:"docling_server_url"`                // DOCLING_SERVER_URI
-	DoclingAPIKey                     string `mapstructure:"docling_api_key"`                   // DOCLING_API_KEY
-	MinerUAPIServer                   string `mapstructure:"miner_userver"`                     // MINERU_APISERVER
-	MinerUAPIKey                      string `mapstructure:"mineru_api_key"`                    // MINERU_API_KEY
-	MinerUBackend                     string `mapstructure:"mineru_backend"`                    // MINERU_BACKEND
 	TavilyAPIKey                      string `mapstructure:"tavily_api_key"`
 	QueritAPIKey                      string `mapstructure:"querit_api_key"`
 	KeenableAPIURL                    string `mapstructure:"keenable_api_url"` // KEENABLE_API_URL
@@ -155,10 +146,8 @@ func (c *Config) GetEnvironments() error {
 	docEngine := common.GetEnvSmall(common.EnvDocEngine)
 	if docEngine != "" {
 		switch docEngine {
-		case "infinity", "elasticsearch", "oceanbase", "seekdb":
+		case "infinity", "elasticsearch":
 			c.environments.DocumentEngineType = docEngine
-		case "opensearch":
-			return fmt.Errorf("not implemented: %s", docEngine)
 		default:
 			return fmt.Errorf("invalid doc engine: %s", docEngine)
 		}
@@ -168,7 +157,7 @@ func (c *Config) GetEnvironments() error {
 	databaseType := common.GetEnvSmall(common.EnvDBType)
 	if databaseType != "" {
 		switch databaseType {
-		case "mysql", "oceanbase":
+		case "mysql", "postgres":
 			c.environments.DatabaseType = databaseType
 		default:
 			return fmt.Errorf("invalid database type: %s", databaseType)
@@ -179,7 +168,7 @@ func (c *Config) GetEnvironments() error {
 	storageType := common.GetEnvSmall(common.EnvStorageImpl)
 	if storageType != "" {
 		switch storageType {
-		case "minio", "s3", "oss", "gcs":
+		case "minio", "s3":
 			c.environments.StorageType = storageType
 		default:
 			return fmt.Errorf("invalid storage type: %s", storageType)
@@ -395,16 +384,6 @@ func (c *Config) GetEnvironments() error {
 		c.environments.DeepDocBatchCSV = DeepDocBatchCSVStr
 	}
 
-	OpenDataLoaderAPIServerStr := common.GetEnv(common.EnvOpenDataLoaderAPIServer)
-	if OpenDataLoaderAPIServerStr != "" {
-		c.environments.OpenDataLoaderAPIServer = OpenDataLoaderAPIServerStr
-	}
-
-	OpenDataLoaderAPIKeyStr := common.GetEnv(common.EnvOpenDataLoaderAPIKey)
-	if OpenDataLoaderAPIKeyStr != "" {
-		c.environments.OpenDataLoaderAPIKey = OpenDataLoaderAPIKeyStr
-	}
-
 	PaddleOCRBaseURLStr := common.GetEnv(common.EnvPaddleOCRBaseUrl)
 	if PaddleOCRBaseURLStr != "" {
 		c.environments.PaddleOCRBaseURL = PaddleOCRBaseURLStr
@@ -490,16 +469,6 @@ func (c *Config) GetEnvironments() error {
 		c.environments.SOMarkKeepHeaderFooter = strings.ToLower(SOMarkKeepHeaderFooterStr) == "true"
 	}
 
-	TCADPAPIServerURLStr := common.GetEnv(common.EnvTCADPAPIServerURL)
-	if TCADPAPIServerURLStr != "" {
-		c.environments.TCADPAPIServerURL = TCADPAPIServerURLStr
-	}
-
-	TCADPAPIKeyStr := common.GetEnv(common.EnvTCADPAPIKey)
-	if TCADPAPIKeyStr != "" {
-		c.environments.TCADPAPIKey = TCADPAPIKeyStr
-	}
-
 	TEIModelStr := common.GetEnv(common.EnvTEIModel)
 	if TEIModelStr != "" {
 		c.environments.TEIModel = TEIModelStr
@@ -513,31 +482,6 @@ func (c *Config) GetEnvironments() error {
 	TEIBaseURLStr := common.GetEnv(common.EnvTEIBaseURL)
 	if TEIBaseURLStr != "" {
 		c.environments.TEIBaseURL = TEIBaseURLStr
-	}
-
-	DoclingServerURLStr := common.GetEnv(common.EnvDoclingServerURL)
-	if DoclingServerURLStr != "" {
-		c.environments.DoclingServerURL = DoclingServerURLStr
-	}
-
-	DoclingAPIKeyStr := common.GetEnv(common.EnvDoclingAPIKey)
-	if DoclingAPIKeyStr != "" {
-		c.environments.DoclingAPIKey = DoclingAPIKeyStr
-	}
-
-	MinerUAPIServerStr := common.GetEnv(common.EnvMineruAPIServer)
-	if MinerUAPIServerStr != "" {
-		c.environments.MinerUAPIServer = MinerUAPIServerStr
-	}
-
-	MinerUAPIKeyStr := common.GetEnv(common.EnvMineruAPIKey)
-	if MinerUAPIKeyStr != "" {
-		c.environments.MinerUAPIKey = MinerUAPIKeyStr
-	}
-
-	MinerUBackendStr := common.GetEnv(common.EnvMineruBackend)
-	if MinerUBackendStr != "" {
-		c.environments.MinerUBackend = MinerUBackendStr
 	}
 
 	TavilyAPIKeyStr := common.GetEnv(common.EnvTavilyAPIKey)
@@ -719,14 +663,6 @@ func (c *Config) GetDeepDocBatchCSV() string {
 	return c.environments.DeepDocBatchCSV
 }
 
-func (c *Config) GetOpenDataLoaderAPIServer() string {
-	return c.environments.OpenDataLoaderAPIServer
-}
-
-func (c *Config) GetOpenDataLoaderAPIKey() string {
-	return c.environments.OpenDataLoaderAPIKey
-}
-
 func (c *Config) GetPaddleOCRBaseURL() string {
 	return c.environments.PaddleOCRBaseURL
 }
@@ -791,14 +727,6 @@ func (c *Config) GetSOMarkKeepHeaderFooter() bool {
 	return c.environments.SOMarkKeepHeaderFooter
 }
 
-func (c *Config) GetTCADPAPIServerURL() string {
-	return c.environments.TCADPAPIServerURL
-}
-
-func (c *Config) GetTCADPAPIKey() string {
-	return c.environments.TCADPAPIKey
-}
-
 func (c *Config) GetTEIModel() string {
 	return c.environments.TEIModel
 }
@@ -809,26 +737,6 @@ func (c *Config) GetTEIComposeProfiles() string {
 
 func (c *Config) GetTEIBaseURL() string {
 	return c.environments.TEIBaseURL
-}
-
-func (c *Config) GetDoclingServerURL() string {
-	return c.environments.DoclingServerURL
-}
-
-func (c *Config) GetDoclingAPIKey() string {
-	return c.environments.DoclingAPIKey
-}
-
-func (c *Config) GetMinerUAPIServer() string {
-	return c.environments.MinerUAPIServer
-}
-
-func (c *Config) GetMinerUAPIKey() string {
-	return c.environments.MinerUAPIKey
-}
-
-func (c *Config) GetMinerUBackend() string {
-	return c.environments.MinerUBackend
 }
 
 func (c *Config) GetQueritAPIKey() string {

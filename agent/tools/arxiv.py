@@ -20,7 +20,9 @@ from abc import ABC
 import arxiv
 from agent.tools.base import ToolParamBase, ToolMeta, ToolBase
 from common.connection_utils import timeout
-
+"""
+基于 arXiv API​ 的学术论文搜索工具模块
+"""
 
 class ArXivParam(ToolParamBase):
     """

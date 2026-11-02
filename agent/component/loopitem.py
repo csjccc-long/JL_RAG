@@ -16,7 +16,10 @@
 from abc import ABC
 from agent.component.base import ComponentBase, ComponentParamBase
 
-
+"""
+“循环体中的单轮执行节点”。
+它不是整个循环的开头，而是“循环每一轮执行时的状态控制器”。
+"""
 class LoopItemParam(ComponentParamBase):
     """
     Define the LoopItem component parameters.

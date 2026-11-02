@@ -27,7 +27,19 @@ from .operators import *  # noqa: F403
 from .operators import preprocess
 from . import operators
 from .ocr import load_model
+"""
+封装了一个基于 ONNX 的目标检测/分类识别器：输入图片，输出图片中各区域的类别、边界框和置信度。
 
+虽然类名是 Recognizer，但从输出看，它不是 OCR 文字识别器：它不返回识别出的文字，而是返回检测区域及其标签。比如在文档视觉流程中，这类结果可用于识别标题、表格、图片等布局区域。文字内容的识别由 ocr.py 中的 OCR 识别器负责。
+
+处理流程
+**加载模型：**初始化时通过 load_model() 加载对应的 ONNX 模型；task_name 用于指定模型名称，label_list 提供类别标签。
+预处理图片：preprocess() 根据模型输入要求缩放、标准化、调整通道布局；支持模型输入格式不同的两种处理路径。
+执行推理：__call__() 支持对多张图片分批运行模型。
+整理检测结果：postprocess() 根据模型输出格式筛掉低置信结果、还原坐标，并在适用的检测路径中使用 IoU 过滤重复框。
+**返回结果：**每张图片对应一个检测列表，单项包含 type、bbox 和 score。
+类中的 sort_*、overlapped_area()、layouts_cleanup() 等方法，则用于对区域进行排序、判断重叠和清理布局检测结果。
+"""
 
 class Recognizer:
     def __init__(self, label_list, task_name, model_dir=None):

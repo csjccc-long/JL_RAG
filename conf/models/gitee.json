@@ -12,10 +12,7 @@
     "balance": "tokens/packages/balance",
     "embedding": "embeddings",
     "rerank": "rerank",
-    "ocr": "images/ocr",
-    "doc_parse": "async/documents/parse",
-    "tasks": "tasks",
-    "task": "task"
+    "ocr": "images/ocr"
   },
   "models": [
     {
@@ -67,18 +64,6 @@
       "max_batch_size": 32
     },
     {
-      "name": "GOT-OCR2_0",
-      "model_types": [
-        "ocr"
-      ]
-    },
-    {
-      "name": "DeepSeek-OCR-2",
-      "model_types": [
-        "ocr"
-      ]
-    },
-    {
       "name": "PaddleOCR-VL-1.5",
       "model_types": [
         "ocr"
@@ -90,18 +75,6 @@
         "embedding"
       ],
       "max_batch_size": 16384
-    },
-    {
-      "name": "HunyuanOCR",
-      "model_types": [
-        "ocr"
-      ]
-    },
-    {
-      "name": "MinerU2.5",
-      "model_types": [
-        "doc_parse"
-      ]
     }
   ]
 }

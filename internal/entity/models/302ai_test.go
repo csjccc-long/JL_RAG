@@ -57,13 +57,11 @@ func newAI302ForTest(baseURL string) *AI302Model {
 	return NewAI302Model(
 		map[string]string{"default": baseURL},
 		URLSuffix{
-			Chat:          "v1/chat/completions",
-			Embedding:     "jina/v1/embeddings",
-			Rerank:        "jina/v1/rerank",
-			Models:        "v1/models",
-			ASR:           "v1/audio/transcriptions",
-			OCR:           "mistral/v1/ocr",
-			DocumentParse: "mineru/api/v4/extract/task",
+			Chat:      "v1/chat/completions",
+			Embedding: "jina/v1/embeddings",
+			Rerank:    "jina/v1/rerank",
+			Models:    "v1/models",
+			ASR:       "v1/audio/transcriptions",
 		},
 	)
 }
@@ -218,46 +216,13 @@ func TestAI302ListModelsRejectsMalformedResponse(t *testing.T) {
 	}
 }
 
-func TestAI302ShowTaskEscapesTaskID(t *testing.T) {
-	withSSRFBypass(t)
-	srv := newAI302Server(t, func(t *testing.T, r *http.Request, _ map[string]interface{}, w http.ResponseWriter) {
-		if r.Method != http.MethodGet {
-			t.Errorf("method=%s, want GET", r.Method)
-		}
-		want := "/mineru/api/v4/extract/task/task%2Fwith%3Fquery%23fragment"
-		if r.RequestURI != want {
-			t.Errorf("RequestURI=%q, want %q", r.RequestURI, want)
-		}
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"code": 0,
-			"data": map[string]interface{}{
-				"state":        "done",
-				"full_zip_url": "https://example.com/result.zip",
-			},
-		})
-	})
-	defer srv.Close()
-	ctx := t.Context()
-
-	apiKey := "test-key"
-	resp, err := newAI302ForTest(srv.URL).ShowTask(ctx, " task/with?query#fragment ", &APIConfig{ApiKey: &apiKey})
-	if err != nil {
-		t.Fatalf("ShowTask: %v", err)
-	}
-	if len(resp.Segments) != 1 || resp.Segments[0].Content != "https://example.com/result.zip" {
-		t.Fatalf("Segments=%v", resp.Segments)
-	}
-}
-
 func TestAI302ValidatesInputs(t *testing.T) {
 	withSSRFBypass(t)
 	apiKey := "test-key"
 	emptyKey := "  "
 	model := "gpt-5"
 	file := "  "
-	blankURL := "  "
 	docURL := "https://example.com/doc.pdf"
-	invalidURL := "ftp://example.com/doc.pdf"
 	send := func(*string, *string) error { return nil }
 	ctx := t.Context()
 	tests := []struct {
@@ -336,60 +301,12 @@ func TestAI302ValidatesInputs(t *testing.T) {
 			want: "file is missing",
 		},
 		{
-			name: "ocr api key",
-			run: func() error {
-				_, err := newAI302ForTest("http://unused").OCRFile(ctx, &model, nil, &docURL, nil, nil, nil)
-				return err
-			},
-			want: "api key is required",
-		},
-		{
-			name: "ocr input",
-			run: func() error {
-				_, err := newAI302ForTest("http://unused").OCRFile(ctx, &model, nil, &blankURL, &APIConfig{ApiKey: &apiKey}, nil, nil)
-				return err
-			},
-			want: "file url or content is required",
-		},
-		{
-			name: "ocr invalid url",
-			run: func() error {
-				_, err := newAI302ForTest("http://unused").OCRFile(ctx, &model, nil, &invalidURL, &APIConfig{ApiKey: &apiKey}, nil, nil)
-				return err
-			},
-			want: "invalid document URL",
-		},
-		{
-			name: "parse file url",
-			run: func() error {
-				_, err := newAI302ForTest("http://unused").ParseFile(ctx, &model, nil, &blankURL, &APIConfig{ApiKey: &apiKey}, nil, nil)
-				return err
-			},
-			want: "valid public document URL",
-		},
-		{
-			name: "parse file invalid url",
-			run: func() error {
-				_, err := newAI302ForTest("http://unused").ParseFile(ctx, &model, nil, &invalidURL, &APIConfig{ApiKey: &apiKey}, nil, nil)
-				return err
-			},
-			want: "invalid document URL",
-		},
-		{
 			name: "models api key",
 			run: func() error {
 				_, err := newAI302ForTest("http://unused").ListModels(ctx, &APIConfig{})
 				return err
 			},
 			want: "api key is required",
-		},
-		{
-			name: "show task id",
-			run: func() error {
-				_, err := newAI302ForTest("http://unused").ShowTask(ctx, "  ", &APIConfig{ApiKey: &apiKey})
-				return err
-			},
-			want: "task id is required",
 		},
 	}
 

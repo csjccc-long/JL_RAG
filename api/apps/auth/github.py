@@ -21,7 +21,7 @@ from .oauth import OAuthClient, UserInfo
 class GithubOAuthClient(OAuthClient):
     def __init__(self, config):
         """
-        Initialize the GithubOAuthClient with the provider's configuration.
+       使用提供商的配置初始化 GithubOAuthClient
         """
         config.update(
             {
@@ -35,12 +35,13 @@ class GithubOAuthClient(OAuthClient):
 
     def fetch_user_info(self, access_token, **kwargs):
         """
-        Fetch GitHub user info (synchronous).
+        获取 GitHub 用户信息（同步）.
         """
         user_info = {}
         try:
             headers = {"Authorization": f"Bearer {access_token}"}
             response = sync_request("GET", self.userinfo_url, headers=headers, timeout=self.http_request_timeout)
+            # 检查响应码
             response.raise_for_status()
             user_info.update(response.json())
             email_response = sync_request("GET", self.userinfo_url + "/emails", headers=headers, timeout=self.http_request_timeout)
@@ -52,7 +53,7 @@ class GithubOAuthClient(OAuthClient):
             raise ValueError(f"Failed to fetch github user info: {e}")
 
     async def async_fetch_user_info(self, access_token, **kwargs):
-        """Async variant of fetch_user_info using httpx."""
+        """使用 httpx 的 fetch_user_info 的异步变体"""
         user_info = {}
         headers = {"Authorization": f"Bearer {access_token}"}
         try:
@@ -79,6 +80,9 @@ class GithubOAuthClient(OAuthClient):
             raise ValueError(f"Failed to fetch github user info: {e}")
 
     def normalize_user_info(self, user_info):
+        """
+        将 GitHub 用户信息转换为标准用户信息.
+        """
         email = user_info.get("email")
         username = user_info.get("login", str(email).split("@")[0])
         nickname = user_info.get("name", username)

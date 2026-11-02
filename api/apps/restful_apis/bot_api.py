@@ -58,6 +58,15 @@ logger = logging.getLogger(__name__)
 @login_required(auth_types=AUTH_BETA)
 @add_tenant_id_to_kwargs
 async def chatbot_completions(dialog_id, tenant_id=None):
+    """
+    处理聊天机器人完成请求。根据请求参数，返回流式或非流式的聊天响应。
+    Args:
+        dialog_id (str): 聊天机器人对话 ID。
+        tenant_id (str, optional): 租户 ID。默认为 None。
+        req (dict): 请求参数。
+    Returns:
+        Response: 响应对象。
+    """
     req = await get_request_json()
 
     exists, dialog = DialogService.get_by_id(dialog_id)
@@ -128,6 +137,15 @@ async def chatbot_completions(dialog_id, tenant_id=None):
 @login_required(auth_types=AUTH_BETA)
 @add_tenant_id_to_kwargs
 async def chatbots_inputs(dialog_id, tenant_id=None):
+    """
+    获取聊天机器人输入信息。
+    Args:
+        dialog_id (str): 聊天机器人对话 ID。
+        tenant_id (str, optional): 租户 ID。默认为 None。
+    Returns:
+        Response: 响应对象。
+    """
+
     exists, dialog = await thread_pool_exec(DialogService.get_by_id, dialog_id)
     if not exists or getattr(dialog, "tenant_id", None) != tenant_id or str(getattr(dialog, "status", "")) != StatusEnum.VALID.value:
         request_args = getattr(request, "args", {}) or {}
@@ -159,6 +177,15 @@ async def chatbots_inputs(dialog_id, tenant_id=None):
 @login_required(auth_types=AUTH_BETA)
 @add_tenant_id_to_kwargs
 async def agent_bot_completions(agent_id, tenant_id=None):
+    """
+    根据请求参数，返回流式或非流式的聊天响应,获取聊天机器人的完成结果的流程
+    Args:
+        agent_id (str): 聊天机器人对话 ID。
+        tenant_id (str, optional): 租户 ID。默认为 None。
+        req (dict): 请求参数。
+    Returns:
+        Response: 响应对象。
+    """
     req = await get_request_json()
 
     if not await thread_pool_exec(UserCanvasService.accessible, agent_id, tenant_id):
@@ -204,10 +231,8 @@ async def agent_bot_completions(agent_id, tenant_id=None):
         structured_output = {}
         final_ans = {}
         async for answer in agent_completion(tenant_id, agent_id, **req):
-            # agent_completion yields SSE-formatted strings. A single yielded
-            # chunk can contain multiple "data:..." frames separated by "\n\n"
-            # plus blank or comment lines, so parse line-by-line rather than
-            # assuming one frame per chunk.
+            # agent_completion 生成的是 SSE 格式的字符串。单次生成的块可能包含多个由 "\n\n" 分隔的 "data:..." 帧，
+            # 以及空行或注释行，因此需要逐行解析，而不能假设每个块只包含一帧。
             if not isinstance(answer, str):
                 continue
             for line in answer.splitlines():
@@ -254,6 +279,14 @@ async def agent_bot_completions(agent_id, tenant_id=None):
 @login_required(auth_types=AUTH_BETA)
 @add_tenant_id_to_kwargs
 async def begin_inputs(agent_id, tenant_id=None):
+    """
+    获取聊天机器人输入的参数表单。
+    Args:
+        agent_id (str): 聊天机器人对话 ID。
+        tenant_id (str, optional): 租户 ID。默认为 None。
+    Returns:
+        Response: 响应对象。
+    """
     if not await thread_pool_exec(UserCanvasService.accessible, agent_id, tenant_id):
         logger.warning(
             "begin_inputs access denied tenant_id=%s agent_id=%s",
@@ -274,6 +307,15 @@ async def begin_inputs(agent_id, tenant_id=None):
 @login_required(auth_types=AUTH_BETA)
 @add_tenant_id_to_kwargs
 async def agent_bot_logs(shared_id, message_id, tenant_id=None):
+    """
+    获取聊天机器人日志。
+    Args:
+        shared_id (str): 聊天机器人共享 ID。
+        message_id (str): 消息 ID。
+        tenant_id (str, optional): 租户 ID。默认为 None。
+    Returns:
+        Response: 响应对象。
+    """
     if not await thread_pool_exec(UserCanvasService.accessible, shared_id, tenant_id):
         logger.warning(
             "agent bot logs access denied tenant_id=%s agent_id=%s",
@@ -299,6 +341,13 @@ async def agent_bot_logs(shared_id, message_id, tenant_id=None):
 @add_tenant_id_to_kwargs
 @validate_request("question", "kb_ids")
 async def ask_about_embedded(tenant_id=None):
+    """
+    向嵌入的搜索机器人提问。
+    Args:
+        tenant_id (str, optional): 租户 ID。默认为 None。
+    Returns:
+        Response: 响应对象。
+    """
     req = await get_request_json()
     uid = tenant_id
 
@@ -335,6 +384,26 @@ async def ask_about_embedded(tenant_id=None):
 @add_tenant_id_to_kwargs
 @validate_request("kb_id", "question")
 async def retrieval_test_embedded(tenant_id=None):
+    """
+    1. 校验权限与参数
+    2. 加载 Search App 配置（可选）
+    3. 元数据过滤（智能筛选文档）
+    4. 租户与知识库归属校验
+    5. 问题翻译（跨语言）
+    6. 问题向量化（Embedding）
+    7. 关键词增强（可选）
+    8. 混合检索（向量 + 全文）
+    9. 重排序（Rerank）
+    10. 知识图谱增强（可选）
+    11. 清洗向量数据
+    12. 补充文档元数据
+    13. 返回原始片段（Chunks）
+    向嵌入的搜索机器人进行检索测试。
+    Args:
+        tenant_id (str, optional): 租户 ID。默认为 None。
+    Returns:
+        Response: 响应对象。
+    """
     req = await get_request_json()
     page = validate_rest_api_page(req.get("page", DEFAULT_PAGE))
     size = validate_rest_api_page_size(req.get("size", DEFAULT_PAGE_SIZE))
@@ -371,6 +440,7 @@ async def retrieval_test_embedded(tenant_id=None):
             if detail:
                 search_config = detail.get("search_config", {})
                 meta_data_filter = search_config.get("meta_data_filter", {})
+            # 自动元数据过滤
             if meta_data_filter.get("method") in ["auto", "semi_auto"]:
                 chat_id = search_config.get("chat_id", "")
                 if chat_id:
@@ -378,7 +448,7 @@ async def retrieval_test_embedded(tenant_id=None):
                 else:
                     chat_model_config = await thread_pool_exec(get_tenant_default_model_by_type, tenant_id, LLMType.CHAT)
                 chat_mdl = LLMBundle(tenant_id, chat_model_config)
-            # Apply search_config settings if not explicitly provided in request
+            # 如果请求中未显式提供，则应用 search_config 设置
             if not req.get("similarity_threshold"):
                 similarity_threshold = float(search_config.get("similarity_threshold", similarity_threshold))
             if not req.get("vector_similarity_weight"):
@@ -479,6 +549,8 @@ async def retrieval_test_embedded(tenant_id=None):
 @add_tenant_id_to_kwargs
 @validate_request("question")
 async def related_questions_embedded(tenant_id=None):
+    """ 获取相关问题列表"""
+
     req = await get_request_json()
     if not tenant_id:
         return get_error_data_result(message="permission denined.")
@@ -520,6 +592,15 @@ Related search terms:
 @login_required(auth_types=AUTH_BETA)
 @add_tenant_id_to_kwargs
 async def detail_share_embedded(tenant_id=None):
+    """
+    1. 校验权限
+    2. 加载 Search App 配置（获取 LLM 设置）
+    3. 确定使用哪个 Chat 模型
+    4. 加载“相关问题生成”的 Prompt 模板
+    5. 调用 LLM，以用户问题为“关键词”
+    6. 解析 LLM 返回的列表
+    7. 清洗格式，返回给前端
+    """
     search_id = request.args["search_id"]
     if not tenant_id:
         return get_error_data_result(message="permission denined.")
@@ -544,6 +625,15 @@ async def detail_share_embedded(tenant_id=None):
 @add_tenant_id_to_kwargs
 @validate_request("question", "kb_ids")
 async def mindmap(tenant_id=None):
+    """生成思维导图
+    1. 校验权限 + 参数（question + kb_ids）
+    2. 加载 Search App 配置（可选）
+    3. 调用 gen_mindmap：
+        a. 检索知识库（和 retrieval_test 同源）
+        b. 拼接上下文
+        c. 调用 LLM 生成 Mindmap 结构
+    4. 返回 JSON 树
+    """
     req = await get_request_json()
 
     search_id = req.get("search_id", "")
@@ -556,4 +646,6 @@ async def mindmap(tenant_id=None):
 
 
 def _resolve_reference_metadata(req, search_config=None):
+    """
+    解析请求参数和 Search App 配置，确定是否需要返回文档元数据，以及需要返回的元数据字段"""
     return resolve_reference_metadata_preferences(req, search_config)

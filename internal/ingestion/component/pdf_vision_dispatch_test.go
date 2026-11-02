@@ -81,8 +81,7 @@ func TestMaybeDispatchPDFVisionEnhancementForwardsDatasetLanguage(t *testing.T) 
 // "named parse_method" classifier agrees with (*ParserComponent).Check()'s
 // PDF whitelist (parser.go:200-203):
 //
-//	deepdoc, plain_text, mineru, docling,
-//	opendataloader, tcadp parser, paddleocr, somark
+//	deepdoc, plain_text, paddleocr, somark
 //
 // Diff 2.10: a parse_method that Check() rejects must NOT be treated as a
 // recognized named method by isNamedPDFParseMethod — otherwise it silently
@@ -92,10 +91,8 @@ func TestIsNamedPDFParseMethodWhitelistAligned(t *testing.T) {
 	// Values that MUST be recognized (subset of the Check() whitelist,
 	// case-insensitive).
 	named := []string{
-		"deepdoc", "plain_text", "mineru", "docling",
-		"opendataloader", "tcadp parser", "paddleocr", "somark",
-		"DeepDoc", "PLAIN_TEXT", "MinerU", "DocLing",
-		"OpenDataLoader", "TCADP Parser", "PaddleOCR", "SoMark",
+		"deepdoc", "plain_text", "paddleocr", "somark",
+		"DeepDoc", "PLAIN_TEXT", "PaddleOCR", "SoMark",
 	}
 	for _, v := range named {
 		if !isNamedPDFParseMethod(v) {
@@ -103,13 +100,9 @@ func TestIsNamedPDFParseMethodWhitelistAligned(t *testing.T) {
 		}
 	}
 
-	// Values that MUST NOT be recognized. These either duplicate the
-	// whitelist with non-canonical spelling ("plain text"/"plaintext")
-	// or are bare-family abbreviations ("tcadp") that Check() does not
-	// accept, so they should be funneled to the CustomVLM path (or fail
-	// construction) rather than masquerading as a named method.
+	// Non-canonical spellings and custom models must use the VLM path.
 	notNamed := []string{
-		"plain text", "plaintext", "tcadp",
+		"plain text", "plaintext",
 		"CustomVLM", "some_vlm", "gpt-4o",
 		"", "  ",
 	}
@@ -128,10 +121,8 @@ func TestIsNamedPDFParseMethodWhitelistAligned(t *testing.T) {
 // (*ParserComponent).Check() whitelist (parser.go:200-203).
 func TestIsNamedPDFParseMethodLayoutSuffixes(t *testing.T) {
 	suffixed := []string{
-		"foo@mineru", "@mineru",
 		"foo@paddleocr", "@paddleocr",
 		"foo@somark", "@somark",
-		"foo@opendataloader", "@opendataloader",
 	}
 	for _, v := range suffixed {
 		if isNamedPDFParseMethod(v) {

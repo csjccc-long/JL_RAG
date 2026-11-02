@@ -22,12 +22,6 @@ from common.constants import (
     ActiveStatusEnum,
     LLMType,
     ModelTypeBinary,
-    MINERU_DEFAULT_CONFIG,
-    MINERU_ENV_KEYS,
-    MISTRAL_OCR_DEFAULT_CONFIG,
-    MISTRAL_OCR_ENV_KEYS,
-    OPENDATALOADER_DEFAULT_CONFIG,
-    OPENDATALOADER_ENV_KEYS,
     PADDLEOCR_DEFAULT_CONFIG,
     PADDLEOCR_ENV_KEYS,
     SOMARK_DEFAULT_CONFIG,
@@ -142,15 +136,6 @@ def _ensure_ocr_provider_from_env(tenant_id: str, provider_name: str, model_name
         )
 
     return f"{model_name}@{instance_obj.instance_name}@{provider_name}"
-
-
-def ensure_mineru_from_env(tenant_id: str) -> str | None:
-    return _ensure_ocr_provider_from_env(
-        tenant_id,
-        "MinerU",
-        "mineru-from-env",
-        _collect_env_config(MINERU_ENV_KEYS, MINERU_DEFAULT_CONFIG),
-    )
 
 
 def ensure_paddleocr_from_env(tenant_id: str) -> str | None:
@@ -513,15 +498,6 @@ def delete_instances_by_provider_ids(provider_ids: list[str]):
     return TenantModelInstanceService.delete_by_provider_ids(provider_ids)
 
 
-def ensure_opendataloader_from_env(tenant_id: str) -> str | None:
-    return _ensure_ocr_provider_from_env(
-        tenant_id,
-        "OpenDataLoader",
-        "opendataloader-from-env",
-        _collect_env_config(OPENDATALOADER_ENV_KEYS, OPENDATALOADER_DEFAULT_CONFIG),
-    )
-
-
 def ensure_somark_from_env(tenant_id: str) -> str | None:
     return _ensure_ocr_provider_from_env(
         tenant_id,
@@ -581,12 +557,3 @@ def get_composite_model_name_by_ids(model_ids: list[str]) -> dict[str, str]:
         result[m.id] = f"{m.model_name}@{inst.instance_name}@{prov.provider_name}"
 
     return result
-
-
-def ensure_mistral_ocr_from_env(tenant_id: str) -> str | None:
-    return _ensure_ocr_provider_from_env(
-        tenant_id,
-        "Mistral OCR",
-        "mistral-ocr-latest",
-        _collect_env_config(MISTRAL_OCR_ENV_KEYS, MISTRAL_OCR_DEFAULT_CONFIG),
-    )

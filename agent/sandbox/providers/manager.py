@@ -25,7 +25,16 @@ to the currently active provider.
 from typing import Optional
 from .base import SandboxProvider
 
+"""
+维护当前正在使用的那个 provider，并提供一个统一入口来获取它。
 
+它属于整个沙箱系统里的“选择层”：
+
+上层：调用 sandbox
+中间：ProviderManager
+下层：不同 provider 实现（Local / SSH / SelfManaged）
+它的作用就是让系统知道“现在到底用哪个 provider”。
+"""
 class ProviderManager:
     """
     Manages the currently active sandbox provider.
@@ -44,7 +53,7 @@ class ProviderManager:
         Set the active provider.
 
         Args:
-            name: Provider identifier (e.g., "self_managed", "e2b")
+            name: Provider identifier (e.g., "self_managed", "ssh")
             provider: Provider instance
         """
         self.current_provider = provider

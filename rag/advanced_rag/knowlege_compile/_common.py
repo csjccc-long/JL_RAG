@@ -32,8 +32,12 @@ shape between the two pipelines (e.g. pairwise-cosine dedup, LLM "are these
 the same?" batching) intentionally stays in each pipeline file for now —
 extract those only when their shapes converge.
 """
-
 from __future__ import annotations
+
+"""
+为知识编译相关模块提供统一的 embedding、去重、批处理、文档存储、LLM 参数配置等基础能力，
+保证各个知识编译流程能够共享一套稳定、可复用的底层工具。
+"""
 
 import asyncio
 import logging

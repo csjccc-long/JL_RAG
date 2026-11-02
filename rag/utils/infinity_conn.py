@@ -501,8 +501,8 @@ class InfinityConnection(InfinityConnectionBase):
                         # RAPTOR writes {"raptor_method": ...} as a dict; Infinity's
                         # `extra` column is varchar so we serialize on the write path.
                         # The read path (raptor_utils._as_extra_dict) already accepts
-                        # both dict and JSON-string. Other backends (OceanBase JSON
-                        # column, ES/OpenSearch) keep dict shape — this is Infinity-only.
+                        # both dict and JSON-string. The Elasticsearch backend
+                        # keeps dict shape, so this normalization is Infinity-only.
                         if isinstance(v, dict):
                             d[k] = json.dumps(v)
                         else:

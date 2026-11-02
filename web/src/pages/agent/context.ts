@@ -1,4 +1,4 @@
-import { INodeEvent } from '@/hooks/use-send-message';
+import { INodeData, INodeEvent } from '@/hooks/use-send-message';
 import { RAGFlowNodeType } from '@/interfaces/database/agent';
 import { IMessage } from '@/interfaces/database/chat';
 import { HandleType, Position } from '@xyflow/react';
@@ -24,6 +24,7 @@ type AgentInstanceContextType = Pick<
 > &
   Pick<ReturnType<typeof useShowFormDrawer>, 'showFormDrawer'> & {
     lastNode?: INodeEvent | null;
+    lastFinishedNodeMap?: Record<string, INodeData>;
     currentSendLoading?: boolean;
     startButNotFinishedNodeIds?: string[];
   };

@@ -20,7 +20,7 @@ package indexdoc
 // Input positions is a flat []float64 grouped as [pn, left, right, top, bottom]
 // every 5 elements. pn is ALREADY 1-indexed — the 0→1 conversion happens
 // once, at the parser boundary (normalizePDFPageNumber for the DeepDoc PDF
-// path; TCADP writes 1-indexed directly). This function is a passthrough: it
+// path. This function is a passthrough: it
 // must NOT add +1, otherwise the PDF path (which already normalized) would
 // double-increment page numbers.
 //

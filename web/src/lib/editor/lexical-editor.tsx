@@ -40,7 +40,10 @@ interface Props {
   placeholder?: string;
   onToggleSource?: () => void;
   showSource?: boolean;
-  onWikiLinkClick?: (pageType: 'concept' | 'entity', slug: string) => void;
+  onWikiLinkClick?: (
+    pageType: 'concept' | 'entity' | 'topic',
+    slug: string,
+  ) => void;
 }
 
 function InitialContentPlugin({

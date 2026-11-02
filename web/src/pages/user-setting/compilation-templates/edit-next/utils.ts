@@ -264,7 +264,9 @@ export const transformTemplateToPayload = (template: TemplateSchemaType) => {
       return;
     }
     if (key === 'mode') {
-      config[key] = value as ICompilationTemplateConfigRequest[string];
+      if (value === 'entity' || value === 'topic') {
+        config.mode = value;
+      }
       return;
     }
     if (isConfigMetaKey(key)) {

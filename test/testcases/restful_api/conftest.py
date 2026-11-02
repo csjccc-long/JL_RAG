@@ -39,7 +39,6 @@ GO_ONLY_SKIPS = {
         "test_retrieval_compatibility_requires_dataset_ids",
         "test_retrieval_compatibility_requires_auth",
         "test_retrieval_requires_auth_contract",
-        "test_system_oceanbase_status_auth_contract",
         "test_task_routes_require_auth",
         "test_patch_task_rejects_unsupported_action",
         "test_cancel_missing_task_sets_cancel_contract",

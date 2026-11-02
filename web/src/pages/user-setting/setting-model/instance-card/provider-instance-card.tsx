@@ -95,8 +95,8 @@ const GenericProviderInstanceCard = forwardRef<
 
   // Provider-specific config: carries `verifyTransform` / `submitTransform`
   // for providers whose form field names don't map directly onto
-  // `api_key` / `base_url` (e.g. OpenDataLoader's nested
-  // `opendataloader_apiserver` / `opendataloader_api_key`). When present
+  // `api_key` / `base_url` (e.g. PaddleOCR's `paddleocr_api_url`
+  // and `paddleocr_access_token`). When present
   // the transforms take precedence over the generic field mapping inside
   // `useVerifyProvider` and `useInstanceSaveState.buildPayload`.
   const providerConfig = useMemo(

@@ -34,7 +34,16 @@ from rag.nlp import attach_media_context, rag_tokenizer, tokenize
 
 _ocr = None
 
-
+"""
+这是一个图片与视频解析切分模块，核心功能是将图片和视频文件转换为可检索的文本 chunk。
+对于视频文件，它通过视觉 LLM（CV LLM）直接对视频内容进行理解并生成文字描述；
+对于图片，它先尝试使用配置的 PaddleOCR 进行 OCR 文字识别，若未配置或失败则回退到本地 DeepDoc OCR，
+然后根据 OCR 结果的长度决定处理方式：如果 OCR 文本足够长（超过 32 个字符或词），
+直接作为文本内容 tokenize 成 chunk；如果文本过短，则调用视觉 LLM 对图片进行描述，
+将描述文本附加到 OCR 结果后一起 tokenize，最终输出带图片本身、文档类型标记（image/video）和文本内容的 chunk，
+并支持附加图片上下文供后续检索引用。此外，该模块还提供了 vision_llm_chunk 辅助函数，
+用于将图片通过视觉 LLM 转换为 Markdown 格式文本，并过滤掉过小的图片以避免模型输入限制。
+"""
 def _get_ocr():
     """Lazy-init OCR to avoid downloading models at import time (breaks CI
     collection when the network is unavailable)."""

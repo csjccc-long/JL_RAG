@@ -40,6 +40,78 @@ from ._common import (
     knowledge_compile_gen_conf as _knowledge_compile_gen_conf,
 )
 
+"""
+读取配置，确定抽取类型
+compile_structure_from_text() 接收 chunks、编译配置、聊天模型、向量模型和文档信息。
+配置决定抽取哪类结构、实体/关系有哪些字段和规则、是否启用语义重分块。
+配置里的 relations 未定义时，只抽取实体，不继续抽取关系。
+
+构造提示词并分批
+_struct_hypergraph_prompts() 根据模板配置构造实体和关系的提示词；
+_build_chunk_batches() 根据模型上下文限制把 chunks 切成多个批次，
+之后由 _run_chunked_pipeline() 并行处理。
+
+每批先抽实体，再抽关系，抽取结果会在ES/doc-store 中存储，作为新chunks存储，会反引源chucks
+_struct_extract_hypergraph() 将 chunk 文本及其 ID 交给 LLM，抽取实体，并记录每项知识对应的 source_chunk_ids。
+如果需要抽取关系，会先把本批次抽出的实体列表作为已知实体，再让 LLM 识别实体之间的关系。
+因此，同一批里是先实体、后关系；不同批之间的实体合并留给后续阶段。
+
+可选地重组 chunks
+开启 rechunk 时，LLM 可以先按语义把原始 chunks 分组。
+模块创建新的分组 ID，并维护新旧 ID 映射，再基于重组后的文本抽关系，尽量保留知识与原始 chunk 的出处。
+   _build_chunk_batches() 先按模型上下文长度把原始 chunks 切成批次。rechunk 只在同一个批次内进行，
+   因此不同批次的 chunks 不会被 LLM 分到同一组。
+    开启 rechunk 后，_struct_hypergraph_prompts() 会把配置中的 rechunk_rules 放进提示词，
+    要求 LLM 返回分组计划：每组包含哪些原始 source_chunk_ids。
+    代码检查 LLM 返回的 ID，只接受当前批次中存在的 chunk；
+    同一个原始 chunk 不能重复分配。漏掉的 chunk 会各自补成单独一组。
+    每组内的原始文本通过 "\n\n".join(...) 拼接，
+    生成新的 UUID。chunk_id_map 记录旧 ID 到新 ID 的对应关系，实体的来源 ID 也随之映射。
+    后续关系抽取使用这些新分组文本，而不是原始 chunk 文本。关系的 source_chunk_ids 因此指向新分组。
+
+生成可入库记录
+_struct_process_batch() 汇总实体和关系，为每条记录生成 embedding 和检索分词字段，
+并补上 doc_id、compile_kwd、knowledge_graph_kwd、模板 ID 和来源 chunk ID。
+输出是 ES/doc-store 可写入的记录；compile_structure_from_text() 本身不负责完成持久化。
+
+本地及存储级去重合并
+merge_compiled_structures() 先做批次结果的本地去重：
+实体先按 名称 精确合并，再通过向量相似度筛选候选、由 LLM 判断是否为同一实体或关系。实体被合并后，
+引用旧名称的关系会改写到规范名称。随后再与存储中已有记录做精确名称/KNN 查找和 LLM 判重，决定插入新记录还是合并更新。
+merge_scope="doc" 将候选限制在同一文档；"dataset" 则扩大到整个知识库，并加锁协调并发写入。
+
+数据集级图需要跨文档合并相同关系（相同 from/to/type）。文档级图不需要，因为单文档内不会有重复。
+
+新文档 → 精确名搜索（实体） → 命中？ → 合并
+   ↓
+KNN 向量搜索 → 命中？ → LLM 判断 → 重复？ → 合并
+   ↓                        ↓
+  新插入                   保留为独立
+
+本地去重：
+
+    按 filter key 分组
+    组内余弦相似度比较
+    LLM 判断 + 合并
+    实体合并 → 别名重写关系 → 关系合并
+
+ES 去重：
+old_doc is None → 新文档，直接插入
+
+命中同一 old_id → 归入同一组
+
+    KNN 搜索候选
+    精确名优先（实体）
+    LLM 批量判断
+    分组合并
+    批量嵌入 + 写入
+    别名重写关系 递归：实体合并产生别名后，关系需要重写。重写后的关系可能又出现重复（如两个关系重写后指向同一个源/目标），需要再次去重。
+    校验特定结构并重建图
+对 list 和 timeline，模块会检查关系是否符合单链结构，
+例如是否有分叉或环，并尝试让 LLM 根据来源文本修正。
+数据写入后，rebuild_structure_graph_json() 会将实体和关系投影成文档级图 JSON。
+知识库级图则由 rebuild_dataset_structure_graph_json() 聚合生成，并写出可检索的实体/关系行。
+"""
 
 _STRUCT_TYPES = ("list", "set", "hypergraph")
 _STRUCT_TYPE_ALIASES = {

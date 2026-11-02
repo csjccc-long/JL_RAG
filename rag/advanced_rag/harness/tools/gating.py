@@ -3,6 +3,30 @@
 from rag.advanced_rag.harness.tools.registry import TOOL_REGISTRY
 from rag.advanced_rag.harness.types import OrchestratorContext
 
+
+"""
+搜索阶段管理和工具门控机制
+├─ 阶段 1: locate（定位）
+    │   ├─ 目标：找到可能包含答案的文档/区域
+    │   ├─ 工具：导航工具优先
+    │   └─ 结果：路由到特定文档
+    │
+    ├─ 阶段 2: explore（探索）
+    │   ├─ 目标：在已定位的区域内深入探索
+    │   ├─ 工具：检索工具优先
+    │   └─ 结果：收集详细信息
+    │
+    ├─ 阶段 3: verify（验证）
+    │   ├─ 目标：验证多个来源的一致性
+    │   ├─ 工具：检查工具优先
+    │   └─ 结果：确认答案正确
+    │
+    └─ 阶段 4: cross_domain（跨域）
+        ├─ 目标：探索跨域关系
+        ├─ 工具：图探索优先
+        └─ 结果：发现新线索
+"""
+
 # Search phase definitions
 
 SEARCH_PHASES = {

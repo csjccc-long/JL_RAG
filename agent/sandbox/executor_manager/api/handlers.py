@@ -23,7 +23,9 @@ from models.schemas import CodeExecutionRequest, CodeExecutionResult
 from services.execution import execute_code
 from services.security import analyze_code_security
 
-
+"""
+这个文件属于沙箱执行器的 API 接口层，负责接收“运行代码”的请求，并把请求转成安全检查 + 真正执行 + 结果返回的完整流程。
+"""
 async def healthz_handler():
     return {"status": "ok"}
 

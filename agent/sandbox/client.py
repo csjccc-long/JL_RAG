@@ -73,22 +73,14 @@ def _load_provider_from_settings() -> None:
         # Import and instantiate the provider
         from agent.sandbox.providers import (
             SelfManagedProvider,
-            AliyunCodeInterpreterProvider,
-            E2BProvider,
             LocalProvider,
             SSHProvider,
-            TenkiProvider,
-            UCloudAgentSandboxProvider,
         )
 
         provider_classes = {
             "self_managed": SelfManagedProvider,
-            "aliyun_codeinterpreter": AliyunCodeInterpreterProvider,
-            "e2b": E2BProvider,
             "local": LocalProvider,
             "ssh": SSHProvider,
-            "tenki": TenkiProvider,
-            "ucloud_agent_sandbox": UCloudAgentSandboxProvider,
         }
 
         if provider_type not in provider_classes:
@@ -101,7 +93,7 @@ def _load_provider_from_settings() -> None:
         # Initialize the provider
         if not provider.initialize(config):
             message = f"Failed to initialize sandbox provider: {provider_type}. Config keys: {list(config.keys())}"
-            if provider_type in {"local", "ssh", "tenki", "ucloud_agent_sandbox"}:
+            if provider_type in {"local", "ssh"}:
                 raise SandboxProviderConfigError(message)
             logger.error(message)
             return

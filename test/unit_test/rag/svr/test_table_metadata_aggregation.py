@@ -24,13 +24,11 @@ from rag.utils.table_es_metadata import aggregate_table_doc_metadata, merge_tabl
 @pytest.fixture
 def es_engine(monkeypatch):
     monkeypatch.setattr("rag.utils.table_es_metadata.settings.DOC_ENGINE_INFINITY", False)
-    monkeypatch.setattr("rag.utils.table_es_metadata.settings.DOC_ENGINE_OCEANBASE", False)
 
 
 @pytest.fixture
 def infinity_engine(monkeypatch):
     monkeypatch.setattr("rag.utils.table_es_metadata.settings.DOC_ENGINE_INFINITY", True)
-    monkeypatch.setattr("rag.utils.table_es_metadata.settings.DOC_ENGINE_OCEANBASE", False)
 
 
 def _table_task(**kb_extra):

@@ -28,7 +28,16 @@ from rag.llm.chat_model import Base as CompletionLLM
 import markdown_to_json
 from functools import reduce
 from common.token_utils import num_tokens_from_string
+"""
+这个类继承自 Extractor，实现了 __call__ 入口。流程大致是：
 
+把输入文本按段落/内容块切成多个 section
+估算 token 体积，按合适大小分批处理
+对每一批文本调用 LLM，并用预设提示词提取“节点和子节点”
+通过 markdown_to_json.dictify() 将 LLM 返回的 markdown 结构转换成 JSON
+多批结果进行 merge 合并，形成一个统一的 mind map
+最终输出 MindMapResult(output=...)
+"""
 
 @dataclass
 class MindMapResult:

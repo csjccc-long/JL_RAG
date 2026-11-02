@@ -1,19 +1,12 @@
 package component
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"mime/multipart"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"ragflow/internal/entity"
 	modelModule "ragflow/internal/entity/models"
@@ -61,26 +54,6 @@ func maybeDispatchPDFVision(
 		return parserDispatchResult{}, false, nil
 	}
 
-	method := getStringOr(setup, "parse_method", "")
-	layout := getStringOr(setup, "layout_recognizer", "")
-
-	// MinerU dispatch: parse_method "mineru" or layout_recognizer "@MinerU"
-	layoutLower := strings.ToLower(strings.TrimSpace(layout))
-	if strings.EqualFold(strings.TrimSpace(method), "mineru") ||
-		strings.HasPrefix(layoutLower, "mineru") ||
-		strings.Contains(layoutLower, "@mineru") {
-		tenantID := getStringOr(inputs, "tenant_id", "")
-		if tenantID == "" {
-			return parserDispatchResult{}, true,
-				fmt.Errorf("parser: MinerU requires tenant_id")
-		}
-		res, err := dispatchMinerUPDF(ctx, db, filename, binary, tenantID, setup)
-		if err != nil {
-			return parserDispatchResult{}, true, err
-		}
-		return res, true, nil
-	}
-
 	modelID, useVision := resolvePDFVisionModelID(setup)
 	if !useVision {
 		return parserDispatchResult{}, false, nil
@@ -95,250 +68,6 @@ func maybeDispatchPDFVision(
 		return parserDispatchResult{}, true, err
 	}
 	return res, true, nil
-}
-
-// dispatchMinerUPDF submits a PDF to the tenant's MinerU OCR model
-// via the streaming /file_parse endpoint and returns parsed sections.
-// Mirrors Python's mineru_parser.py:parse_PDF which POSTs with
-// stream=True and reads the zip response body directly (no polling).
-func dispatchMinerUPDF(
-	ctx context.Context,
-	db *gorm.DB,
-	_ string,
-	binary []byte,
-	tenantID string,
-	setup schema.ParserSetup,
-) (parserDispatchResult, error) {
-	driver, _, apiConfig, _, err := resolveTenantModelByType(ctx, db, tenantID, entity.ModelTypeOCR)
-	if err != nil {
-		return parserDispatchResult{}, fmt.Errorf("parser: MinerU model: %w", err)
-	}
-	if !isMinerUDriver(driver) {
-		return parserDispatchResult{}, fmt.Errorf(
-			"parser: MinerU requires a MinerU OCR model; found %q. Please add a MinerU OCR model to your tenant", driver.Name())
-	}
-
-	baseURL := ""
-	if apiConfig.BaseURL != nil {
-		baseURL = *apiConfig.BaseURL
-	}
-	if baseURL == "" {
-		baseURL, _ = resolveMinerUBaseURL(driver, apiConfig)
-	}
-	apiURL := strings.TrimRight(baseURL, "/") + "/file_parse"
-
-	// Parse method: "raw", "auto", "ocr", "txt" matching Python's MinerUParseMethod.
-	parseMethod := getStringOr(setup, "parse_method", "auto")
-	lang := getStringOr(setup, "mineru_lang", "English")
-	mineruLang := mineruLangCode(lang)
-	backend := getStringOr(setup, "mineru_backend", "pipeline")
-
-	zipBytes, err := mineruStreamParse(apiURL, apiConfig.ApiKey, binary, parseMethod, mineruLang, backend)
-	if err != nil {
-		return parserDispatchResult{}, fmt.Errorf("parser: MinerU stream: %w", err)
-	}
-
-	sections, err := mineruExtractSections(zipBytes)
-	if err != nil {
-		return parserDispatchResult{}, fmt.Errorf("parser: MinerU extract: %w", err)
-	}
-
-	var parts []string
-	for _, s := range sections {
-		if s != "" {
-			parts = append(parts, s)
-		}
-	}
-	md := strings.Join(parts, "\n")
-
-	outputFormat := getStringOr(setup, "output_format", "markdown")
-	return parserDispatchResult{
-		OutputFormat: outputFormat,
-		Markdown:     md,
-	}, nil
-}
-
-// resolveMinerUBaseURL extracts the resolved base URL from a model driver.
-func resolveMinerUBaseURL(driver modelModule.ModelDriver, apiConfig *modelModule.APIConfig) (string, error) {
-	type baseURLGetter interface {
-		GetBaseURL(*modelModule.APIConfig) (string, error)
-	}
-	if g, ok := driver.(baseURLGetter); ok {
-		return g.GetBaseURL(apiConfig)
-	}
-	return "", fmt.Errorf("driver %q does not expose GetBaseURL", driver.Name())
-}
-
-// mineruLangCode maps a human-readable language name to a MinerU lang code,
-// mirroring Python's LANGUAGE_TO_MINERU_MAP in mineru_parser.py.
-func mineruLangCode(lang string) string {
-	switch strings.ToLower(lang) {
-	case "english":
-		return "en"
-	case "chinese":
-		return "ch"
-	case "traditional chinese":
-		return "chinese_cht"
-	case "japanese":
-		return "japan"
-	case "korean":
-		return "korean"
-	case "russian", "ukrainian":
-		return "east_slavic"
-	default:
-		return "ch"
-	}
-}
-
-// mineruStreamParse POSTs the PDF binary to the MinerU /file_parse
-// endpoint with streaming and returns the zip response body.
-// Mirrors Python's mineru_parser.py._run_mineru_api with stream=True.
-func mineruStreamParse(apiURL string, apiKey *string, binary []byte, parseMethod, lang, backend string) ([]byte, error) {
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-
-	part, err := writer.CreateFormFile("files", "document.pdf")
-	if err != nil {
-		return nil, fmt.Errorf("create form file: %w", err)
-	}
-	if _, err := part.Write(binary); err != nil {
-		return nil, fmt.Errorf("write pdf: %w", err)
-	}
-
-	_ = writer.WriteField("backend", backend)
-	_ = writer.WriteField("parse_method", parseMethod)
-	_ = writer.WriteField("lang_list", lang)
-	_ = writer.WriteField("return_md", "true")
-	_ = writer.WriteField("return_content_list", "true")
-	_ = writer.WriteField("response_format_zip", "true")
-	_ = writer.WriteField("start_page_id", "0")
-	_ = writer.WriteField("end_page_id", "99999")
-	_ = writer.WriteField("return_images", "true")
-	_ = writer.WriteField("return_middle_json", "true")
-	_ = writer.WriteField("return_model_output", "true")
-	_ = writer.WriteField("formula_enable", "true")
-	_ = writer.WriteField("table_enable", "true")
-
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("finalize form: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, &body)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	if apiKey != nil && *apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+*apiKey)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		raw, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(raw))
-	}
-
-	zipBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-	if len(zipBytes) == 0 {
-		return nil, fmt.Errorf("empty response from MinerU")
-	}
-	return zipBytes, nil
-}
-
-// mineruExtractSections reads the MinerU content_list.json from a zip
-// archive and extracts section text blocks, mirroring Python's
-// _transfer_to_sections.
-func mineruExtractSections(zipBytes []byte) ([]string, error) {
-	zipReader, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
-	if err != nil {
-		return nil, fmt.Errorf("open zip: %w", err)
-	}
-
-	var contentList []byte
-	for _, f := range zipReader.File {
-		if strings.HasSuffix(f.Name, "content_list.json") {
-			rc, err := f.Open()
-			if err != nil {
-				continue
-			}
-			contentList, _ = io.ReadAll(rc)
-			rc.Close()
-			break
-		}
-	}
-	if len(contentList) == 0 {
-		return nil, fmt.Errorf("content_list.json not found in MinerU zip")
-	}
-
-	var items []map[string]any
-	if err = json.Unmarshal(contentList, &items); err != nil {
-		return nil, fmt.Errorf("parse content_list.json: %w", err)
-	}
-
-	var sections []string
-	for _, item := range items {
-		typ, _ := item["type"].(string)
-		switch typ {
-		case "text":
-			if text, ok := item["text"].(string); ok {
-				sections = append(sections, text)
-			}
-		case "table":
-			if tb, ok := item["table_body"].(string); ok {
-				sections = append(sections, tb)
-			}
-			for _, caption := range stringSlice(item["table_caption"]) {
-				sections = append(sections, caption)
-			}
-		case "image":
-			for _, caption := range stringSlice(item["image_caption"]) {
-				sections = append(sections, caption)
-			}
-			if desc, ok := item["vlm_description"].(string); ok && desc != "" {
-				sections = append(sections, desc)
-			}
-		case "equation", "code":
-			if text, ok := item["text"].(string); ok {
-				sections = append(sections, text)
-			}
-		case "list":
-			for _, li := range stringSlice(item["list_items"]) {
-				sections = append(sections, li)
-			}
-		default:
-			if text, ok := item["text"].(string); ok {
-				sections = append(sections, text)
-			}
-		}
-	}
-	return sections, nil
-}
-
-func stringSlice(raw any) []string {
-	switch v := raw.(type) {
-	case []any:
-		var out []string
-		for _, s := range v {
-			if str, ok := s.(string); ok {
-				out = append(out, str)
-			}
-		}
-		return out
-	case []string:
-		return v
-	}
-	return nil
 }
 
 func resolvePDFVisionModelID(setup schema.ParserSetup) (string, bool) {
@@ -364,26 +93,14 @@ func resolvePDFVisionModelID(setup schema.ParserSetup) (string, bool) {
 }
 
 // isNamedPDFParseMethod reports whether raw is a recognized named PDF
-// parse method (as opposed to a CustomVLM model name). Its membership set
-// MUST stay aligned with the PDF whitelist enforced by
-// (*ParserComponent).Check() (parser.go:200-203):
+// parse method rather than a custom VLM model name. Its membership set
+// mirrors the PDF whitelist enforced by (*ParserComponent).Check().
 //
-//	deepdoc, plain_text, mineru, docling,
-//	opendataloader, tcadp parser, paddleocr, somark
-//
-// A parse_method that Check() rejects must not be treated as a named method
-// here, otherwise it silently falls through to the CustomVLM vision path
-// instead of failing fast at construction.
-//
-// Note: "@"-suffixed spellings such as "foo@mineru" are layout_recognizer
-// selectors, not parse_method values. Check() rejects them as parse_method,
-// and the MinerU layout branch is resolved from the layout_recognizer field
-// separately (pdf_vision_dispatch.go:62-68), so they must NOT be recognized
-// here.
+//	deepdoc, plain_text, paddleocr, somark
 func isNamedPDFParseMethod(raw string) bool {
 	method := strings.ToLower(strings.TrimSpace(raw))
 	switch method {
-	case "deepdoc", "plain_text", "mineru", "docling", "opendataloader", "tcadp parser", "paddleocr", "somark":
+	case "deepdoc", "plain_text", "paddleocr", "somark":
 		return true
 	}
 	return false
@@ -551,16 +268,6 @@ func renderPDFVisionPrompt(template string, page int) string {
 	rendered := strings.ReplaceAll(template, "{{ page }}", fmt.Sprintf("%d", page))
 	rendered = strings.ReplaceAll(rendered, "{{page}}", fmt.Sprintf("%d", page))
 	return rendered
-}
-
-// isMinerUDriver reports whether the model driver is a MinerU variant
-// (remote mineru.net or local mineru).
-func isMinerUDriver(driver modelModule.ModelDriver) bool {
-	switch strings.ToLower(driver.Name()) {
-	case "mineru", "mineru.net":
-		return true
-	}
-	return false
 }
 
 // maybeDispatchPDFVisionEnhancement mirrors Python's

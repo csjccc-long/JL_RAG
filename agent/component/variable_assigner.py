@@ -19,7 +19,15 @@ import numbers
 from agent.component.base import ComponentBase, ComponentParamBase
 from api.utils.api_utils import timeout
 
+"""
+是一个“变量赋值/修改组件”，它属于 Agent 工作流里的数据处理节点。
 
+它的作用是：
+
+读取某个变量的当前值
+对它执行一种操作，比如覆盖、清空、追加、删除、加减乘除
+把结果重新写回到工作流变量中
+换句话说，它负责“更新 canvas 里的变量”，让后续节点拿到新值。"""
 class VariableAssignerParam(ComponentParamBase):
     """
     Define the Variable Assigner component parameters.

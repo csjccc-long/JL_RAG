@@ -27,7 +27,23 @@ from rag.advanced_rag.harness.prompts.research_agent_prompt import (
     RESEARCH_AGENT_PROMPT,
     RESEARCH_AGENT_TEXT_PROMPT,
 )
-
+"""
+[1. 构建工具模式] → 门控工具 + think_tool + generate_report
+    ↓
+[2. 创建会话] → ResearchToolSession LLM 会多次调用工具，每次调用之间需要共享状态，该对象来管理这些状态
+    ↓
+[3. 绑定工具] → agent_mdl.bind_tools(session, schemas)
+    ↓
+[4. 设置最大轮数] → 限制 agent 循环次数
+    ↓
+[5. 构建系统提示和对话历史]
+    ↓
+[6. 调用 LLM] → 原生工具循环
+    ↓
+[7. 检查报告] → 有报告则返回
+    ↓
+[8. 无报告回退] → 使用最终文本合成报告
+"""
 _LOG = logging.getLogger(__name__)
 
 
@@ -147,15 +163,12 @@ async def research_agent_loop(
     compilation_map: dict,
     followups: list[str] | None = None,
 ) -> dict:
-    """Inner loop for a single claim — native tool-calling with a text fallback.
+    """针对单个声明的内循环 —— 采用原生工具调用，并带有文本回退机制。
 
-    ``followups`` (Phase-2 LLM missing-pieces feedback from the previous
-    sufficiency round) is passed in explicitly by the orchestrator rather than
-    read from the shared ``context`` here.  The orchestrator consumes and clears
-    ``context.pending_followups`` ONCE per round so every claim researched in a
-    parallel batch receives the SAME follow-up guidance (reading the shared list
-    per-claim would race: the first claim to execute would clear it, starving
-    the rest).
+“followups”（上一轮充分性检查中第二阶段大语言模型给出的缺失信息反馈）由编排器显式传入，
+而非在此处从共享的“context”中读取。编排器每轮仅消费并清空一次“context.pending_followups”，
+这样在并行批次中研究的每个声明都会收到相同的后续指导（如果每个声明都去读取共享列表，就会产生竞争：
+第一个执行的声明会将其清空，导致其余声明无法获取到数据）。
     """
     phase = determine_current_phase(context)
     phase_config = SEARCH_PHASES.get(phase, {})

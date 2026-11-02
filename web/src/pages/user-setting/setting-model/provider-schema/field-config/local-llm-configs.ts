@@ -68,7 +68,7 @@ export const LocalLlmConfigs: Record<string, ProviderConfig> = {
         label: 'addLlmBaseUrl',
         type: 'inputSelect',
         required: true,
-        defaultValue: '',
+        defaultValue: 'http://localhost:8000/v1',
         autoComplete: 'new-password',
         placeholder: 'baseUrlNameMessage',
         shouldRender: 'hideWhenInstanceExists',

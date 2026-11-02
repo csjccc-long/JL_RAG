@@ -33,7 +33,40 @@ from rag.graphrag.utils import (
 from common.misc_utils import thread_pool_exec
 
 from ._common import knowledge_compile_gen_conf
+"""
+读取文档分块及其 embedding 向量
+对相邻 chunk 的相似度做聚类，识别“同主题”的片段
+调用 LLM 为每个 cluster 生成一句或几句摘要
+生成后的摘要再继续作为下一层节点参与聚类和总结
+递归重复，形成多层树状结构
+保留每个摘要对应的原始 chunk 来源 ID，方便溯源
+返回两种结果：
+普通 flat summary 列表
+或者树结构 dict，适合展示知识层级关系
 
+
+输入: [(text, vec, src_ids), ...]
+    ↓
+规范化: [(text, vec, src_ids, ""), ...]
+    ↓
+层循环:
+    │
+    ├── 提取嵌入
+    ├── 小层折叠? → 整体摘要 → 结束
+    ├── 聚类 (1D-watershed)
+    │   ├── 计算相邻相似度
+    │   ├── 百分位阈值分水岭
+    │   └── 超上限? → 降低阈值
+    ├── 并行摘要每个簇
+    │   ├── LLM 生成摘要+标题
+    │   ├── 嵌入摘要
+    │   └── 合并 source_chunk_ids
+    └── 更新层边界
+    ↓
+输出:
+    ├── is_tree=False: (chunks, layers)
+    └── is_tree=True: 树 dict
+"""
 
 class RecursiveAbstractiveProcessing4TreeOrganizedRetrieval:
     """Build RAPTOR summary layers with the classic or Psi tree strategy."""

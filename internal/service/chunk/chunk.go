@@ -432,7 +432,7 @@ func (s *ChunkService) RetrievalTest(ctx context.Context, req *service.Retrieval
 	filteredChunks = nlp.RetrievalByChildren(filteredChunks, tenantIDs, s.docEngine, ctx)
 
 	// Hydrate: ES returns zero vectors; replace with real vectors from FetchChunkVectors.
-	// Infinity/OceanBase chunks already carry real vectors and are left unchanged.
+	// Infinity chunks already carry real vectors and are left unchanged.
 	hydrateChunkVectors(ctx, s.docEngine, filteredChunks, req.Datasets, tenantIDs)
 
 	common.Info("RetrievalTest completed", zap.String("userID", userID), zap.Any("kbID", req.Datasets), zap.String("question", req.Question), zap.Int64("chunkCount", int64(len(filteredChunks))))
@@ -457,10 +457,8 @@ func knowledgebaseEmbeddingKey(ctx context.Context, db *gorm.DB, kb *entity.Know
 }
 
 // hydrateChunkVectors replaces zero (placeholder) vectors in chunks with real
-// vectors fetched from the engine.  Infinity and OceanBase already ship real
-// vectors with chunks, so this is a no-op for those engines; for ES it queries
-// the engine by chunk ID list.  No if/else on engine type — just replaces
-// whatever is missing or zero.
+// vectors fetched from the engine. Infinity already ships real vectors with
+// chunks; Elasticsearch is queried by chunk ID list.
 func hydrateChunkVectors(ctx context.Context, engine engine.DocEngine, chunks []map[string]interface{}, kbIDs []string, tenantIDs []string) {
 	if len(chunks) == 0 {
 		return

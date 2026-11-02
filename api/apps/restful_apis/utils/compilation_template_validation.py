@@ -16,12 +16,12 @@
 
 
 def validate_template_payload(req: dict, require_all: bool = True) -> str:
-    """Validate a single template payload (kind + config + name)."""
+    """验证单个模板有效负载（类型 + 配置 + 名称）"""
     required = ["name", "kind", "config"] if require_all else []
     for key in required:
         if key not in req:
             return f"Missing required field: {key}."
-
+    # 验证名称、描述、类型和配置
     name = req.get("name")
     if name is not None and (not isinstance(name, str) or not name.strip() or len(name.encode("utf-8")) > 128):
         return "Invalid template name."

@@ -25,26 +25,10 @@ es:
   hosts: 'http://localhost:1200'
   username: 'elastic'
   password: 'infini_rag_flow'
-os:
-  hosts: 'http://localhost:1201'
-  username: 'admin'
-  password: 'infini_rag_flow_OS_01'
-  # Optional hybrid (BM25 + KNN) search tuning. The connector self-provisions the
-  # normalization search pipeline on start-up (requires OpenSearch >= 2.10).
-  # hybrid_search_pipeline: 'ragflow_hybrid_pipeline'
-  # hybrid_search_weights: [0.5, 0.5]   # [text/BM25 leg, vector/KNN leg]
 infinity:
   uri: 'localhost:23817'
   postgres_port: 5432
   db_name: 'default_db'
-oceanbase:
-  scheme: 'oceanbase' # set 'mysql' to create connection using mysql config
-  config:
-    db_name: 'test'
-    user: 'root@ragflow'
-    password: 'infini_rag_flow'
-    host: 'localhost'
-    port: 2881
 redis:
   db: 1
   username: ''
@@ -79,10 +63,6 @@ user_default_llm:
       factory: 'xxxx'
       api_key: 'xxx'
       base_url: 'http://localhost:6380'
-gcs:
-  bucket: '${GCS_BUCKET:-ragflow}'
-  prefix_path: '${GCS_PREFIX_PATH:-}'
-  endpoint_url: '${GCS_ENDPOINT:-}'
 # postgres:
 #   name: 'rag_flow'
 #   user: 'rag_flow'
@@ -95,32 +75,6 @@ gcs:
 #   access_key: 'access_key'
 #   secret_key: 'secret_key'
 #   region: 'region'
-#gcs:
-#  bucket: 'bridgtl-edm-d-bucket-ragflow'
-# oss:
-#   access_key: 'access_key'
-#   secret_key: 'secret_key'
-#   endpoint_url: 'https://s3.oss-cn-hangzhou.aliyuncs.com'
-#   region: 'cn-hangzhou'
-#   bucket: 'bucket_name'
-#   signature_version: 's3'
-#   addressing_style: 'virtual'
-# azure:
-#   auth_type: 'sas'
-#   container_url: 'container_url'
-#   sas_token: 'sas_token'
-# azure:
-#   auth_type: 'spn'
-#   account_url: 'account_url'
-#   client_id: 'client_id'
-#   secret: 'secret'
-#   tenant_id: 'tenant_id'
-#   container_name: 'container_name'
-# The OSS object storage uses the MySQL configuration above by default. If you need to switch to another object storage service, please uncomment and configure the following parameters.
-# opendal:
-#   scheme: 'mysql'  # Storage type, such as s3, oss, azure, etc.
-#   config:
-#     oss_table: 'opendal_storage'
 # user_default_llm:
 #   factory: 'BAAI'
 #   api_key: 'backup'
@@ -183,7 +137,7 @@ gcs:
 #     - "RAGFlow" # display name
 #     - "" # sender email address
 #   mail_frontend_url: "https://your-frontend.example.com"
-# tcadp_config:
+
 #  secret_id: 'tencent_secret_id'
 #  secret_key: 'tencent_secret_key'
 #  region: 'tencent_region'

@@ -8,6 +8,15 @@ import { Segmented } from '@/components/ui/segmented';
 import { ChangeEventHandler, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LogTabs } from './dataset-common';
+import { FilterValue } from '@/components/list-filter-bar/interface';
+
+function countFilterValues(value: FilterValue): number {
+  return Object.values(value).reduce(
+    (count, item) =>
+      count + (Array.isArray(item) ? item.length : countFilterValues(item)),
+    0,
+  );
+}
 
 interface IProps {
   searchString?: string;
@@ -27,15 +36,10 @@ const DatasetFilter = (
     onOpenChange,
     active = LogTabs.FILE_LOGS,
     setActive,
-    ...rest
   } = props;
   const { t } = useTranslation();
   const filterCount = useMemo(() => {
-    return typeof value === 'object' && value !== null
-      ? Object.values(value).reduce((pre, cur) => {
-          return pre + cur.length;
-        }, 0)
-      : 0;
+    return value ? countFilterValues(value) : 0;
   }, [value]);
   return (
     <div className="flex items-center justify-between mb-4">

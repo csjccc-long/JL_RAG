@@ -23,8 +23,8 @@
 //     JSON config stored in the `system_settings` MySQL table. The
 //     Go port reads this via `internal/dao.SystemSettingsDAO`.
 //  2. SANDBOX_PROVIDER_TYPE env var — defaults to "self_managed".
-//  3. SANDBOX_EXECUTOR_MANAGER_URL / AGENTRUN_* / LOCAL_* / SSH_*
-//     / E2B_* / UCLOUD_SANDBOX_* env vars for the per-provider knobs. The
+//  3. SANDBOX_EXECUTOR_MANAGER_URL / LOCAL_* / SSH_*
+//     env vars for the supported providers. The
 //     `xxxConfigFromEnv` helpers in each provider file build the
 //     same config map the admin-panel JSON would, so the
 //     `FromConfig` constructor is the single source of truth.
@@ -284,27 +284,17 @@ func resolveProviderType() ProviderType {
 }
 
 // buildProvider constructs a provider by type. Adding a new provider
-// is a single switch case here. E2B returns ErrE2BProviderNotImplemented
-// from every operation, but we still construct the provider so the
-// manager can report the configured type to health checks.
+// is a single switch case here.
 func buildProvider(t ProviderType) (SandboxProvider, error) {
 	switch t {
 	case ProviderSelfManaged:
 		return newSelfManagedProviderFromEnv(), nil
-	case ProviderAliyun:
-		return newAliyunProviderFromEnv(), nil
-	case ProviderE2B:
-		return newE2BProviderFromEnv(), nil
 	case ProviderLocal:
 		return newLocalProviderFromEnv(), nil
 	case ProviderSSH:
 		return newSSHProviderFromEnv(), nil
-	case ProviderTenki:
-		return newTenkiProviderFromEnv(), nil
-	case ProviderUCloudAgentSandbox:
-		return newUCloudAgentSandboxProviderFromEnv(), nil
 	default:
-		return nil, fmt.Errorf("unknown provider type %q (known: self_managed, aliyun_codeinterpreter, e2b, local, ssh, tenki, ucloud_agent_sandbox)", t)
+		return nil, fmt.Errorf("unknown provider type %q (known: self_managed, local, ssh)", t)
 	}
 }
 
@@ -316,19 +306,11 @@ func buildProviderFromConfig(t ProviderType, cfg map[string]any) (SandboxProvide
 	switch t {
 	case ProviderSelfManaged:
 		return newSelfManagedProviderFromConfig(cfg), nil
-	case ProviderAliyun:
-		return newAliyunProviderFromConfig(cfg), nil
-	case ProviderE2B:
-		return newE2BProviderFromConfig(cfg), nil
 	case ProviderLocal:
 		return newLocalProviderFromConfig(cfg), nil
 	case ProviderSSH:
 		return newSSHProviderFromConfig(cfg), nil
-	case ProviderTenki:
-		return newTenkiProviderFromConfig(cfg), nil
-	case ProviderUCloudAgentSandbox:
-		return newUCloudAgentSandboxProviderFromConfig(cfg), nil
 	default:
-		return nil, fmt.Errorf("unknown provider type %q (known: self_managed, aliyun_codeinterpreter, e2b, local, ssh, tenki, ucloud_agent_sandbox)", t)
+		return nil, fmt.Errorf("unknown provider type %q (known: self_managed, local, ssh)", t)
 	}
 }

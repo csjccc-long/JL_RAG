@@ -14,12 +14,13 @@
 #  limitations under the License.
 
 """
-Chunk Builder Module.
+分块构建器模块。
 
-Provides parser factory and document chunking logic:
-- Parser module registration and selection
-- Document chunking via parser
-- PDF outline extraction
+提供解析器工厂和文档分块逻辑：
+
+解析器模块注册与选择
+通过解析器进行文档分块
+PDF 大纲提取
 """
 
 import logging

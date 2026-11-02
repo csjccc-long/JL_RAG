@@ -457,15 +457,6 @@ export default {
       imageTableContextWindowTip:
         'Захватывает N токенов текста выше и ниже изображения и таблицы, чтобы дать более богатый контекст.',
       autoMetadata: 'Авто-метаданные',
-      mineruOptions: 'Опции MinerU',
-      mineruParseMethod: 'Метод парсинга',
-      mineruParseMethodTip:
-        'Метод для парсинга PDF: auto (автоопределение), txt (текст), ocr (распознавание символов)',
-      mineruFormulaEnable: 'Распознавание формул',
-      mineruFormulaEnableTip:
-        'Включает распознавание формул. Примечание: для кириллических документов может работать некорректно.',
-      mineruTableEnable: 'Распознавание таблиц',
-      mineruTableEnableTip: 'Включает распознавание и извлечение таблиц.',
       paddleocrOptions: 'Параметры PaddleOCR',
       paddleocrApiUrl: 'URL API PaddleOCR',
       paddleocrApiUrlTip: 'URL конечной точки API сервиса PaddleOCR',
@@ -1433,29 +1424,6 @@ export default {
       modelsToBeAddedTooltip:
         'Если ваш провайдер моделей не указан, но заявляет о "совместимости с OpenAI-API", выберите карточку OpenAI-API-compatible, чтобы добавить соответствующие модели. ',
       mcp: 'MCP',
-      mineru: {
-        modelNameRequired: 'Имя модели обязательно',
-        apiServerRequired: 'Требуется конфигурация сервера MinerU API',
-        serverUrlBackendLimit:
-          'URL сервера MinerU доступен только для бэкенда HTTP-клиента',
-        apiserver: 'Конфигурация сервера MinerU API',
-        outputDir: 'Путь к каталогу вывода MinerU',
-        backend: 'Тип бэкенда обработки MinerU',
-        serverUrl: 'Адрес URL сервера MinerU',
-        deleteOutput: 'Удалять выходные файлы после обработки',
-        selectBackend: 'Выберите бэкенд обработки',
-        backendOptions: {
-          pipeline: 'Стандартный конвейер обработки',
-          vlmTransformers: 'Vision Language Model с Transformers',
-          vlmVllmEngine: 'Vision Language Model с движком vLLM',
-          vlmHttpClient: 'Vision Language Model через HTTP-клиент',
-          vlmMlxEngine: 'Vision Language Model с движком MLX',
-          vlmVllmAsyncEngine:
-            'Vision Language Model с асинхронным vLLM (экспериментально)',
-          vlmLmdeployEngine:
-            'Vision Language Model с LMDeploy (экспериментально)',
-        },
-      },
       modelTypes: {
         chat: 'Чат',
         embedding: 'Эмбеддинг',

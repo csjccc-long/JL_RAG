@@ -41,7 +41,18 @@ from common.misc_utils import get_uuid
 from common import settings
 
 from api.db.joint_services.memory_message_service import queue_save_to_memory_task
+"""
+它是一个“消息输出/展示组件”，定义在 message.py。
+在整个 Agent 工作流里，它的核心职责不是“执行计算”，而是把前面节点生成的变量、文本、结果，整理成最终给用户看的内容。
 
+它主要做这些事
+处理消息参数：MessageParam 定义了 content、stream、output_format、downloads 等字段
+解析变量和模板：把工作流中的变量插入到文本里，支持 Jinja2 模板渲染
+支持流式输出：如果启用了 stream，会逐段返回内容，不需要等全部生成完
+生成最终文本：把内容写进输出 content
+处理附件：如果内容要导出成 PDF/Word/Excel 等格式，它会转换并保存到存储
+保存对话记忆：将输出内容写入记忆队列，供后续上下文使用
+"""
 
 class MessageParam(ComponentParamBase):
     """

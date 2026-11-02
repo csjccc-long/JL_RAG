@@ -113,29 +113,6 @@ func TestFetchChunkVectors_InfinitySkipsSearch(t *testing.T) {
 	}
 }
 
-func TestFetchChunkVectors_OceanBaseSearchesVector(t *testing.T) {
-	mock := &mockVectorFetcher{
-		engineType: "oceanbase",
-		searchResults: map[string]*types.SearchResult{
-			"ragflow_t1": {
-				Chunks: []map[string]interface{}{
-					{"id": "c1", "q_3_vec": []interface{}{0.1, 0.2, 0.3}},
-				},
-			},
-		},
-	}
-	result := FetchChunkVectors(bg, mock, []string{"c1"}, []string{"t1"}, []string{"kb1"}, 3)
-	if len(result) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(result))
-	}
-	if !reflect.DeepEqual(mock.searchCalled, []string{"ragflow_t1"}) {
-		t.Errorf("search calls = %v, want [ragflow_t1]", mock.searchCalled)
-	}
-	if !reflect.DeepEqual(result["c1"], []float64{0.1, 0.2, 0.3}) {
-		t.Errorf("c1 = %v, want [0.1 0.2 0.3]", result["c1"])
-	}
-}
-
 func TestFetchChunkVectors_ESStringVector(t *testing.T) {
 	mock := &mockVectorFetcher{
 		engineType: "elasticsearch",

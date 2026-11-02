@@ -25,7 +25,15 @@ from deepdoc.vision import LayoutRecognizer, TableStructureRecognizer, OCR, init
 import argparse
 import re
 import numpy as np
+"""
+是视觉识别的测试与结果可视化脚本，用来检查版面识别和表格结构识别效果。它调用已有模型推理，不负责训练。
 
+脚本有两种模式：
+
+**layout：版面识别。**调用 LayoutRecognizer 检测页面上的区域，并把类别、边框和置信度画到图片上，保存标注图。
+**tsr：表格结构识别。**调用 TableStructureRecognizer 检测表格中的行、列、表头等组件，再调用 OCR 识别单元格文字。get_table_html() 根据文字框和结构组件的相对位置，把结果组装成 HTML 表格；输出 HTML 文件和标注图。
+--threshold 控制保留检测结果的置信度阈值，--inputs 指定图片、PDF 或目录，--output_dir 指定输出位置。
+"""
 
 def main(args):
     images, outputs = init_in_out(args)

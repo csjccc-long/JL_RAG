@@ -452,4 +452,96 @@ describe('dsl-bridge round-trip stability', () => {
       nodes.find((node: any) => node.id === 'Iteration:IterateList')?.type,
     ).toBe('iterationNode');
   });
+  it('preserves AgentTeam nested configuration through export and import', () => {
+    const teamForm = {
+      process: 'debate',
+      manager: {},
+      workers: [
+        {
+          id: 'researcher',
+          name: 'Researcher',
+          role: 'analyst',
+          capabilities: ['research'],
+          description: 'Finds evidence',
+          agent: {
+            params: {
+              llm_id: 'worker-model',
+              sys_prompt: 'Research carefully',
+              prompts: [{ role: 'user', content: '{sys.query}' }],
+              max_rounds: 5,
+              tools: [],
+            },
+          },
+        },
+      ],
+      tasks: [
+        {
+          worker: 'researcher',
+          task: 'Collect evidence',
+          context: 'Use cited sources',
+          expected_output: 'Evidence summary',
+        },
+      ],
+      max_concurrency: 2,
+      collaboration_rounds: 3,
+      judge: 'researcher',
+      max_delegations: 4,
+      max_depth: 2,
+      worker_timeout: 300,
+      custom_header: { 'X-Team-Trace': 'enabled' },
+      outputs: {
+        content: { type: 'string', value: '' },
+        structured: { type: 'object', value: {} },
+      },
+    };
+    const teamFixture = {
+      graph: {
+        nodes: [
+          {
+            id: 'AgentTeam:Research',
+            type: 'agentTeamNode',
+            position: { x: 240, y: 160 },
+            data: {
+              label: 'AgentTeam',
+              name: 'ResearchTeam',
+              form: teamForm,
+            },
+            sourcePosition: 'right',
+            targetPosition: 'left',
+          },
+        ],
+        edges: [],
+      },
+      components: {
+        'AgentTeam:Research': {
+          obj: {
+            component_name: 'AgentTeam',
+            params: teamForm,
+          },
+          downstream: [],
+          upstream: [],
+        },
+      },
+      retrieval: [],
+      history: [],
+      path: [],
+      variables: [],
+      globals: {},
+    };
+
+    const imported = bridge.importDsl(teamFixture, true) as any;
+    expect(imported.graph.nodes[0].type).toBe('agentTeamNode');
+    expect(imported.graph.nodes[0].data.form.process).toBe('debate');
+
+    const exported = roundTrip(bridge, teamFixture) as any;
+    const component = exported.components['AgentTeam:Research'];
+    expect(component.obj.component_name).toBe('AgentTeam');
+    expect(component.obj.params.workers[0].agent.params.llm_id).toBe(
+      'worker-model',
+    );
+    expect(component.obj.params.tasks).toEqual(teamForm.tasks);
+    expect(component.obj.params.custom_header).toEqual({
+      'X-Team-Trace': 'enabled',
+    });
+  });
 });

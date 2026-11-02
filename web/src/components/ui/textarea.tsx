@@ -1,7 +1,6 @@
 import { cn } from '@/lib/utils';
 import {
   ChangeEventHandler,
-  ComponentProps,
   FocusEventHandler,
   forwardRef,
   TextareaHTMLAttributes,
@@ -115,12 +114,14 @@ export { Textarea };
 
 type Value = string | readonly string[] | number | undefined;
 
+type BlurTextareaProps = Omit<TextareaProps, 'value' | 'onChange'> & {
+  value: Value;
+  onChange(value: Value): void;
+};
+
 export const BlurTextarea = forwardRef<
   HTMLTextAreaElement,
-  ComponentProps<'textarea'> & {
-    value: Value;
-    onChange(value: Value): void;
-  }
+  BlurTextareaProps
 >(function BlurTextarea({ value, onChange, ...props }, ref) {
   const [val, setVal] = useState<Value>();
 

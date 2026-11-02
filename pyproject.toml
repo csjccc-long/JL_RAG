@@ -78,16 +78,12 @@ dependencies = [
     "onnxruntime-gpu==1.23.2; sys_platform != 'darwin' and platform_machine == 'x86_64'",
     "opencv-python==4.10.0.84",
     "opencv-python-headless==4.10.0.84",
-    "opendal>=0.45.0,<0.46.0",
-    "opensearch-py==2.7.1",
     "ormsgpack>=1.6.0",
     "pdfplumber==0.11.10",
     "pluginlib>=0.10.0",
     "psycopg2-binary>=2.9.11,<3.0.0",
     "pyclipper>=1.4.0,<2.0.0",
-    # "pywencai>=0.13.1,<1.0.0",  # Temporarily disabled: conflicts with agentrun-sdk (pydash>=8), needed for agent/tools/wencai.py
     "pycryptodomex==3.20.0",
-    "pyobvector==0.2.22",
     "pyodbc>=5.2.0,<6.0.0",
     "pypandoc>=1.16",
     "pypdf>=6.15.0",
@@ -95,7 +91,6 @@ dependencies = [
     "python-docx>=1.1.2,<2.0.0",
     "paramiko>=3.5.1",
     "python-pptx>=1.0.2,<2.0.0",
-    # "pywencai>=0.13.1,<1.0.0",  # Temporarily disabled: conflicts with agentrun-sdk (pydash>=8), needed for agent/tools/wencai.py
     "qianfan==0.4.6",
     "quart-auth==0.11.0",
     "quart-cors==0.8.0",
@@ -124,13 +119,11 @@ dependencies = [
     "ja-core-news-sm @ https://github.com/explosion/spacy-models/releases/download/ja_core_news_sm-3.8.0/ja_core_news_sm-3.8.0-py3-none-any.whl",
     "slack-sdk==3.37.0",
     "socksio==1.0.0",
-    "agentrun-sdk>=0.0.51,<1.0.0",
     "nest-asyncio>=1.6.0,<2.0.0",  # Needed for agent/component/message.py
     "sqlglotrs==0.9.0",
     "tavily-python==0.5.1",
     "tencentcloud-sdk-python==3.0.1478",
     "tika==2.6.0",
-    "ucloud-sandbox>=1.4.2,<2.0.0",
     "valkey==6.0.2",
     "volcengine==1.0.194",
     "voyageai==0.2.3",
@@ -265,8 +258,6 @@ exclude-dependencies = [
     # crawl4ai>=0.8.6 depends on unclecode-litellm, which installs the same
     # `litellm` package namespace as upstream litellm and can corrupt imports.
     "unclecode-litellm",
-    # Transitive dep of agentrun-sdk; not imported anywhere in RAGFlow code.
-    "agentrun-mem0ai",
 ]
 override-dependencies = [
     # moodlepy<=0.24.1 pins attrs<23.0.0, but trio>=0.26.0 requires attrs>=23.2.0.

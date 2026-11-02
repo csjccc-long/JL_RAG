@@ -28,6 +28,7 @@ import { Operator } from '../constant';
 import { JsonViewer } from '../form/components/json-viewer';
 import { useCacheChatLog } from '../hooks/use-cache-chat-log';
 import OperatorIcon from '@/components/operator-icon';
+import { AgentTeamTimeline } from './agent-team-timeline';
 import ToolTimelineItem from './tool-timeline-item';
 type LogFlowTimelineProps = Pick<
   ReturnType<typeof useCacheChatLog>,
@@ -41,6 +42,7 @@ type LogFlowTimelineProps = Pick<
 export const typeMap = {
   begin: t('flow.logTimeline.begin'),
   agent: t('flow.logTimeline.agent'),
+  agentTeam: t('flow.logTimeline.agentTeam'),
   retrieval: t('flow.logTimeline.retrieval'),
   message: t('flow.logTimeline.message'),
   awaitResponse: t('flow.logTimeline.awaitResponse'),
@@ -200,6 +202,8 @@ export const WorkFlowTimeline = ({
         );
         const inputs = getInputsOrOutputs(nodeDataList, 'inputs');
         const outputs = getInputsOrOutputs(nodeDataList, 'outputs');
+        const latestFinishedNode = nodeDataList[nodeDataList.length - 1];
+        const isAgentTeam = x.data.component_type === 'AgentTeam';
         const nodeLabel = x.data.component_type;
         const itemKey = `${x.data.component_id}-${idx}`;
         return (
@@ -257,7 +261,9 @@ export const WorkFlowTimeline = ({
                   >
                     <AccordionItem value={idx.toString()}>
                       <AccordionTrigger
-                        hideDownIcon={isShare && !x.data?.thoughts}
+                        hideDownIcon={
+                          isShare && !x.data?.thoughts && !isAgentTeam
+                        }
                       >
                         <div className="flex gap-2 items-center">
                           <span>
@@ -287,34 +293,35 @@ export const WorkFlowTimeline = ({
                           </span>
                         </div>
                       </AccordionTrigger>
-                      {!isShare && (
+                      {(!isShare || x.data?.thoughts || isAgentTeam) && (
                         <AccordionContent>
-                          <div className="space-y-2">
-                            {!isShare && (
-                              <>
-                                <JsonViewer
-                                  data={inputs}
-                                  title="Input"
-                                ></JsonViewer>
+                          {isAgentTeam && (
+                            <AgentTeamTimeline
+                              outputs={outputs}
+                              elapsedTime={latestFinishedNode?.elapsed_time}
+                              error={latestFinishedNode?.error}
+                            />
+                          )}
+                          {!isShare && (
+                            <div className="space-y-2">
+                              <JsonViewer
+                                data={inputs}
+                                title="Input"
+                              ></JsonViewer>
 
-                                <JsonViewer
-                                  data={outputs}
-                                  title={'Output'}
-                                ></JsonViewer>
-                              </>
-                            )}
-                          </div>
-                        </AccordionContent>
-                      )}
-                      {isShare && x.data?.thoughts && (
-                        <AccordionContent>
-                          <div className="space-y-2">
+                              <JsonViewer
+                                data={outputs}
+                                title={'Output'}
+                              ></JsonViewer>
+                            </div>
+                          )}
+                          {isShare && x.data?.thoughts && (
                             <div className="w-full h-[200px] break-words overflow-auto scrollbar-auto p-2 bg-muted">
                               <HighLightMarkdown>
                                 {x.data.thoughts || ''}
                               </HighLightMarkdown>
                             </div>
-                          </div>
+                          )}
                         </AccordionContent>
                       )}
                     </AccordionItem>

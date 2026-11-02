@@ -57,7 +57,16 @@ from rag.prompts.generator import (
 )
 from api.db.db_models import Document, Knowledgebase
 from rag.utils.web_search_conn import WebSearchProvider
+"""
+Agentic RAG 的能力层：把检索、证据评估和最终回答所需的工具与状态集中到 RAGTools，供研究流程调用。
 
+它主要提供：
+
+多源检索能力：从非结构化知识库、结构化表格和网页获取信息。
+问题处理与证据评估：将问题改写为独立问题、提取关键词，并判断证据是否充分；证据有缺口时生成后续查询。
+上下文与引用管理：维护本轮检索到的 chunks、文档聚合信息及引用顺序，也支持取回完整文档进行摘要。
+对外工具入口：rag() 启动完整的 agentic 搜索图；summarize_document() 用于用户明确要求总结某个文档的场景。
+"""
 
 # Tokens held back from the model's context when fitting retrieved evidence
 # into the sufficiency / follow-up prompts. The evidence sits in the MIDDLE of

@@ -1,4 +1,4 @@
-"""Sufficiency check — cross-check + fusion score + 5-way verdict."""
+"""充分性检查——交叉验证 + 融合分数 + 五维判定。"""
 
 import logging
 
@@ -15,6 +15,12 @@ from rag.advanced_rag.harness.sufficiency_ladder import (
     UNANSWERABLE,
 )
 
+"""
+cross_check_claim：检查每个声明中的数字和命名实体是否能在证据块中找到，并计算交叉检查分数。
+compute_fusion_score：汇总声明置信度、交叉检查结果、必需实体缺失和冲突，生成 SufficiencyVerdict。
+虽然函数名带有 “fusion”，这里并不是加权融合分数，而是整理供决策使用的信号，并设置硬性否决条件。
+route_sufficiency_verdict：结合执行模式和 LLM 充分性判断结果，调用决策阶梯，决定是回答、继续搜索、部分回答还是弃答。
+"""
 _LOG = logging.getLogger(__name__)
 
 # Experimental switch: when True, the lexical NER grounded-fact check
@@ -182,13 +188,13 @@ def _spacy_ner_entities(text: str, language: str) -> list[str]:
 
 
 def extract_named_entities(text: str) -> list[str]:
-    """Extract named entities via spaCy NER for any configured language.
+    """通过 spaCy 命名实体识别（NER）提取任意已配置语言的命名实体。
 
-    All languages (en/zh/de/fr/es/pt/ja) go through the spaCy NER pipeline —
-    no hand-rolled regexes or stopword lists. spaCy only returns recognized
-    named entities (PER/LOC/ORG/NORP/MISC/...), so connective tissue never
-    appears. Number/time/percentage labels are filtered (they are verified
-    separately via ``extract_numbers``). Returns [] if spaCy is unavailable.
+    所有语言（en/zh/de/fr/es/pt/ja）均经过 spaCy NER 管道处理——
+
+    不使用手工编写的正则表达式或停用词列表。spaCy 仅返回已识别的命名实体（PER/LOC/ORG/NORP/MISC/...），
+    因此连接性词语永远不会出现。数字/时间/百分比标签会被过滤（它们通过 extract_numbers 单独验证）。
+    如果 spaCy 不可用，则返回 []。
     """
     if not text:
         return []
@@ -316,29 +322,24 @@ def required_entity_gaps(
     claims: list,
     all_chunks: dict,
 ) -> dict[str, list[str]]:
-    """Find per-claim "required entities" missing from the evidence.
+    """查找每项声明中证据所缺失的“必需实体”。
 
-    Aligns with the Sufficient Context paper (arXiv 2411.06037): sufficiency is
-    anchored on *what the question needs*, not on what the agent *claims* in its
-    report. Extracting entities from the report is vulnerable to the agent
-    back-filling facts from prior knowledge (check1.log Q2: the agent injected
-    Tyson Fury's "age 35" from memory while the corpus had no Fury data, so the
-    report-based cross-check passed on Mike Tyson's numbers that padded the
-    score). Instead we extract entities from the *claim description + question*
-    (what the answer actually requires) and check each against the evidence.
+与《充分上下文》论文（arXiv 2411.06037）一致：充分性基于问题所需的内容，而非基于智能体在其报告中声称的内容。
+从报告中提取实体容易受到智能体利用先验知识回填事实的影响（check1.log Q2：智能体从记忆中注入了泰森·富里的“年龄35岁”，
+而语料库中并没有富里的数据，因此基于报告的交叉检查在迈克·泰森的数字上通过了，从而拉高了分数）。
+相反，我们从声明描述+问题（即答案实际所需的内容）中提取实体，并逐一与证据进行核对。
 
-    Returns {claim_id: [missing entities]}. A claim whose required entity is
-    absent from every cited/evidence chunk is flagged — under AND semantics one
-    missing required entity means that part of the question is unsupported.
+返回 {claim_id: [缺失实体]}。如果在所有引用的/证据块中都找不到某项必需实体，则该声明会被标记——在AND语义下，
+一个必需实体的缺失意味着问题的该部分缺乏支持。
     """
-    # Union of all evidence chunk texts (independent of any claim's citation).
+    # 所有证据块文本的并集（与任何声明的引用无关）。
     chunk_texts: list[str] = []
     for chunk in (all_chunks or {}).values():
         text = chunk.get("content_with_weight") or chunk.get("text") or ""
         if text:
             chunk_texts.append(text.lower())
-
-    # Pre-extract question entities once (shared across claims) + seed per-claim.
+    # # 必需实体 = 声明描述中的实体 + 问题中提到的实体！！！
+    # 一次性预提取问题实体（跨声明共享）+ 每个声明一个实体
     q_entities = extract_named_entities(question or "")
     gaps: dict[str, list[str]] = {}
     for claim in claims or []:
@@ -346,10 +347,8 @@ def required_entity_gaps(
         desc = getattr(claim, "description", None) or ""
         if not cid or not desc:
             continue
-        # Required entities = those in the claim description, plus any
-        # question-level entities also mentioned by the claim (so a composite
-        # question like "Mike Tyson AND Tyson Fury" keeps each named entity
-        # individually accountable).
+        # 所需实体 = 权利要求描述中的实体，
+        # 加上权利要求中提及的任何问题级实体（因此，像“迈克·泰森 AND 泰森·富里”这样的复合问题会保持每个命名实体独立负责）。
         desc_entities = extract_named_entities(desc)
         desc_lower = {e.lower() for e in desc_entities}
         required = [e for e in desc_entities] + [e for e in q_entities if e.lower() in desc_lower]
@@ -393,12 +392,11 @@ def cross_check_claim(agent_result: AgentResult, all_chunks: dict) -> ClaimCross
         entities[:8],
     )
 
-    # Existence check across the *union* of evidence chunks, not per-chunk.
-    # Verifying "does this fact appear anywhere in the cited evidence" is the
-    # right semantic — a number/entity supported by one chunk is verified.
-    # The old per-chunk loop demanded a fact appear in EVERY evidence chunk,
-    # so a fact confirmed in chunk A was recorded as a mismatch in chunks B..N
-    # and the score was diluted to near-zero even when the answer was correct
+    # 存在性检查跨越 *union* 的证据块，而非逐个检查。
+    # 验证“这个事实是否出现在引用的证据中”是正确的语义 —— 由一个块支持的数字/实体是已验证的。
+    # 旧的逐块循环要求事实出现在 EVERY 证据块中，
+    # 所以在块 A 中确认的事实会被记录为块 B..N 中的不匹配
+    # 并且即使答案是正确的，分数也会被稀释到接近零
     # (see benchmark/3.log: c4's 48/157/27/89 all matched chunk 0 yet scored
     # 0.286; c5's 21/27/48/89 matched chunk 3 yet scored 0.168).
     chunk_texts: list[str] = []

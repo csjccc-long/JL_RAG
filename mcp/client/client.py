@@ -18,7 +18,16 @@
 from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
 
+"""
+“MCP 客户端示例”，它用于连接一个远程 MCP Server，并调用它暴露出来的工具。
 
+从代码看，它不负责业务逻辑，而是负责：
+
+建立 SSE 连接
+初始化 MCP 会话
+列出服务端可用工具
+调用某个工具
+打印返回结果"""
 async def main():
     try:
         # To access RAGFlow server in `host` mode, you need to attach `api_key` for each request to indicate identification.

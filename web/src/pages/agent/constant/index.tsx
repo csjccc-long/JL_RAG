@@ -26,6 +26,7 @@ export {
 export * from './pipeline';
 
 import { ModelVariableType } from '@/constants/knowledge';
+import { IAgentTeamForm } from '@/interfaces/database/agent';
 import { t } from 'i18next';
 import {
   buildDefaultCodeOutput,
@@ -67,6 +68,7 @@ export const AgentOperatorList = [
   Operator.WaitingDialogue,
   Operator.Note,
   Operator.Agent,
+  Operator.AgentTeam,
 ];
 
 export const DataOperationsOperatorOptions = [
@@ -502,6 +504,38 @@ export const initialAgentValues = {
   },
 };
 
+export const initialAgentTeamValues = {
+  process: 'hierarchical',
+  manager: {
+    params: {
+      llm_id: '',
+      sys_prompt: '',
+      prompts: [{ role: PromptRole.User, content: `{${AgentGlobals.SysQuery}}` }],
+      max_rounds: 8,
+      tools: [],
+    },
+  },
+  workers: [],
+  tasks: [],
+  max_concurrency: 4,
+  collaboration_rounds: 3,
+  judge: '',
+  max_delegations: 8,
+  max_depth: 3,
+  worker_timeout: 300,
+  custom_header: {},
+  outputs: {
+    content: { type: 'string', value: '' },
+    structured: { type: 'object', value: {} },
+    delegations: { type: 'Array<Object>', value: [] },
+    votes: { type: 'Array<Object>', value: [] },
+    rounds: { type: 'Array<Object>', value: [] },
+    consensus: { type: 'boolean', value: false },
+    winner: { type: 'string', value: null },
+    _ERROR: { type: 'string', value: '' },
+  },
+} satisfies IAgentTeamForm;
+
 export const initialUserFillUpValues = {
   enable_tips: true,
   tips: '',
@@ -761,6 +795,7 @@ export const RestrictedUpstreamMap = {
   [Operator.Code]: [Operator.Begin],
   [Operator.WaitingDialogue]: [Operator.Begin],
   [Operator.Agent]: [Operator.Begin],
+  [Operator.AgentTeam]: [Operator.Begin],
   [Operator.TavilySearch]: [Operator.Begin],
   [Operator.QueritContents]: [Operator.Begin],
   [Operator.QueritSearch]: [Operator.Begin],
@@ -785,6 +820,7 @@ export const RestrictedUpstreamMap = {
   [Operator.ExitLoop]: [Operator.Begin],
   [Operator.DocGenerator]: [Operator.Begin],
   [Operator.Browser]: [Operator.Begin],
+  [Operator.ExcelProcessor]: [Operator.Begin],
 };
 
 export const NodeMap = {
@@ -817,6 +853,7 @@ export const NodeMap = {
   [Operator.Code]: 'ragNode',
   [Operator.WaitingDialogue]: 'ragNode',
   [Operator.Agent]: 'agentNode',
+  [Operator.AgentTeam]: 'agentTeamNode',
   [Operator.Tool]: 'toolNode',
   [Operator.TavilySearch]: 'ragNode',
   [Operator.QueritContents]: 'ragNode',

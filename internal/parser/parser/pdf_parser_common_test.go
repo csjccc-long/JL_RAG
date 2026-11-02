@@ -373,10 +373,9 @@ func TestPDFParser_ValidateParseMethod(t *testing.T) {
 		t.Fatalf("validateParseMethod(tenant@provider@SoMark): %v", err)
 	}
 
-	if got, want := normalizePDFParseMethod("tenant@provider@OpenDataLoader"), "opendataloader"; got != want {
-		t.Fatalf("normalizePDFParseMethod(OpenDataLoader suffix) = %q, want %q", got, want)
+	if got, want := normalizePDFParseMethod("tenant@provider@SoMark"), "somark"; got != want {
+		t.Fatalf("normalizePDFParseMethod(SoMark suffix) = %q, want %q", got, want)
 	}
-
 	p.ConfigureFromSetup(map[string]any{"parse_method": "CustomVLM"})
 	err := p.validateParseMethod()
 	if err == nil {

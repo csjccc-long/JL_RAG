@@ -21,7 +21,21 @@ from rag.prompts import kb_prompt
 from rag.prompts.generator import sufficiency_check, multi_queries_gen
 from rag.utils.web_search_conn import create_web_search_provider
 from timeit import default_timer as timer
-
+"""
+将复杂问题递归分解为多个子问题，逐层检索信息，直到收集到足够的信息来回答原始问题
+原始问题
+    │
+    ├─ 1. 检索信息（知识库 + 网络 + 知识图谱）
+    │
+    ├─ 2. 检查信息是否充分
+    │   ├─ 充分 → 返回结果
+    │   └─ 不充分 → 生成子问题
+    │
+    └─ 3. 递归检索子问题（深度递减）
+        ├─ 子问题 1 → 检索 → 检查 → 可能再分解
+        ├─ 子问题 2 → 检索 → 检查 → 可能再分解
+        └─ 子问题 3 → 检索 → 检查 → 可能再分解
+"""
 
 class TreeStructuredQueryDecompositionRetrieval:
     def __init__(

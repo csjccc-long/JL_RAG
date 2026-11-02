@@ -22,7 +22,9 @@ from scholarly import scholarly
 from agent.tools.base import ToolMeta, ToolParamBase, ToolBase
 from common.connection_utils import timeout
 
-
+"""
+这个模块的作用是“把 Google Scholar 学术搜索能力封装成 Agent 可调用的工具”，用于检索学术论文、论文摘要、作者和文献信息。
+"""
 class GoogleScholarParam(ToolParamBase):
     """
     Define the GoogleScholar component parameters.

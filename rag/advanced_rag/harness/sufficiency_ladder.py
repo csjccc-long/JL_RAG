@@ -1,27 +1,20 @@
-"""Decision ladder for sufficiency — LLM AutoRater as primary judge, agent
-confidence as a risk gate (Sufficient Context paper, arXiv 2411.06037).
+"""充分性判定决策阶梯——以LLM自动评分器作为主要判定者，以智能体置信度为风险门控（Sufficient Context论文，arXiv 2411.06037）。
 
-This replaces the old "code cross-check + dual-signal weighted fusion + 5-way
-verdict" pipeline. Because the operator cannot train/calibrate fusion weights
-(the paper's logistic regression), we use a **monotonic threshold ladder**: the
-LLM AutoRater decides *whether the evidence is sufficient to infer a plausible
-answer*; the agent's self-assessed confidence only modulates *how the verdict is
-presented* (full answer vs. caveated answer vs. reconcile). The only continuous
-degree of freedom is conservativeness thresholds (``c_high`` / ``c_low`` /
-``llm_floor``), which are product policy knobs, not learned parameters.
+这取代了旧的“代码交叉检查 + 双信号加权融合 + 5路判定”流水线。由于运维人员无法训练/校准融合权重（论文中的逻辑回归），
+我们使用单调阈值阶梯：LLM自动评分器决定证据是否足以推断出合理的答案；智能体的自我评估置信度仅调节判定结果的呈现方式（完整答案 vs. 带警示的答案 vs. 调和）。唯一的连续自由度是保守性阈值（c_high / c_low / llm_floor），它们是产品策略调节旋钮，而非学习参数。
 
-Semantics (paper §3 / §5.1):
-  - Sufficiency = "a plausible answer A' can be inferred from the context",
-    independent of whether that answer is correct, and without a ground truth.
-  - Selective generation = confidence does not re-score the LLM's sufficiency
-    verdict; it only decides whether to answer fully, caveat, or investigate.
+语义（论文§3 / §5.1）：
 
-Actions:
-  - ``ANSWER``             full answer (sufficient + high confidence)
-  - ``ANSWER_WITH_CAVEAT`` answer with an explicit caveat
-  - ``GAP``                follow-up search on the concrete missing pieces
-  - ``RECONCILE``          re-investigate a low-confidence / contradictory point
-  - ``UNANSWERABLE``       cannot answer (or fall back to a direct LLM)
+充分性 = “可以从上下文中推断出合理的答案A'”，独立于该答案是否正确，且无需真实标签。
+选择性生成 = 置信度不重新评分LLM的充分性判定；它仅决定是否完整回答、添加警示或进行调查。
+
+动作：
+
+ANSWER 完整答案（充分 + 高置信度）
+ANSWER_WITH_CAVEAT 带明确警示的答案
+GAP 针对具体缺失部分进行后续搜索
+RECONCILE 重新调查低置信度/矛盾点
+UNANSWERABLE 无法回答（或回退到直接LLM）
 """
 
 from __future__ import annotations

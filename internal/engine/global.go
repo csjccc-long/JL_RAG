@@ -25,8 +25,6 @@ import (
 	"ragflow/internal/engine/elasticsearch"
 	"ragflow/internal/engine/infinity"
 	"ragflow/internal/engine/nats"
-	"ragflow/internal/engine/oceanbase"
-	"ragflow/internal/engine/serenedb"
 	"ragflow/internal/server"
 	"ragflow/internal/tokenizer"
 
@@ -54,15 +52,6 @@ func InitDocEngine(ctx context.Context) error {
 			globalEngine, err = elasticsearch.NewEngine(ctx, globalConfig.GetElasticsearchConfig())
 		case "infinity":
 			globalEngine, err = infinity.NewEngine(ctx, globalConfig.GetInfinityConfig())
-		case "oceanbase", "seekdb":
-			connectionConfig, resolveErr := globalConfig.ResolveOceanBaseConnection(engineType)
-			if resolveErr != nil {
-				err = resolveErr
-			} else {
-				globalEngine, err = oceanbase.NewEngine(engineType, connectionConfig)
-			}
-		case "serenedb":
-			globalEngine, err = serenedb.NewEngine(globalConfig.GetSereneDBConfig())
 		default:
 			err = fmt.Errorf("unsupported doc engine type: %s", engineType)
 		}

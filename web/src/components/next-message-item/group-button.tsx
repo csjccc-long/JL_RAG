@@ -67,7 +67,6 @@ export const AssistantGroupButton = ({
   showLoudspeaker = true,
   showLog = true,
   attachment,
-  isShare,
 }: IProps) => {
   const { visible, hideModal, showModal, onFeedbackOk, loading } =
     useSendFeedback(messageId);

@@ -26,6 +26,7 @@ import LLMLabel from './llm-label';
 export interface NextInnerLLMSelectProps {
   id?: string;
   value?: string;
+  prefix?: string;
   onInitialValue?: (value: string, option: any) => void;
   onChange?: (value: string) => void;
   disabled?: boolean;
@@ -42,6 +43,7 @@ const NextInnerLLMSelect = forwardRef<
   (
     {
       value,
+      prefix,
       disabled,
       filter,
       triggerTestId,
@@ -82,6 +84,7 @@ const NextInnerLLMSelect = forwardRef<
           </PopoverTrigger>
           <PopoverContent side={'left'}>
             <LlmSettingFieldItems
+              prefix={prefix}
               modelTypes={modelTypes}
               llmOptionTestIdPrefix={optionTestIdPrefix}
               ownerTenantId={ownerTenantId}

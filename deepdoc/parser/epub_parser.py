@@ -21,7 +21,10 @@ from io import BytesIO
 from xml.etree import ElementTree
 
 from .html_parser import RAGFlowHtmlParser
-
+"""
+用来解析 EPUB 电子书。EPUB 本质上是 ZIP 包，
+里面通常有描述书籍结构的 OPF 文件和多个 XHTML/HTML 正文文件。这个模块按书籍的阅读顺序找到正文，再交给 RAGFlowHtmlParser 解析和分块，最后返回所有章节的 section 列表。
+"""
 # OPF XML namespaces
 _OPF_NS = "http://www.idpf.org/2007/opf"
 _CONTAINER_NS = "urn:oasis:names:tc:opendocument:xmlns:container"

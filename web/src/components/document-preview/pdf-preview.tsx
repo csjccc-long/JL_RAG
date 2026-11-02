@@ -124,8 +124,8 @@ const PdfPreview = ({
                 index,
                 setTip,
                 hideTip,
-                viewportToScaled,
-                screenshot,
+                _viewportToScaled,
+                _screenshot,
                 isScrolledTo,
               ) => {
                 const isTextHighlight = !(

@@ -8,6 +8,9 @@ function refineRangeConsistency(
   max: number | undefined,
   isMaxExclusive: boolean,
 ): boolean {
+  if (min === undefined || max === undefined) {
+    return true;
+  }
   if (min !== undefined && max !== undefined && min > max) {
     return false;
   }
@@ -200,7 +203,7 @@ export function getTypeValidation(type: string, t: Translation) {
 
 export interface TypeValidationResult {
   success: boolean;
-  errors?: z.core.$ZodIssue[];
+  errors?: z.ZodIssue[];
 }
 
 export function validateSchemaByType(
@@ -255,7 +258,7 @@ export function buildValidationTree(
                 code: 'custom',
                 message: t.validatorErrorSchemaValidation,
                 path: [],
-              } as unknown as z.core.$ZodIssue,
+                } as z.ZodIssue,
             ],
           };
 
@@ -275,7 +278,7 @@ export function buildValidationTree(
   const sch = schema as Record<string, unknown>;
   const currentType = deriveType(sch);
 
-  const validation = validateSchemaByType(schema, currentType, t);
+  const validation = validateSchemaByType(schema, currentType ?? 'unknown', t);
 
   const children: Record<string, ValidationTreeNode> = {};
 
@@ -369,7 +372,7 @@ export function buildValidationTree(
   );
 
   return {
-    name: currentType,
+    name: currentType ?? 'unknown',
     validation,
     children,
     cumulativeChildrenErrors: ownErrors + childrenErrors,

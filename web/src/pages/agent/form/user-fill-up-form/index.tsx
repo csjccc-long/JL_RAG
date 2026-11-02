@@ -141,7 +141,7 @@ function UserFillUpForm({ node }: INextOperatorForm) {
           rightContent={
             <Button
               variant={'ghost'}
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                 e.preventDefault();
                 showModal();
               }}
@@ -169,7 +169,6 @@ function UserFillUpForm({ node }: INextOperatorForm) {
           <LayoutRecognizeFormField
             name="layout_recognize"
             horizontal={false}
-            showMineruOptions={false}
             showPaddleocrOptions={false}
             ownerTenantId={ownerTenantId}
           ></LayoutRecognizeFormField>

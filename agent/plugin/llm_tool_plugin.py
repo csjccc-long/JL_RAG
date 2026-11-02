@@ -2,7 +2,10 @@ from typing import Any, TypedDict
 import pluginlib
 
 from .common import PLUGIN_TYPE_LLM_TOOLS
-
+"""
+定义 LLM 工具插件的统一接口和描述格式，
+并将工具元数据转换成 OpenAI Function Calling 能识别的 schema，让工具可以被模型安全、标准化地调用。
+"""
 
 class LLMToolParameter(TypedDict):
     type: str

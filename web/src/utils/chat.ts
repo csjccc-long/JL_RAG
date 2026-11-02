@@ -60,26 +60,25 @@ export const buildMessageUuidWithRole = (
 
 // Preprocess LaTeX equations to be rendered by KaTeX
 // ref: https://github.com/remarkjs/react-markdown/issues/785
-//
-// Delimiter matching: we only treat \] and \) as block/inline endings when they
-// are not part of a LaTeX command (e.g. \right], \big), \left)). Use a negative
-// lookbehind (?<![a-zA-Z]) so that \] or \) preceded by a letter (command name)
-// is not considered the closing delimiter. Use greedy matching so we match up to
-// the last valid delimiter and avoid cutting at the first \] or \) inside the
-// equation (e.g. \frac{1}{|y|} or \right]).
-
-const BLOCK_MATH_RE = /\\\[([\s\S]*?)(?<![a-zA-Z])\\\]/g;
-const INLINE_MATH_RE = /\\\(([\s\S]*?)(?<![a-zA-Z])\\\)/g;
+// Closing math delimiters are the two-character sequences \] and \). A bare
+// parenthesis or bracket in a command such as \right] or \big) is not a close
+// delimiter because it is not preceded by a backslash.
+const BLOCK_MATH_RE = /\\\[([\s\S]*?)\\\]/g;
+const INLINE_MATH_RE = /\\\(([\s\S]*?)\\\)/g;
 
 export const preprocessLaTeX = (content: string) => {
-  const normalizedContent = content
-    .replace(/\\\\\[/g, '\\[')
-    .replace(/\\\\\(/g, '\\(')
-    .replace(/\\\\\]/g, '\\]')
-    .replace(/\\\\\)/g, '\\)')
+  const decodedContent = content
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&');
+  const hasDoubleEscapedBlock =
+    /\\\\\[/.test(decodedContent) && /\\\\\]/.test(decodedContent);
+  const hasDoubleEscapedInline =
+    /\\\\\(/.test(decodedContent) && /\\\\\)/.test(decodedContent);
+  const normalizedContent =
+    hasDoubleEscapedBlock || hasDoubleEscapedInline
+      ? decodedContent.replace(/\\\\/g, '\\')
+      : decodedContent;
 
   const blockProcessedContent = normalizedContent.replace(
     BLOCK_MATH_RE,

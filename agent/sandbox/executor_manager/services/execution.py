@@ -26,6 +26,55 @@ from models.enums import ResourceLimitType, ResultStatus, RuntimeErrorType, Supp
 from models.schemas import ArtifactItem, CodeExecutionRequest, CodeExecutionResult, ExecutionStructuredResult
 from utils.common import async_run_command
 
+
+
+"""
+1. 构造执行环境
+它会把请求里的代码和参数整理成一个临时工作目录，生成：
+
+main.py 或 main.js
+runner.py 或 runner.js
+args.json
+然后把这些文件复制到沙箱容器中的 /workspace/{task_id} 目录里。
+
+这一步就是把“用户代码 + 参数”准备成可以执行的程序。
+
+2. 分配沙箱容器
+
+它会从容器池中拿到一个可用容器，确保代码不是直接在宿主机上跑，而是在隔离环境中跑。
+
+3. 运行代码
+
+它会在容器内执行代码，使用 timeout 限制最大运行时间，防止脚本卡死或无限循环。
+
+4. 提取结构化结果
+
+代码运行后，很多时候会输出特定的结果标记，例如 __RAGFLOW_RESULT__:，这个模块会识别并解析成结构化对象，比如 JSON result，然后返回给上层。
+
+也就是说，它不仅拿 stdout，还会把返回值整理为标准结构。
+
+5. 处理资源限制和错误
+它会区分几类问题：
+
+超时
+内存超限
+权限不足
+非零退出
+非法系统调用
+程序错误
+并返回不同的状态，例如：
+
+RESOURCE_LIMIT_EXCEEDED
+UNAUTHORIZED_ACCESS
+PROGRAM_ERROR
+SUCCESS
+6. 收集 artifacts
+
+如果代码生成了图片、CSV、JSON、PDF 等文件，它还会把这些 artifact 读取出来，打包进返回结果里。
+
+这很适合“代码生成图表、CSV、HTML 报告”这种场景。
+"""
+
 RESULT_MARKER_PREFIX = "__RAGFLOW_RESULT__:"
 
 

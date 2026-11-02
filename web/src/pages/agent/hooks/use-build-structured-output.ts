@@ -60,9 +60,9 @@ export function useFindAgentStructuredOutputLabel() {
     (
       value: string,
       options: Array<{
-        label: string;
+        label: ReactNode;
         value: string;
-        parentLabel?: string | ReactNode;
+        parentLabel?: ReactNode;
         icon?: ReactNode;
       }>,
     ) => {
@@ -80,7 +80,9 @@ export function useFindAgentStructuredOutputLabel() {
 
         return {
           ...agentOption,
-          label: (agentOption?.label ?? '') + jsonSchemaFields,
+          label:
+            (typeof agentOption?.label === 'string' ? agentOption.label : '') +
+            jsonSchemaFields,
           value: value,
         };
       }

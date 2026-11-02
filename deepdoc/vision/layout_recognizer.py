@@ -28,7 +28,50 @@ from huggingface_hub import snapshot_download
 from common.file_utils import get_project_base_directory
 from deepdoc.vision import Recognizer
 from deepdoc.vision.operators import nms
+"""
+1. 识别页面元素类型
+它定义了这些布局标签：
 
+Text
+Title
+Figure
+Figure caption
+Table
+Table caption
+Header
+Footer
+Reference
+Equation
+也就是说，它把页面分成结构化区域，而不是简单地把整页看成一大段文字。
+
+2. 结合 OCR 结果
+__call__() 里，它会拿到：
+
+图片列表
+OCR 识别结果 ocr_res
+然后把每个 OCR box 和页面布局框做匹配。
+
+###如果一个文字块落在某个“Figure / Table / Title / Footer”区域里，就给它打上 layout_type，这样后续处理知道它属于什么结构。
+
+3. 过滤噪声与无效区域
+它会特别处理：
+
+页眉页脚
+引用区
+乱码字符
+重复垃圾文本
+例如 garbage_layouts = ["footer", "header", "reference"]，说明这些区域往往不适合当正文内容。
+
+4. 为后续分块做准备
+最终输出的 ocr_res 会带上：
+
+layout_type
+layoutno
+这些标签就是后续分块、去噪、表格/图像处理的关键依据。
+也就是说，这个模块是“布局语义标注层”，它为后续的 chunker 和 rag pipeline 提供结构信息。
+
+
+"""
 
 class LayoutRecognizer(Recognizer):
     labels = [

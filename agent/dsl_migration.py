@@ -17,6 +17,39 @@
 import copy
 import re
 
+"""
+职责是把“老版本的 DSL（描述工作流/组件图的配置）”迁移成“当前版本可执行的 DSL 结构”。
+
+它主要做 3 件事：
+
+组件名重命名
+
+例如把旧组件名：
+“Splitter” → “TokenChunker”
+“HierarchicalMerger” → “TitleChunker”
+“PDFGenerator” → “DocGenerator”
+同时修正节点类型：
+“splitterNode” → “chunkerNode”
+组件 ID 迁移
+
+如果旧 DSL 里的组件 ID 是类似 “Splitter:xxx”，会改成新形式 “TokenChunker:xxx”
+并把这些新旧 ID 的映射同步更新到：
+downstream / upstream
+parent_id
+path
+graph.nodes
+graph.edges
+变量引用修正
+
+例如旧写法中的引用变量会被重新映射到新的组件 ID
+这个逻辑是通过正则匹配来处理的，确保 DSL 里引用的节点名和实际节点 ID 一致
+设计意图
+这个函数本质上是一个“纯迁移工具”，它不会修改业务参数，只负责“结构层面的兼容和升级”。也就是说，它主要解决的是：
+
+旧配置能否继续解析
+组件名和节点 id 是否匹配新运行时
+图连接关系是否仍然正确
+"""
 
 # Keep all legacy chunker renames in one place so the migration rule stays readable.
 COMPONENT_RENAMES = {

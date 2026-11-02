@@ -19,7 +19,10 @@ import time
 from abc import ABC
 from agent.tools.base import ToolMeta, ToolParamBase, ToolBase
 from common.connection_utils import timeout
-
+"""
+它让 Agent 能直接“查询股票新闻”，而不需要手写 HTTP 请求或复杂清洗逻辑。
+也就是说，它把外部服务中的数据转换成 Agent 可以直接消费的标准输出。
+"""
 
 class AkShareParam(ToolParamBase):
     """

@@ -7,12 +7,12 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
-import { IChunk } from '@/interfaces/database/dataset';
 import { sanitizeHtmlWithImagesAsText } from '@/utils/dom-util';
 import { CheckedState } from '@radix-ui/react-checkbox';
 import classNames from 'classnames';
 import { useEffect, useState } from 'react';
 import { ChunkTextMode } from '../../constant';
+import { IChunk } from '@/interfaces/database/dataset';
 import styles from './index.module.less';
 
 interface IProps {
@@ -22,7 +22,7 @@ interface IProps {
   editChunk: (chunkId: string) => void;
   handleCheckboxClick: (chunkId: string, checked: boolean) => void;
   selected: boolean;
-  clickChunkCard: (chunkId: string) => void;
+  clickChunkCard: (chunk: IChunk) => void;
   textMode: ChunkTextMode;
 }
 
@@ -53,7 +53,7 @@ const ChunkCard = ({
   };
 
   const handleContentClick = () => {
-    clickChunkCard(item.chunk_id);
+    clickChunkCard(item);
   };
 
   useEffect(() => {

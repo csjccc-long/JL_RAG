@@ -28,7 +28,16 @@ from api.db.joint_services.tenant_model_service import get_composite_model_name_
 from common.constants import MAXIMUM_PAGE_NUMBER, MAXIMUM_TASK_PAGE_NUMBER
 from common.parser_config_utils import normalize_layout_recognizer
 
-
+"""
+这是一个朴素（Naive）文档解析与切分模块，核心策略是一个文件只生成一个 chunk，
+不做复杂的层级树构建或 section 分组，
+而是将整个文档解析后的所有文本（包括表格转 HTML、图片视觉增强后的文字）按原始阅读顺序拼接成一个整体。
+它支持 docx、pdf、xlsx、txt、html、doc 等多种格式，
+其中 PDF 通过 OCR、布局分析（drop=False 保留所有内容）、表格识别和按页码/坐标排序来还原文档顺序，
+DOCX 则区分文本、图片、表格三种类型并做视觉增强，
+最终统一用 tokenize 将拼接后的完整文本生成一个带文件名和标题分词的 chunk 字典。
+该模块适用于不需要精细结构切分、只需保持文档整体语义完整性的场景。
+"""
 logger = logging.getLogger(__name__)
 
 
@@ -121,16 +130,15 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             callback=callback,
             pdf_cls=Pdf,
             layout_recognizer=layout_recognizer,
-            mineru_llm_name=parser_model_name,
-            mistral_ocr_llm_name=parser_model_name,
             paddleocr_llm_name=parser_model_name,
+            somark_llm_name=parser_model_name,
             **kwargs,
         )
 
         if not sections and not tbls:
             return []
 
-        if name in ["tcadp", "docling", "mineru", "paddleocr"]:
+        if name in ["paddleocr", "somark"]:
             parser_config["chunk_token_num"] = 0
 
         callback(0.8, "Finish parsing.")

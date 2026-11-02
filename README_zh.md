@@ -94,7 +94,7 @@
 - 2025-12-26 支持 AI 代理的"记忆"功能。
 - 2025-11-19 支持 Gemini 3 Pro。
 - 2025-11-12 支持从 Confluence、S3、Notion、Discord、Google Drive 进行数据同步。
-- 2025-10-23 支持 MinerU 和 Docling 作为文档解析方法。
+- 2025-10-23 支持 DeepDoc、PaddleOCR 和 SoMark 作为文档解析方法。
 - 2025-10-15 支持可编排的数据管道。
 - 2025-08-08 支持 OpenAI 最新的 GPT-5 系列模型。
 - 2025-08-01 支持 agentic workflow 和 MCP。

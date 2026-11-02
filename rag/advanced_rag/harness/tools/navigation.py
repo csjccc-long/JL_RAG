@@ -1,20 +1,13 @@
-"""Navigation tools: document catalog and concept mindmap.
+"""导航工具：文档目录和概念思维导图。
 
-Both answer from a document's *compiled structure* rather than going straight to
-retrieval: they read the compiled entities+relations for the documents in scope,
-let the chat model answer from that outline, and pull the underlying chunks back
-via each relevant entity's ``source_chunk_ids``.
+两者均基于文档的编译结构进行回答，而非直接进行检索：它们读取当前文档范围内已编译的实体和关系，让聊天模型根据该大纲作答，并通过每个相关实体的 source_chunk_ids 回溯对应的底层文本块。
 
-Knowledge compilation writes every template kind into the same graph rows
-(``{"entities": [...], "relations": [...]}``), so the two tools share one
-implementation and differ only in which *kinds* they read:
+知识编译会将每种模板类型写入相同的图行（{"entities": [...], "relations": [...]}），因此这两个工具共用一套实现，区别仅在于它们读取的类型不同：
 
-* ``ontology_navigate`` — the document's layout: tree / TOC, page index, RAPTOR.
-* ``mindmap_navigate`` — the concept mindmap.
+ontology_navigate —— 文档的布局：树形结构 / 目录、页码索引、RAPTOR。
+mindmap_navigate —— 概念思维导图。
 
-Both take the same ``keywords`` the search tools do — keywords drive query
-expansion and the keyword-sentence narrowing; without them navigation would hand
-back full, un-narrowed chunks.
+两者接受与搜索工具相同的 keywords —— 关键词用于驱动查询扩展和关键词-句子范围限定；如果没有关键词，导航将返回完整的、未经范围限定的文本块。
 """
 
 import json
@@ -23,6 +16,103 @@ import re
 
 import json_repair
 
+
+"""
+navigation.py 的作用，是在 RAG 流程里做“结构化导航和证据定位”：
+它利用编译后的文档目录、mindmap、树状结构和知识图，先找到最相关的节点，再回到原始 chunk，把答案或证据筛出来。
+
+
+1. 文档编译结构导航
+主要函数：
+
+ontology_navigate
+mindmap_navigate
+它们的思路是：
+
+先读取某个文档的 compiled structure
+结构可能包括：
+tree
+page index
+timeline
+mindmap
+raptor
+然后让模型判断：这些实体/关系里，哪些更可能回答当前问题
+再返回与这些实体关联的原始 chunk
+所以它更偏“从文档结构中归纳答案 + 取证据”，不是直接全文匹配。
+
+2. 数据集导航 / 文档路由
+还有一组更偏系统层的函数：
+
+dataset_navigation_by_tree
+dataset_navigation_search
+它们用于：
+
+在一个知识库里快速判断“这个问题应该落在哪个文档/哪个目录节点上”
+先用树结构或导航结果做粗筛
+再调用内容召回 fallback 兜底
+也就是把“全量知识库”缩小到“最可能相关的一组文档”。
+
+3. 知识图探索
+函数：
+
+graph_explore
+这是更高级的一种导航方式。它会：
+
+从知识图里找到和问题最相关的种子实体
+沿关系向外扩展一跳或两跳
+形成一个小型子图
+让模型判断这个子图是否已足够回答问题
+如果不够，再返回与相关实体/关系绑定的 source chunks
+这相当于“从图谱结构里做多跳解释”。
+
+4. 结构渲染 + LLM 判定
+关键函数：
+
+_render_structure
+_ask_structure
+_ask_nav_select
+它们作用是把复杂的实体/关系结构转成一个可读的 prompt，交给大模型判断：
+
+这个结构是否已经足够回答问题
+哪些实体最相关
+是否返回答案，还是返回证据
+这让导航不是机械规则，而是“结构化上下文 + 模型判定”。
+
+关键设计点
+1. 先看结构，后看正文
+这个模块的核心思想不是“直接搜全文”，而是：
+
+先从文档编译后的结构中定位关键节点
+再回到原始 chunk 取实证
+这样能显著减少噪声。
+
+2. 以“实体/关系”为中心
+在导航和图探索中，核心对象不是整段文本，而是：
+
+entity
+relation
+source_chunk_ids
+也就是：
+“某个概念在哪些 chunk 里被提到，哪些 chunk 是它的来源”。
+
+3. 带降级回退
+例如树导航失败时，会 fallback 到内容召回：
+
+_content_recall_docs
+说明这个模块不是绝对依赖结构层，而是“结构导航 + 内容召回”的组合策略。
+
+4. 限制规模
+模块里大量使用了容量上限，例如：
+
+_MAX_ENTITIES = 300
+_MAX_RELATIONS = 300
+_MAX_EVIDENCE_CHUNKS = 24
+这是为了：
+
+防止 prompt 过长
+让 LLM 只看到最相关的结构
+保持推理稳定
+"""
 _LOG = logging.getLogger(__name__)
 
 # Compiled-structure kinds that describe a document's *layout*: a tree/outline

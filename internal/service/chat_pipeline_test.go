@@ -1109,20 +1109,8 @@ func TestExpectedDocNameColumn(t *testing.T) {
 	if got := expectedDocNameColumn("infinity"); got != "docnm" {
 		t.Errorf("infinity = %q, want docnm", got)
 	}
-	if got := expectedDocNameColumn("oceanbase"); got != "docnm_kwd" {
-		t.Errorf("oceanbase = %q, want docnm_kwd", got)
-	}
-	if got := expectedDocNameColumn("seekdb"); got != "docnm_kwd" {
-		t.Errorf("seekdb = %q, want docnm_kwd", got)
-	}
 	if got := expectedDocNameColumn("elasticsearch"); got != "docnm_kwd" {
 		t.Errorf("elasticsearch = %q, want docnm_kwd", got)
-	}
-	if got := expectedDocNameColumn("opensearch"); got != "docnm_kwd" {
-		t.Errorf("opensearch = %q, want docnm_kwd", got)
-	}
-	if got := expectedDocNameColumn("unknown"); got != "docnm_kwd" {
-		t.Errorf("unknown = %q, want docnm_kwd", got)
 	}
 }
 

@@ -19,7 +19,14 @@ import os
 import PIL
 from PIL import ImageDraw
 
+"""
+一个检测结果可视化工具，不负责模型推理或 OCR。它把识别器输出的区域框、类别和置信度画到图片上，并保存结果，方便开发者检查模型检测效果。
 
+save_results()：遍历图片和对应的检测结果，绘制标注后保存为 output_dir/0.jpg、1.jpg 等文件。
+draw_box()：按置信度阈值筛选结果，在图片上画边框，并标注类别和分数。
+get_color_map_list()：为不同类别生成颜色。
+imagedraw_textsize_c()：兼容不同版本 Pillow 的文字尺寸计算接口。
+"""
 def save_results(image_list, results, labels, output_dir="output/", threshold=0.5):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)

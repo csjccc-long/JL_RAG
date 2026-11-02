@@ -49,10 +49,6 @@ export interface IParserConfig {
   image_table_context_window?: number;
   image_context_size?: number;
   table_context_size?: number;
-  mineru_parse_method?: 'auto' | 'txt' | 'ocr';
-  mineru_formula_enable?: boolean;
-  mineru_table_enable?: boolean;
-  mineru_lang?: string;
   entity_types?: string[];
   metadata?: Array<{
     key?: string;

@@ -167,10 +167,13 @@ export const useGetPagination = (options?: { pageSize?: number }) => {
   const { t } = useTranslate('common');
 
   const onPageChange: Pagination['onChange'] = useCallback(
-    (pageNumber: number, pageSize: number) => {
-      setPagination({ page: pageNumber, pageSize });
+    (pageNumber: number, nextPageSize?: number) => {
+      setPagination({
+        page: pageNumber,
+        pageSize: nextPageSize ?? pagination.pageSize,
+      });
     },
-    [],
+    [pagination.pageSize],
   );
 
   const currentPagination: Pagination = useMemo(() => {
@@ -710,9 +713,9 @@ export const useRemoveMessagesAfterCurrentMessage = (
   const removeMessagesAfterCurrentMessage = useCallback(
     (messageId: string) => {
       setCurrentConversation((pre) => {
-        const index = pre.message?.findIndex((x) => x.id === messageId);
+        const index = pre.messages?.findIndex((x) => x.id === messageId);
         if (index !== -1) {
-          let nextMessages = pre.message?.slice(0, index + 2) ?? [];
+          let nextMessages = pre.messages?.slice(0, index + 2) ?? [];
           const latestMessage = nextMessages.at(-1);
           nextMessages = latestMessage
             ? [
@@ -727,7 +730,7 @@ export const useRemoveMessagesAfterCurrentMessage = (
             : nextMessages;
           return {
             ...pre,
-            message: nextMessages,
+            messages: nextMessages,
           };
         }
         return pre;

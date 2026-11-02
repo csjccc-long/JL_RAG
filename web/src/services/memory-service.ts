@@ -40,6 +40,7 @@ const methods = {
     method: 'get',
   },
   deleteMemory: { url: deleteMemory, method: 'delete' },
+  getMemoryDetail: { url: getMemoryDetail, method: 'get' },
   getMemoryConfig: {
     url: getMemoryConfig,
     method: 'get',

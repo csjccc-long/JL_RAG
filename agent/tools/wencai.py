@@ -23,7 +23,9 @@ import pandas as pd
 from agent.tools.base import ToolParamBase, ToolMeta, ToolBase
 from common.connection_utils import timeout
 
-
+"""
+“让 Agent 能按条件筛选金融对象（如股票、基金、指数），并输出可读的筛选结果文本，适合量化分析和金融决策支持。”
+"""
 class WenCaiParam(ToolParamBase):
     """
     Define the WenCai component parameters.

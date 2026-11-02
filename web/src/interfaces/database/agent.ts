@@ -208,6 +208,49 @@ export interface IAgentForm {
   };
 }
 
+export type AgentTeamProcess =
+  | 'sequential'
+  | 'hierarchical'
+  | 'parallel'
+  | 'vote'
+  | 'debate'
+  | 'consensus';
+
+export interface IAgentTeamAgentConfig {
+  params: Record<string, any>;
+}
+
+export interface IAgentTeamWorker {
+  id: string;
+  name?: string;
+  role?: string;
+  capabilities?: string[];
+  description?: string;
+  agent: IAgentTeamAgentConfig;
+}
+
+export interface IAgentTeamTask {
+  worker: string;
+  task: string;
+  context?: string;
+  expected_output: string;
+}
+
+export interface IAgentTeamForm {
+  process: AgentTeamProcess;
+  manager: IAgentTeamAgentConfig | Record<string, never>;
+  workers: IAgentTeamWorker[];
+  tasks: IAgentTeamTask[];
+  max_concurrency: number;
+  collaboration_rounds: number;
+  judge: string;
+  max_delegations: number;
+  max_depth: number;
+  worker_timeout: number;
+  custom_header: Record<string, unknown>;
+  outputs: Record<string, { type: string; value?: unknown }>;
+}
+
 export type BaseNodeData<TForm = any> = {
   label: string; // operator type
   name: string; // operator name
@@ -238,6 +281,7 @@ export type IKeywordNode = BaseNode;
 export type ICodeNode = BaseNode<ICodeForm>;
 export type IAgentNode = BaseNode;
 export type IToolNode = BaseNode<IAgentForm>;
+export type IAgentTeamNode = BaseNode<IAgentTeamForm>;
 
 export type RAGFlowNodeType =
   | IBeginNode
@@ -258,6 +302,10 @@ export type RAGFlowNodeType =
   | IIterationStartNode
   | IKeywordNode;
 
+export type RAGFlowNodeTypeWithAgentTeam =
+  | RAGFlowNodeType
+  | IAgentTeamNode;
+
 export interface IGraph {
   nodes: RAGFlowNodeType[];
   edges: Edge[];
@@ -270,6 +318,7 @@ export interface ITraceData {
 
 export interface IAgentLogResponse {
   id: string;
+  is_new?: boolean;
   message: IAgentLogMessage[];
   update_date: string;
   create_date: string;

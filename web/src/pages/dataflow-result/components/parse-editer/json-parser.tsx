@@ -4,7 +4,7 @@ import { isArray } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ChunkTextMode } from '../../constant';
 import styles from '../../index.module.less';
-import { IChunk } from '../../interface';
+import { IChunk } from '@/interfaces/database/dataset';
 import { useParserInit } from './hook';
 import { IJsonContainerProps } from './interface';
 export const parserKeyMap = {
@@ -40,7 +40,7 @@ export const ArrayContainer = (props: IJsonContainerProps) => {
   }, [content]);
 
   const handleEdit = useCallback(
-    (e?: any, index?: number) => {
+    (index?: number) => {
       setActiveEditIndex(index);
     },
     [setActiveEditIndex],
@@ -164,11 +164,11 @@ export const ArrayContainer = (props: IJsonContainerProps) => {
                     },
                   )}
                   key={index}
-                  onClick={(e) => {
+                  onClick={() => {
                     clickChunk(item as unknown as IChunk);
                     console.log('clickChunk', item, index);
                     if (!isReadonly) {
-                      handleEdit(e, index);
+                      handleEdit(index);
                     }
                   }}
                 >

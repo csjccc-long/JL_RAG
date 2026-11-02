@@ -44,6 +44,7 @@ interface IProps {
   formFieldName: string;
   isMult?: boolean;
   setDataList?: (data: IDataPipelineSelectNode[]) => void;
+  toDataPipeline?: () => void;
   layout?: FormLayout;
 }
 
@@ -53,6 +54,7 @@ export function DataFlowSelect(props: IProps) {
     formFieldName,
     isMult = false,
     setDataList,
+    toDataPipeline,
     layout = FormLayout.Vertical,
   } = props;
 
@@ -60,7 +62,7 @@ export function DataFlowSelect(props: IProps) {
   const form = useFormContext();
   const { navigateToAgents } = useNavigatePage();
   const toDataPipLine = () => {
-    navigateToAgents();
+    (toDataPipeline ?? navigateToAgents)();
   };
   const { data: dataPipelineOptions } = useFetchAgentList({
     canvas_category: AgentCategory.DataflowCanvas,

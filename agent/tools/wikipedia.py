@@ -21,7 +21,9 @@ import wikipedia
 from agent.tools.base import ToolMeta, ToolParamBase, ToolBase
 from common.connection_utils import timeout
 
-
+"""
+“让 Agent 能直接从 Wikipedia 搜索并读取某个主题的简介摘要，用于通用知识、人物介绍、历史事件等背景信息检索。”
+"""
 class WikipediaParam(ToolParamBase):
     """
     Define the Wikipedia component parameters.

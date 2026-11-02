@@ -17,12 +17,12 @@ _DOC_SCOPE_CONSUMERS = {"ontology_navigate", "mindmap_navigate", "graph_explore"
 
 
 class Pipeline:
-    """Unified tool execution layer.
+    """统一的工具执行层。
 
-    - execute(tool_name, **kwargs): dispatch to registered tool, normalize result
-    - available_tools(mode_tools): return LLM-visible tool definitions (compilation-filtered)
-    - get_chunks(evidence_ids): retrieve raw chunks for sufficiency cross-check
-    - trace: execution history for auditing
+    execute(tool_name, **kwargs)：分发到已注册的工具，规范化结果
+    available_tools(mode_tools)：返回对LLM可见的工具定义（经编译过滤）
+    get_chunks(evidence_ids)：检索原始文本块以进行充分性交叉检查
+    trace：用于审计的执行历史记录
     """
 
     def __init__(self, rag_tools, compilation_map: dict[str, set[str]] | None = None):

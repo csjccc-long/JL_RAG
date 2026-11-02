@@ -19,13 +19,13 @@ from common.http_client import sync_request
 from .oauth import OAuthClient
 
 
-# Asymmetric signing algorithms safe to accept for OIDC ID tokens.
-# Symmetric HMAC algorithms (HS*) are intentionally excluded — when the
-# verification key is the asymmetric public key fetched from the provider's
-# JWKS (as it is for every OIDC ID token), accepting HS256 lets an attacker
-# forge tokens by HMAC-signing them with the public key bytes
-# (RSA/HMAC algorithm-confusion attack, CWE-347). "none" is excluded for the
-# obvious reason that it disables signature verification entirely.
+#用于 OIDC ID 令牌的安全非对称签名算法
+# 对称 HMAC 算法（HS*）被有意排除——当验证密钥是从提
+# 供者的 JWKS 获取的非对称公钥时（所有 OIDC ID 令牌都是
+# 如此），接受 HS256 会让攻击者利用公钥字节通过 HMAC
+# 签名伪造令牌（RSA/HMAC 算法混淆攻击，CWE-347）。
+# “none” 被排除的原因显而易见：它会完全禁用签名验证。
+
 _ALLOWED_OIDC_SIGNING_ALGS = frozenset(
     {
         "RS256",
@@ -41,23 +41,19 @@ _ALLOWED_OIDC_SIGNING_ALGS = frozenset(
     }
 )
 
-# OIDC Core 1.0 § 2 makes RS256 the spec-default ``id_token_signing_alg``,
-# so this is the safe fallback when a provider's discovery document does not
-# advertise ``id_token_signing_alg_values_supported`` (or advertises only
-# algorithms outside the safe allowlist).
+# OIDC Core 1.0 § 2 将 RS256 指定为规范默认的 id_token_signing_alg，
+# 因此当提供方的发现文档未公布 id_token_signing_alg_values_supported（或仅公
+# 布了安全允许列表之外的算法）时，
+# 这是一个安全的回退选择。
 _DEFAULT_OIDC_SIGNING_ALGS = ("RS256",)
 
 
 def _resolve_id_token_signing_algs(metadata):
-    """Return the algorithms to pass to ``jwt.decode(..., algorithms=...)``.
+    """返回要传递给 jwt.decode(..., algorithms=...) 的算法列表。
 
-    Intersects the provider-advertised
-    ``id_token_signing_alg_values_supported`` with
-    :data:`_ALLOWED_OIDC_SIGNING_ALGS`. Falls back to
-    :data:`_DEFAULT_OIDC_SIGNING_ALGS` when the provider does not advertise
-    the field or advertises only algorithms outside the safe allowlist —
-    crucially, the fallback is to RS256, **never** to whatever the JWT
-    header claims at verification time.
+        该函数会取提供方声明的 id_token_signing_alg_values_supported 与 :
+        data:_ALLOWED_OIDC_SIGNING_ALGS 的交集。当提供方未声明该字段，或声明的算法全部不在安全允许列表内时，将回退到 :
+        data:_DEFAULT_OIDC_SIGNING_ALGS —— 关键在于，回退算法为 RS256，绝不是验证时 JWT 头部所声称的任何算法。
     """
     advertised = metadata.get("id_token_signing_alg_values_supported") or []
     if not isinstance(advertised, (list, tuple)):
@@ -69,8 +65,7 @@ def _resolve_id_token_signing_algs(metadata):
 class OIDCClient(OAuthClient):
     def __init__(self, config):
         """
-        Initialize the OIDCClient with the provider's configuration.
-        Use `issuer` as the single source of truth for configuration discovery.
+        使用 issuer 作为配置发现的唯一可信源，以此初始化 OIDCClient 和提供商配置。
         """
         self.issuer = config.get("issuer")
         if not self.issuer:
@@ -90,16 +85,16 @@ class OIDCClient(OAuthClient):
         super().__init__(config)
         self.issuer = config["issuer"]
         self.jwks_uri = config["jwks_uri"]
-        # Pin the accepted ID-token signing algorithms at construction time
-        # from a trusted source (provider metadata + safe allowlist) so the
-        # JWT verification step in :meth:`parse_id_token` cannot be tricked
-        # by attacker-controlled JWT headers (CWE-345 / CWE-347).
+        # 在构造时固定已接受的 ID 令牌签名算法
+        # 从可信来源（提供者元数据 + 安全允许列表）获取，以便
+        # :meth:parse_id_token 中的 JWT 验证步骤不会被
+        # 攻击者控制的 JWT 头部所欺骗（CWE-345 / CWE-347）
         self.id_token_signing_algs = _resolve_id_token_signing_algs(oidc_metadata)
 
     @staticmethod
     def _load_oidc_metadata(issuer):
         """
-        Load OIDC metadata from `/.well-known/openid-configuration`.
+        从 `/.well-known/openid-configuration` 加载 OIDC 元数据。
         """
         try:
             metadata_url = f"{issuer}/.well-known/openid-configuration"
@@ -111,26 +106,23 @@ class OIDCClient(OAuthClient):
 
     def parse_id_token(self, id_token):
         """
-        Parse and validate OIDC ID Token (JWT format) with signature verification.
+        解析并验证 OIDC ID Token (JWT 格式) 与签名验证。
 
-        The accepted signing algorithms come from ``self.id_token_signing_algs``
-        (pinned at construction time from the provider's discovery metadata,
-        intersected with :data:`_ALLOWED_OIDC_SIGNING_ALGS`). We deliberately
-        do **not** read the algorithm from the unverified JWT header — doing
-        so would let an attacker bypass signature verification by setting
-        ``"alg": "none"`` or pull off the classic RSA / HMAC algorithm
-        confusion by setting ``"alg": "HS256"`` and signing with the public
-        key fetched from the provider's JWKS (CWE-345 / CWE-347).
+        接受的签名算法来自 ``self.id_token_signing_algs``
+        (在构造时从提供商的发现元数据中固定，
+        与 :data:`_ALLOWED_OIDC_SIGNING_ALGS` 取交集)。我们故意
+        不从未经验证的 JWT 头部读取算法 —— 这样做会让攻击者通过设置
+        ``"alg": "none"`` 来绕过签名验证，或者通过设置 ``"alg": "HS256"``
+        并使用从提供商 JWKS 获取的公钥进行签名来制造经典的 RSA / HMAC 算法
+        混淆 (CWE-345 / CWE-347)。
         """
         try:
-            # Use PyJWT's PyJWKClient to fetch JWKS and find signing key.
-            # The client reads the ``kid`` from the JWT header internally to
-            # look up the key — that's fine: ``kid`` is not a security
-            # decision, the signature still proves which key was used.
+            # 使用 PyJWT 的 PyJWKClient 来获取 JWKS 并查找签名密钥。
+            # 客户端会从 JWT 头部内部读取 ``kid`` 来查找密钥 —— 这是没问题的：``kid`` 不是安全决策，签名仍然证明了使用了哪个密钥。
             jwks_cli = jwt.PyJWKClient(self.jwks_uri)
             signing_key = jwks_cli.get_signing_key_from_jwt(id_token).key
 
-            # Decode and verify signature against the pinned allowlist.
+            # 解码并根据固定的允许列表验证签名。
             decoded_token = jwt.decode(
                 id_token,
                 key=signing_key,
@@ -144,7 +136,7 @@ class OIDCClient(OAuthClient):
 
     def fetch_user_info(self, access_token, id_token=None, **kwargs):
         """
-        Fetch user info.
+        获取用户信息。
         """
         user_info = {}
         if id_token:

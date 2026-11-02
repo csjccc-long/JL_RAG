@@ -17,24 +17,18 @@ The current page supports the following `Provider` options:
 | `Local` | Execute code directly in the current host process. |
 | `Self-Managed` | Use Daytona or Docker for localized deployment. |
 | `SSH` | Execute code on a remote machine through SSH. |
-| `AliyunCodeInterpreter` | Use Alibaba Cloud Function Compute Code Interpreter. |
-| `E2B` | Use E2B Cloud Code Execution Sandboxes. |
-| `UCloud Agent Sandbox` | Run code in disposable UCloud cloud sandboxes. |
 
 After selecting a `Provider`, the page displays the corresponding configuration area.
 
 ![Select Sandbox Provider](https://raw.githubusercontent.com/infiniflow/ragflow-docs/main/images/select_sandbox_provider.jpg)
 
-**Caution:** Sandbox configuration affects not only connection availability, but also code isolation, network access, file access, and runtime resource limits. In production environments, prefer `Self-Managed`, cloud, or independent remote execution solutions with isolation capabilities. Direct use of `Local` is not recommended.
+**Caution:** Sandbox configuration affects not only connection availability, but also code isolation, network access, file access, and runtime resource limits. In production environments, prefer `Self-Managed` or `SSH` execution with isolation capabilities. Direct use of `Local` is not recommended.
 
 | Provider | Applicable scenario | Main characteristics | Recommendation |
 | --- | --- | --- | --- |
 | `Local` | Local development and functional debugging | Runs code directly on the current host and is easy to configure. | Recommended only for controlled development and test environments. |
 | `Self-Managed` | Enterprise intranet and private deployment | Uses a self-managed sandbox service to execute code. Data and runtime environments can be controlled independently. | Suitable for production environments and scenarios with high data security requirements. |
 | `SSH` | Existing independent execution servers | Executes code on a remote host through SSH. | Suitable for reusing existing servers or custom runtime environments. |
-| `AliyunCodeInterpreter` | Alibaba Cloud-related services | Uses a cloud service to provide the code execution environment, making elastic scaling easier. | Suitable for organizations already using the corresponding cloud service. |
-| `E2B` | Fast access to a cloud sandbox | Executes code in an isolated environment provided by E2B. | Suitable for scenarios that need quick use without deployment. |
-| `UCloud Agent Sandbox` | UCloud-hosted agent workloads | Creates a disposable sandbox from a template containing Python and Node.js. | Suitable for teams using UCloud or needing managed sandboxes in China or North America. |
 
 ## Test and Save Configuration
 
@@ -121,62 +115,3 @@ The system supports `Password` and `PrivateKey` authentication.
 | `Timeout (seconds)` | Maximum runtime for a single code execution. | The default is 30 seconds. Increase it when execution takes longer. |
 
 Make sure the remote server has SSH enabled and allows the current user to log in. The configured user must have read and write permissions on the remote working directory and be able to execute Python, Node.js, and other runtime environments. When using private-key authentication, make sure the private key matches the server configuration.
-
-## Alibaba Cloud CodeInterpreter Configuration
-
-Alibaba Cloud `CodeInterpreter` configuration connects to Alibaba Cloud CodeInterpreter. The system executes code tasks through this service.
-
-1. Go to **AliyunCodeInterpreter Configuration**.
-2. Fill in the connection information for Alibaba Cloud CodeInterpreter.
-3. Click **Test connection** to test whether the connection is normal.
-4. After the test succeeds, click **Save**.
-
-| Parameter | Description | Recommendation |
-| --- | --- | --- |
-| `AccessKeyID` | Alibaba Cloud account `AccessKeyID` for authentication. | Enter an `AccessKeyID` with access to the CodeInterpreter service. |
-| `AccessKeySecret` | Secret corresponding to `AccessKeyID`. | Enter the corresponding `AccessKeySecret` and keep it secure to avoid leakage. |
-| `AccountID` | Alibaba Cloud account ID. | Enter the current Alibaba Cloud account ID. |
-| `Region` | Region where the CodeInterpreter service is located. | Enter the actual deployment region, such as `cn-hangzhou`. |
-| `TemplateName` | Template name used by CodeInterpreter. | Enter the created template name, such as `my-interpreter`. |
-| `ExecutionTimeout (seconds)` | Maximum runtime allowed for a single code execution. | The default is 30 seconds. Adjust according to business needs. |
-
-## E2B Configuration
-
-`E2B` configuration connects to the E2B Cloud code execution service. After configuration, the system executes code tasks through the E2B cloud sandbox.
-
-1. Go to **E2B**.
-2. Fill in the E2B service connection information.
-3. Click **Test connection** to test whether the connection is normal.
-4. After the test succeeds, click **Save**.
-
-| Parameter | Description | Recommendation |
-| --- | --- | --- |
-| `API Key` | API key provided by E2B Cloud for authentication. | Log in to the E2B platform, create the corresponding API key, and enter it. |
-| `Region` | Region where the E2B service is located. | Enter the actual region, such as `us`. |
-| `Request Timeout (seconds)` | Timeout for requests to the E2B service. | The default is 30 seconds. Increase it if the network is slow or execution takes longer. |
-
-## UCloud Agent Sandbox Configuration
-
-`UCloud Agent Sandbox` creates a fresh cloud sandbox for each code execution and destroys it when execution finishes. RAGFlow uses UCloud's native SDK and supports Python and JavaScript with the built-in `base` template.
-
-1. Obtain an API key from [UCloud ModelVerse API Keys](https://astraflow.ucloud.cn/modelverse/api-keys).
-2. Go to **UCloud Agent Sandbox Configuration**.
-3. Enter the API key and select the desired region.
-4. Click **Test connection**, then click **Save** after the test succeeds.
-
-| Parameter | Description | Recommendation |
-| --- | --- | --- |
-| `API Key` | UCloud Agent Sandbox API key used for authentication. | Keep it secret and rotate it according to your organization's credential policy. |
-| `Region` | Sandbox region. Supported values include `cn-wlcb` and `us-ca`. | Keep `cn-wlcb` unless workloads should run in North America. |
-| `Domain` | Optional sandbox domain override. | Leave empty to derive `<region>.sandbox.ucloudai.com` from `Region`. |
-| `API URL` | Optional control-plane endpoint override. | Leave empty for the public service endpoint. |
-| `Template` | UCloud sandbox template. | Use `base`, which includes both Python and Node.js. |
-| `Allow Internet Access` | Allows executed code to make outbound network requests. | Disabled by default. Enable only when the code needs external services or package downloads. |
-| `Use Insecure HTTP` | Uses HTTP rather than HTTPS. | Keep disabled except in a trusted private test deployment. |
-| `Execution Timeout` | Maximum duration of one code execution. | The default is 30 seconds. |
-| `Sandbox Lifetime` | Maximum lifetime of the disposable sandbox. | The default is 300 seconds and is extended when needed for an allowed execution. |
-| Output and artifact limits | Bound console output and files returned from `artifacts/`. | Keep the defaults unless the workload has a known need for larger results. |
-
-Files written under the execution workspace's `artifacts/` directory are returned to RAGFlow. Supported artifact extensions are `.csv`, `.html`, `.jpeg`, `.jpg`, `.json`, `.pdf`, `.png`, and `.svg`.
-
-See the [UCloud Agent Sandbox prerequisites](https://astraflow.ucloud.cn/docs/agent-sandbox/product/prerequisites) and [region documentation](https://astraflow.ucloud.cn/docs/agent-sandbox/product/region) for service-side details.

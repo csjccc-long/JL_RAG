@@ -23,7 +23,56 @@ from common.float_utils import get_float
 from rag.nlp import rag_tokenizer, term_weight, synonym
 from rag.utils.redis_conn import REDIS_CONN
 
+"""
+文本查询构造器”，它负责把用户输入的问题，转换成适合底层搜索引擎/存储引擎的查询表达式。
 
+它不是直接查数据库的逻辑本身，而是把自然语言问题转成可执行的搜索条件。
+
+它的主要职责
+1. 生成向量检索表达式
+函数 get_vector() 会把文本转成 embedding 向量，并包装成 MatchDenseExpr，用于语义向量搜索。
+
+也就是：
+
+用户输入文本
+经过 embedding 模型
+变成向量
+做相似度检索
+2. 构造文本查询表达式
+MsgTextQuery 里有 question() 方法，它会：
+
+清洗文本
+去掉标点和特殊符号
+中文/英文分词
+关键词扩展
+同义词扩展
+权重计算
+构造查询语法表达式
+最后返回：
+
+MatchTextExpr(...)
+以及 keywords
+也就是说，它把自然语言问题变成“搜索引擎能理解的文本查询”。
+
+3. 处理中文和英文查询差异
+代码里分支处理了：
+
+中文场景
+英文/非中文场景
+这说明它需要兼容多语言查询，尤其是中文语义和英文分词逻辑不一样。
+
+4. 关键词增强和同义词扩展
+它会做：
+
+synonym.Dealer
+关键词加权
+短语搜索
+同义词补充
+近似词增强
+这使得“用户问法不完全一致”时，仍然能召回相关记忆。
+
+
+"""
 def get_vector(txt, emb_mdl, topk=10, similarity=0.1):
     if isinstance(similarity, str) and len(similarity) > 0:
         try:

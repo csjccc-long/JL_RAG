@@ -87,8 +87,6 @@ const themeIcons = [
   LLMFactory.TogetherAI,
   LLMFactory.Meituan,
   LLMFactory.Longcat,
-  LLMFactory.MinerU,
-  LLMFactory.MinerUNet,
   LLMFactory.JiekouAI,
   LLMFactory.Perplexity,
 ];
@@ -99,8 +97,6 @@ const svgIcons = [
   // LLMFactory.MiniMax,
   LLMFactory.Gemini,
   LLMFactory.StepFun,
-  LLMFactory.MinerU,
-  LLMFactory.MinerUNet,
   LLMFactory.PaddleOCR,
   LLMFactory.PaddleOCRNet,
   LLMFactory.N1n,

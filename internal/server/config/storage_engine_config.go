@@ -26,8 +26,6 @@ import (
 type StorageConfig struct {
 	Minio MinioConfig `mapstructure:"minio"`
 	S3    S3Config    `mapstructure:"s3"`
-	OSS   OSSConfig   `mapstructure:"oss"`
-	GCS   GCSConfig   `mapstructure:"gcs"`
 }
 
 func (c *Config) ParseStorageEngineConfig(v *viper.Viper) error {
@@ -36,10 +34,6 @@ func (c *Config) ParseStorageEngineConfig(v *viper.Viper) error {
 		c.parseMinioConfig(v)
 	case "s3":
 		c.parseS3Config(v)
-	case "oss":
-		c.parseOSSConfig(v)
-	case "gcs":
-		c.parseGCSConfig(v)
 	default:
 		return fmt.Errorf("invalid storage type: %s", c.general.StorageEngine)
 	}
@@ -182,104 +176,6 @@ func (c *Config) parseS3Config(v *viper.Viper) {
 }
 
 // OSSConfig holds Aliyun OSS storage configuration
-// OSS is compatible with S3 API
-type OSSConfig struct {
-	AccessKey        string `mapstructure:"access_key"`        // OSS Access Key ID
-	SecretKey        string `mapstructure:"secret_key"`        // OSS Secret Access Key
-	EndpointURL      string `mapstructure:"endpoint_url"`      // OSS Endpoint (e.g., "https://oss-cn-hangzhou.aliyuncs.com")
-	Region           string `mapstructure:"region"`            // Region (e.g., "cn-hangzhou")
-	Bucket           string `mapstructure:"bucket"`            // Default bucket (optional)
-	PrefixPath       string `mapstructure:"prefix_path"`       // Path prefix (optional)
-	SignatureVersion string `mapstructure:"signature_version"` // Signature version
-	AddressingStyle  string `mapstructure:"addressing_style"`  // Addressing style
-}
-
-func (c *Config) parseOSSConfig(v *viper.Viper) {
-	// Default OSS config
-	c.storageEngine.OSS.AccessKey = ""
-	c.storageEngine.OSS.SecretKey = ""
-	c.storageEngine.OSS.EndpointURL = ""
-	c.storageEngine.OSS.Region = ""
-	c.storageEngine.OSS.Bucket = ""
-	c.storageEngine.OSS.PrefixPath = ""
-	c.storageEngine.OSS.SignatureVersion = "v4"
-	c.storageEngine.OSS.AddressingStyle = "path"
-
-	if !v.IsSet("oss") {
-		return
-	}
-	sub := v.Sub("oss")
-	if sub == nil {
-		return
-	}
-
-	if sub.IsSet("access_key") {
-		c.storageEngine.OSS.AccessKey = sub.GetString("access_key")
-	}
-
-	if sub.IsSet("secret_key") {
-		c.storageEngine.OSS.SecretKey = sub.GetString("secret_key")
-	}
-
-	if sub.IsSet("endpoint_url") {
-		c.storageEngine.OSS.EndpointURL = sub.GetString("endpoint_url")
-	}
-
-	if sub.IsSet("region") {
-		c.storageEngine.OSS.Region = sub.GetString("region")
-	}
-
-	if sub.IsSet("bucket") {
-		c.storageEngine.OSS.Bucket = sub.GetString("bucket")
-	}
-
-	if sub.IsSet("prefix_path") {
-		c.storageEngine.OSS.PrefixPath = sub.GetString("prefix_path")
-	}
-
-	if sub.IsSet("signature_version") {
-		c.storageEngine.OSS.SignatureVersion = sub.GetString("signature_version")
-	}
-
-	if sub.IsSet("addressing_style") {
-		c.storageEngine.OSS.AddressingStyle = sub.GetString("addressing_style")
-	}
-
-}
-
-type GCSConfig struct {
-	Bucket      string `mapstructure:"bucket"`       // Default bucket (optional)
-	PrefixPath  string `mapstructure:"prefix_path"`  // Path prefix (optional)
-	EndpointURL string `mapstructure:"endpoint_url"` // Custom endpoint (optional)
-}
-
-func (c *Config) parseGCSConfig(v *viper.Viper) {
-	// Default GCS config
-	c.storageEngine.GCS.Bucket = ""
-	c.storageEngine.GCS.PrefixPath = ""
-	c.storageEngine.GCS.EndpointURL = ""
-
-	if !v.IsSet("gcs") {
-		return
-	}
-	sub := v.Sub("gcs")
-	if sub == nil {
-		return
-	}
-
-	if sub.IsSet("bucket") {
-		c.storageEngine.GCS.Bucket = sub.GetString("bucket")
-	}
-
-	if sub.IsSet("prefix_path") {
-		c.storageEngine.GCS.PrefixPath = sub.GetString("prefix_path")
-	}
-
-	if sub.IsSet("endpoint_url") {
-		c.storageEngine.GCS.EndpointURL = sub.GetString("endpoint_url")
-	}
-}
-
 func (c *Config) GetMinioConfig() MinioConfig {
 	return c.storageEngine.Minio
 }
@@ -315,35 +211,4 @@ func (s S3Config) ExportConfigs() map[string]interface{} {
 	s3Configs["bucket"] = s.Bucket
 	s3Configs["prefix_path"] = s.PrefixPath
 	return s3Configs
-}
-
-func (c *Config) GetOSSConfig() OSSConfig {
-	return c.storageEngine.OSS
-}
-
-func (o OSSConfig) ExportConfigs() map[string]interface{} {
-	var ossConfigs map[string]interface{}
-	ossConfigs = make(map[string]interface{})
-	ossConfigs["access_key"] = o.AccessKey
-	ossConfigs["secret_key"] = o.SecretKey
-	ossConfigs["endpoint_url"] = o.EndpointURL
-	ossConfigs["region"] = o.Region
-	ossConfigs["bucket"] = o.Bucket
-	ossConfigs["prefix_path"] = o.PrefixPath
-	ossConfigs["signature_version"] = o.SignatureVersion
-	ossConfigs["addressing_style"] = o.AddressingStyle
-	return ossConfigs
-}
-
-func (c *Config) GetGCSConfig() GCSConfig {
-	return c.storageEngine.GCS
-}
-
-func (g GCSConfig) ExportConfigs() map[string]interface{} {
-	var gcsConfigs map[string]interface{}
-	gcsConfigs = make(map[string]interface{})
-	gcsConfigs["bucket"] = g.Bucket
-	gcsConfigs["prefix_path"] = g.PrefixPath
-	gcsConfigs["endpoint_url"] = g.EndpointURL
-	return gcsConfigs
 }

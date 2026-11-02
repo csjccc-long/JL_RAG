@@ -13,6 +13,90 @@ from rag.advanced_rag.harness.prompts.decompose_prompts import (
     DECOMPOSE_PROCEDURAL,
     DECOMPOSE_EXPLORATORY,
 )
+"""
+planner_node 入口
+    ↓
+[1] 从 state 获取 route
+    ↓
+[2] 判断 route 是否存在
+    ├─ 不存在 → 记录警告 → 调用 _default_plan → 返回直接计划
+    └─ 存在 → 继续
+    ↓
+[3] 判断 route.requires_decomposition 是否为 False
+    ├─ 是 → 调用 _direct_plan → 返回直接计划
+    └─ 否 → 继续
+    ↓
+[4] 按问题类型选择分解提示词
+    ├─ factual → DECOMPOSE_FACTUAL
+    ├─ comparative → DECOMPOSE_COMPARATIVE
+    ├─ procedural → DECOMPOSE_PROCEDURAL
+    ├─ analytical → DECOMPOSE_EXPLORATORY
+    ├─ exploratory → DECOMPOSE_EXPLORATORY
+    └─ 其他 → DECOMPOSE_FACTUAL（默认）
+    ↓
+[5] 获取模式参数
+    ├─ max_claims = _get_max_claims(mode.label)
+    │   ├─ low → 1
+    │   ├─ medium → 3
+    │   ├─ high → 5
+    │   └─ ultra → 8
+    └─ detail_level = _get_detail_level(mode.label)
+        ├─ low → coarse
+        ├─ medium → normal
+        ├─ high → fine
+        └─ ultra → extra_fine
+    ↓
+[6] 格式化初步搜索结果
+    ├─ 调用 _format_seed_chunks(seed_chunks, tools)
+    ├─ 无结果 → 返回 "(no preliminary results)"
+    └─ 有结果 → 格式化为文本块
+    ↓
+[7] 检查重规划反馈
+    ├─ feedback 为空 → 不追加
+    └─ feedback 非空 → 追加到系统提示，要求新计划必须解决 !!!缺口
+    ↓
+[8] 构建提示词并拆分
+    ├─ 使用 decompose_prompt.format(question, max_claims, detail_level, retrieved)
+    └─ 按 "Output format" 拆分为 system 和 user 两部分
+    ↓
+[9] 调用 LLM 分解问题
+    ├─ 调用 tools.chat_mdl.async_chat(system, user, temperature=0.2)
+    ├─ 返回元组 → 取第一个元素
+    └─ 调用异常 → 记录异常 → 调用 _direct_plan → 返回
+    ↓
+[10] 解析 LLM 响应
+    ├─ 调用 _extract_json(ans)
+    ├─ 移除 think 标签
+    ├─ 移除 markdown 围栏
+    ├─ 尝试 json_repair.loads
+    ├─ 失败则尝试 json.loads
+    └─ 都失败 → 返回 {}
+    ↓
+[11] 确定计划类型
+    ├─ factual → fact_decomposition
+    ├─ comparative → comparative_decomposition
+    ├─ procedural → procedural_decomposition
+    └─ 其他 → exploratory_decomposition
+    ↓
+[12] 构建 ClaimTarget 列表
+    ├─ 遍历 claims_raw
+    ├─ 跳过非字典项
+    ├─ 跳过缺少 description 的项
+    └─ 生成 ClaimTarget(claim_id, description, priority, suggested_tools)
+    ↓
+[13] 判断 claims 是否为空
+    ├─ 为空 → 调用 _direct_plan → 返回
+    └─ 非空 → 继续
+    ↓
+[14] 构建 WorkflowPlan
+    ├─ plan_type = 步骤 11 的结果
+    ├─ claims = 步骤 12 的结果
+    └─ max_iterations = mode.max_orchestrator_cycles
+    ↓
+[15] 记录日志并返回
+    ├─ 日志：分解为 N 个研究步骤
+    └─ 返回 {"plan": plan, "claims": plan.claims}
+"""
 
 _LOG = logging.getLogger(__name__)
 

@@ -19,7 +19,6 @@ import {
   BeginId,
   BeginQueryType,
   BeginQueryTypeMap,
-  JsonSchemaDataType,
   Operator,
   VariableType,
 } from '../constant';
@@ -182,13 +181,13 @@ function splitOperatorOutputValue(value?: string) {
   return { nodeId, output };
 }
 
-function filterDocGeneratorDownloadOutputOptions(
-  groups: Array<{
-    options: Array<{ value?: string } & Record<string, any>>;
-  }>,
+function filterDocGeneratorDownloadOutputOptions<
+  T extends { options: Array<{ value?: string }> },
+>(
+  groups: T[],
   allowDocGeneratorDownloadOutput: boolean,
   getOperatorTypeFromId: (nodeId?: string) => string | undefined,
-) {
+): T[] {
   return groups.map((group) => ({
     ...group,
     options: group.options.filter((option) => {
@@ -202,7 +201,7 @@ function filterDocGeneratorDownloadOutputOptions(
 
       return true;
     }),
-  }));
+  })) as T[];
 }
 
 export function useBuildGlobalWithBeginVariableOptions() {
@@ -356,7 +355,7 @@ export function useFilterQueryVariableOptionsByTypes({
   nodeIds = [],
   variablesExceptOperatorOutputs,
 }: {
-  types?: (JsonSchemaDataType | VariableType)[];
+  types?: string[];
 } & BuildQueryVariableOptions) {
   const nextOptions = useBuildQueryVariableOptions({
     nodeIds,
@@ -462,7 +461,7 @@ export const useGetComponentLabelByValue = (nodeId: string) => {
 
 export function flatOptions(options: DefaultOptionType[]) {
   return options.reduce<DefaultOptionType[]>((pre, cur) => {
-    return [...pre, ...cur.options];
+    return [...pre, ...(cur.options ?? [])];
   }, []);
 }
 

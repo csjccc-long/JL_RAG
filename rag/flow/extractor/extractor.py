@@ -23,7 +23,10 @@ from agent.component.llm import LLMParam, LLM
 from rag.flow.base import ProcessBase, ProcessParamBase
 from rag.prompts.generator import run_toc_from_text
 
-
+"""用 LLM 从每个文本块中提取用户指定的字段
+提取结果存回 chunk，作为 chunk 的附加信息
+这些字段随 chunk 一起存储和检索，但不是独立的检索单元
+特殊场景（TOC）生成目录块，用于文档结构展示"""
 class ExtractorParam(ProcessParamBase, LLMParam):
     def __init__(self):
         super().__init__()

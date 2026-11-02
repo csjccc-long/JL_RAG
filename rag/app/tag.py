@@ -23,6 +23,13 @@ from rag.app.qa import Excel
 from rag.nlp import rag_tokenizer
 from common import settings
 
+"""
+负责 RAGFlow 的标签数据解析和问题标签匹配，分成两个阶段：
+
+导入标签文件：chunk() 解析 Excel、CSV 或 TXT。每条有效记录由“内容”和“标签”组成，内容转成检索所需的分词字段，
+标签写入 tag_kwd；Excel 还会记录行号。格式不符合要求的行会并入后续内容。
+查询时匹配标签：label_question() 根据知识库配置找到关联的标签知识库，优先读取缓存的标签，再调用 retriever 为用户问题匹配标签。
+"""
 
 def beAdoc(d, q, a, eng, row_num=-1):
     d["content_with_weight"] = q

@@ -22,8 +22,20 @@ import json
 from typing import Any
 
 from rag.nlp import find_codec
+"""
+SON/JSONL 解析器。它读取 JSON 数据，并尽量保留原有结构，把内容拆成多个较小的 JSON 字符串片段，供后续分块和检索使用。
 
+处理流程
+__call__() 接收字节数据，检测编码并解码，然后判断输入是普通 JSON 还是 JSONL。
+is_jsonl_format() 会先检查整个文件能否作为单个 JSON 解析；若不能，再抽样检查多行内容是否大多是独立的 JSON 对象。
+_parse_json() 处理单个 JSON 文档；_parse_jsonl() 逐行解析 JSONL，跳过空行和无效行。
+split_json() 将 JSON 结构拆分成多个片段；split_text() 则把片段序列化成 JSON 字符串。
+对象会按嵌套路径拆分，默认还会把数组转换成以 "0"、"1" 等索引为键的对象，方便分割时保留数组元素及其层级关系。
+分块大小与边界
+分块时用 json.dumps() 后的字符串长度估算大小，不是 tokenizer 计算的 token 数。构造函数还会把传入的 max_chunk_size 乘以 2，作为内部的最大长度阈值。
 
+它会尽量让每块不超过阈值，但不会拆开单个字符串、数字等原子值；如果一个值本身就很大，结果仍可能超过阈值。0 和 false 会被当作有效内容，只有 null、空字符串和空容器会被视为空块。
+"""
 class RAGFlowJsonParser:
     def __init__(self, max_chunk_size: int = 2000, min_chunk_size: int | None = None):
         super().__init__()

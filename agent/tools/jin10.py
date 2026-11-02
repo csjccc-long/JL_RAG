@@ -47,6 +47,10 @@ class Jin10Param(ComponentParamBase):
         self.check_valid_value(self.symbols_datatype, "Symbols DataType", ["symbols", "quotes"])
 
 
+"""
+这个模块的作用是“接入 Jin10 金十数据接口，让 Agent 能获取财经快讯、经济日历、行情符号和新闻信息”。
+"""
+
 class Jin10(ComponentBase, ABC):
     component_name = "Jin10"
 

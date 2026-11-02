@@ -30,6 +30,11 @@ from typing import Dict, Any, List, Optional
 import requests
 
 from .base import SandboxProvider, SandboxInstance, ExecutionResult
+"""
+这个文件是一个“自托管沙箱 provider”，它的职责是把 RAGFlow 现成的本地执行器服务 executor_manager 作为一个 sandbox 后端接进来。
+
+也就是说，它不是自己创建 Docker 容器，而是通过 HTTP 请求去调用已有的沙箱执行器服务，再把返回结果统一包装成 ExecutionResult。
+"""
 
 
 class SelfManagedProvider(SandboxProvider):

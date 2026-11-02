@@ -21,7 +21,9 @@ from serpapi import GoogleSearch
 from agent.tools.base import ToolParamBase, ToolMeta, ToolBase
 from common.connection_utils import timeout
 
-
+"""
+“通过 SerpAPI 调用 Google 搜索，并把搜索结果整理成标准化知识块，供 Agent 在问答、检索、资料收集等场景中使用。”
+"""
 class GoogleParam(ToolParamBase):
     """
     Define the Google component parameters.

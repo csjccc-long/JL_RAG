@@ -249,6 +249,7 @@ export default {
   // tags
   listTag: (knowledgeId: string) => `${restAPIv1}/datasets/${knowledgeId}/tags`,
   listTagByKnowledgeIds: `${restAPIv1}/datasets/tags/aggregation`,
+  getMetaKeys: `${restAPIv1}/datasets/metadata/flattened`,
   removeTag: (knowledgeId: string) =>
     `${restAPIv1}/datasets/${knowledgeId}/tags`,
   renameTag: (knowledgeId: string) =>

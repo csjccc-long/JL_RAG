@@ -14,7 +14,7 @@
 #  limitations under the License.
 #
 """
-Unit tests for delete query construction in ES/OpenSearch connectors.
+Unit tests for delete query construction in the Elasticsearch connector.
 
 These tests verify that the delete method correctly combines chunk IDs with
 other filter conditions (doc_id, kb_id) to scope deletions properly.
@@ -38,7 +38,7 @@ class TestDeleteQueryConstruction:
 
     def build_delete_query(self, condition: dict, knowledgebase_id: str) -> dict:
         """
-        Simulates the query construction logic from es_conn.py/opensearch_conn.py delete method.
+        Simulates the query construction logic from the Elasticsearch connector delete method.
         This is extracted to test the logic without needing actual ES/OS connections.
         """
         condition = condition.copy()  # Don't mutate the original

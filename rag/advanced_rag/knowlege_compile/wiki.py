@@ -54,7 +54,23 @@ from ._common import (
     stable_row_id as _stable_row_id,
 )
 
+"""
+把知识库文档编译成可复用 Wiki 页面的流水线。它不是用户提问时的实时检索器，而是对已有文档 chunks 做抽取、归并、规划和页面生成。
 
+整体分四阶段：
+
+MAP：逐 chunk 抽取
+LLM 从每个 chunk 提取实体、概念、事实声明、关系和主题，并记录来源 chunk。结果按 chunk 暂存，支持增量处理：内容没变就跳过，新增或修改的 chunk 才重新抽取。
+
+REDUCE：知识归并
+合并不同 chunk 的抽取结果，消解重复实体和概念；实体会结合名称、向量相似度和 LLM 判断是否指向同一对象。
+
+PLAN：规划 Wiki 页面
+将整理后的知识与已有 Wiki 页比对，决定新建还是更新哪些页面，并生成页面计划。
+
+REFINE：生成或更新页面
+根据计划回到源 chunks 取证据，让 LLM 写出 Wiki 内容；更新页面时合并已有内容，并记录来源 chunk、来源文档和页面链接。
+"""
 # Global pipeline-rev — bumping this constant invalidates every cached
 # wiki_map_extract / wiki_reduce_result / wiki_compilation_plan
 # / wiki_page_draft / wiki_page row on the next re-run. Use it
@@ -2881,9 +2897,9 @@ async def _wiki_load_chunks_by_id(
     Tries a batch search first (``condition={"id": [chunk_ids]}``) and falls
     back to ``docStoreConn.get(chunk_id, …)`` per missing id. The fallback
     exists because the ``id`` filter is translated differently by each
-    backend (ES uses a bool/should over the ``id`` keyword and the reserved
-    ``_id``; Infinity translates to SQL ``id IN (...)``; OpenSearch routes
-    to the ``ids`` query). A chunk that was inserted without populating the
+    backend. Elasticsearch uses a bool/should over the ``id`` keyword and the reserved
+    ``_id``; Infinity translates to SQL ``id IN (...)``.
+    A chunk that was inserted without populating the
     queryable ``id`` field — or whose dataset/table doesn't expose it the
     same way — silently drops out of the batch query but is still
     addressable via the primary-key ``get()``. The fallback heals both.

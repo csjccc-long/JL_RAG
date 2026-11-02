@@ -14,10 +14,9 @@
 #  limitations under the License.
 
 """
-Shared constants for task executor modules.
+任务执行器模块共用的常量。
 
-This module exists to break circular imports between task_executor.py and
-task_executor_refactor modules.
+本模块旨在打破 task_executor.py 与 task_executor_refactor 模块之间的循环导入。
 """
 
 CANVAS_DEBUG_DOC_ID = "dataflow_x"

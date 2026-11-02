@@ -26,7 +26,6 @@ Configure sandbox providers from the admin page:
 - `self_managed`: Uses the executor manager service.
 - `local`: Runs code on the current machine.
 - `ssh`: Runs code on a remote machine over SSH.
-- `aliyun_codeinterpreter`, `e2b`, `tenki`, and `ucloud_agent_sandbox`: Cloud providers.
 
 
 ## Provider Options
@@ -38,55 +37,6 @@ Admin > Sandbox Settings after the services are up.
 - `self_managed`: Runs code inside Docker-managed sandbox containers. This is the default provider.
 - `local`: Runs code as local Python or Node.js subprocesses. Use this only in trusted development environments.
 - `ssh`: Runs code on a remote machine over SSH.
-- `aliyun_codeinterpreter` and `e2b`: Cloud-hosted providers that remain available in the admin provider list.
-- `tenki`: Cloud-hosted provider that runs each execution in a disposable [Tenki](https://tenki.cloud) microVM. See [Tenki](#tenki) below.
-- `ucloud_agent_sandbox`: Cloud-hosted provider that runs each execution in a disposable [UCloud Agent Sandbox](https://astraflow.ucloud.cn/docs/agent-sandbox). See [UCloud Agent Sandbox](#ucloud-agent-sandbox) below.
-
-### Tenki
-
-`tenki` runs each code execution in a fresh Tenki microVM and destroys it afterwards. It is cloud-hosted, so it needs no local sandbox services, gVisor, or Docker base images — only outbound network access and an API key.
-
-The `tenki` SDK is an optional dependency (it requires `protobuf>=6.31`, which differs from RAGFlow's default gRPC stack), so it is not installed by default. Install it into the RAGFlow runtime before selecting this provider:
-
-```bash
-pip install tenki
-```
-
-Configure it in **Admin > Sandbox Settings**:
-
-- `api_key` (required): Tenki API key. Create one at [app.tenki.cloud](https://app.tenki.cloud) under **API Keys**.
-- `base_url` (optional): override the Tenki API endpoint.
-- `image` (optional): sandbox base image. Leave empty to use the Tenki default image, which includes `python3` and `node`.
-- `allow_outbound` (optional, security-relevant): whether the sandbox may make outbound network connections. Defaults to `false` so sandboxed code has no network access; set it to `true` when code needs the network (for example, to install packages).
-- `timeout`, `max_lifetime`, `cpu_cores`, `memory_mb`, `disk_size_gb`, and the output/artifact limits have sensible defaults and can be tuned in the same page.
-
-Notes:
-
-- Supported languages are Python and JavaScript.
-- Files written to the `artifacts/` directory of the working directory are returned as run artifacts.
-- The provider uses only Tenki's create/exec/destroy operations; it does not use volumes or snapshots.
-
-### UCloud Agent Sandbox
-
-`ucloud_agent_sandbox` uses UCloud's native Sandbox SDK to create one disposable sandbox for each CodeExec run. No local sandbox service or Docker runtime is required.
-
-Configure it in **Admin > Sandbox Settings**:
-
-- `api_key` (required): obtain one from [UCloud ModelVerse API Keys](https://astraflow.ucloud.cn/modelverse/api-keys).
-- `region`: defaults to `cn-wlcb`; `us-ca` is also supported.
-- `domain` and `api_url`: optional endpoint overrides for private or custom deployments.
-- `template`: defaults to `base`, which includes Python and Node.js runtimes.
-- `allow_internet_access`: defaults to `false`; enable it only when sandboxed code needs outbound network access.
-- `timeout`, `sandbox_timeout`, and the output/artifact limits can be tuned for the workload.
-
-Notes:
-
-- Supported languages are Python and JavaScript.
-- RAGFlow uses HTTPS with TLS certificate verification. The `insecure_http` option is intended only for trusted test deployments.
-- Files written to the execution workspace's `artifacts/` directory are returned as run artifacts.
-- The Python runtime dependency is installed with RAGFlow. The Go runtime uses UCloud's native Go SDK.
-
-See [UCloud Agent Sandbox prerequisites](https://astraflow.ucloud.cn/docs/agent-sandbox/product/prerequisites) and [regions](https://astraflow.ucloud.cn/docs/agent-sandbox/product/region).
 
 ## Prerequisites
 

@@ -31,10 +31,6 @@ import { RAGFlowAvatar } from './ragflow-avatar';
 import { RAGFlowFormItem } from './ragflow-form';
 import { MultiSelect } from './ui/multi-select';
 
-function buildQueryVariableOptionsByShowVariable(showVariable?: boolean) {
-  return showVariable ? useBuildQueryVariableOptions : () => [];
-}
-
 function DatasetLabel({ text }: { text: string }) {
   return (
     <div className="text-xs px-3 p-1 bg-bg-card text-text-secondary rounded-lg border border-bg-card">
@@ -172,7 +168,7 @@ export function KnowledgeBaseFormField({
     hasNextPage,
   } = useDisableDifferenceEmbeddingDataset(name);
 
-  const nextOptions = buildQueryVariableOptionsByShowVariable(showVariable)();
+  const variableOptions = useBuildQueryVariableOptions();
 
   const knowledgeOptions = datasetOptions;
   const options = useMemo(() => {
@@ -182,12 +178,10 @@ export function KnowledgeBaseFormField({
           label: t('knowledgeDetails.dataset'),
           options: knowledgeOptions,
         },
-        ...nextOptions.map((x) => {
+        ...variableOptions.map((x) => {
           const groupLabel = (('label' in x
             ? x.label
-            : 'title' in x
-              ? x.title
-              : '') ?? '') as ReactNode;
+            : '') ?? '') as ReactNode;
 
           return {
             ...x,
@@ -212,7 +206,7 @@ export function KnowledgeBaseFormField({
     }
 
     return knowledgeOptions;
-  }, [knowledgeOptions, nextOptions, showVariable, t]);
+  }, [knowledgeOptions, showVariable, t, variableOptions]);
 
   return (
     <RAGFlowFormItem

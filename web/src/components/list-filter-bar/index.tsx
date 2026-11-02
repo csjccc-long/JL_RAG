@@ -85,22 +85,19 @@ export default function ListFilterBar({
   filterGroup?: Record<string, string[]>;
 }) {
   const filterCount = useMemo(() => {
-    return typeof value === 'object' && value !== null
-      ? Object.values(value).reduce((pre, cur) => {
-          if (Array.isArray(cur)) {
-            return pre + cur.length;
-          }
-          if (typeof cur === 'object') {
-            return (
-              pre +
-              Object.values(cur).reduce((pre, cur) => {
-                return pre + (cur?.length || 0);
-              }, 0)
-            );
-          }
-          return pre;
-        }, 0)
-      : 0;
+    const countValues = (filterValue: unknown): number => {
+      if (Array.isArray(filterValue)) {
+        return filterValue.length;
+      }
+      if (filterValue && typeof filterValue === 'object') {
+        return Object.values(filterValue).reduce<number>(
+          (total, nestedValue) => total + countValues(nestedValue),
+          0,
+        );
+      }
+      return 0;
+    };
+    return countValues(value);
   }, [value]);
 
   const hasFilter = Boolean(filters?.length && showFilter);

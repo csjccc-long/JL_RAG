@@ -107,3 +107,18 @@ func collectPDFPageNumbers(raw any) map[int]struct{} {
 	walk(raw)
 	return pages
 }
+
+func stringValue(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func numberValue(v any) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	}
+	return 0
+}

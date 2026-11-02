@@ -17,6 +17,10 @@ import importlib
 
 
 def from_dict_hook(in_dict: dict):
+    """将字典转换为对象的钩子函数。
+    如果字典包含 "type" 和 "data" 键，则尝试从指定的模块中导入类并使用 "data" 中的参数实例化它。
+    否则，返回字典本身。
+    """
     if "type" in in_dict and "data" in in_dict:
         if in_dict["module"] is None:
             return in_dict["data"]

@@ -1,7 +1,10 @@
 import '@testing-library/jest-dom';
 import React from 'react';
+import { TextDecoder, TextEncoder } from 'node:util';
 
-// esbuild-jest compiles JSX with the classic runtime (React.createElement),
-// while source files rely on the automatic runtime and never import React.
-// Expose React globally so rendering components in tests works.
+require('whatwg-fetch');
+
+// Keep React available for test helpers that still use the classic JSX runtime.
 (globalThis as Record<string, unknown>).React = React;
+
+Object.assign(globalThis, { TextDecoder, TextEncoder });

@@ -10,7 +10,6 @@
     "async_result": "async-result",
     "embedding": "embeddings",
     "rerank": "rerank",
-    "ocr": "layout_parsing",
     "asr": "audio/transcriptions",
     "tts": "audio/speech",
     "files": "files",
@@ -378,12 +377,6 @@
       "name": "glm-tts",
       "model_types": [
         "tts"
-      ]
-    },
-    {
-      "name": "glm-ocr",
-      "model_types": [
-        "ocr"
       ]
     },
     {

@@ -119,7 +119,6 @@ class _StubAsyncRetriever:
 @pytest.fixture
 def force_es_engine(monkeypatch):
     monkeypatch.setattr(dialog_service.settings, "DOC_ENGINE_INFINITY", False)
-    monkeypatch.setattr(dialog_service.settings, "DOC_ENGINE_OCEANBASE", False)
 
 
 @pytest.mark.p2

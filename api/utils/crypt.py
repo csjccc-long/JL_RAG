@@ -41,7 +41,7 @@ def decrypt(line):
     cipher = Cipher_pkcs1_v1_5.new(rsa_key)
     return cipher.decrypt(base64.b64decode(line), "Fail to decrypt password!").decode("utf-8")
 
-
+# 兼容旧版本（前导0会丢失，导致位数不够）
 def decrypt2(crypt_text):
     from base64 import b64decode, b16decode
     from Crypto.Cipher import PKCS1_v1_5 as Cipher_PKCS1_v1_5

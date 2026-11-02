@@ -21,7 +21,9 @@ from tavily import TavilyClient
 from agent.tools.base import ToolParamBase, ToolBase, ToolMeta
 from common.connection_utils import timeout
 
-
+"""
+“让 Agent 能通过 Tavily 进行网页搜索和页面内容抽取，并把搜索/抓取结果标准化为后续推理所需的内容。”
+"""
 class TavilySearchParam(ToolParamBase):
     """
     Define the Retrieval component parameters.

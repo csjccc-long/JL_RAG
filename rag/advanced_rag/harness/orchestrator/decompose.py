@@ -15,6 +15,17 @@ from rag.advanced_rag.harness.sufficiency import (
 from rag.advanced_rag.harness.orchestrator.sufficiency_llm import llm_sufficiency_boost
 from rag.advanced_rag.harness.tools.search import hybrid_search
 
+"""
+medium 模式的分解式、多轮检索编排。相比 direct.py 只检索一次，它会围绕尚未解决的子问题逐轮查证，并根据证据决定下一步。
+
+主要流程：
+
+从 state 读取问题和 claims；每轮为未验证的 claim 选择查询，并并行调用 hybrid_search。
+让 LLM 根据本轮证据判断 claim 是否验证通过；若不充分，则提取缺口并生成下一轮查询。
+汇总各轮证据，做代码级交叉检查和充分性评估；必要时调用 AutoRater 判断证据是否够用，并用 groundedness review 检查报告是否被证据支撑。
+通过决策阶梯决定回答、部分回答、继续检索或弃答；若连续几轮没有明显进展，会提前停止，避免无效搜索。
+"""
+
 _LOG = logging.getLogger(__name__)
 
 _MAX_EVIDENCE_SNIPPETS = 6

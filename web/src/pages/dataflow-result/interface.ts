@@ -125,21 +125,6 @@ export interface IPipelineFileLogDetail {
   update_time: number;
 }
 
-export interface IChunk {
-  available_int?: number; // Whether to enable, 0: not enabled, 1: enabled
-  chunk_id?: string;
-  content_with_weight?: string;
-  doc_id?: string;
-  doc_name?: string;
-  image_id?: string;
-  important_kwd?: string[];
-  question_kwd?: string[]; // keywords
-  tag_kwd?: string[];
-  positions: number[][];
-  tag_feas?: Record<string, number>;
-  text: string;
-}
-
 export interface NavigateToDataflowResultProps {
   id: string;
   [PipelineResultSearchParams.KnowledgeId]?: string;

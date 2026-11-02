@@ -17,7 +17,10 @@ from abc import ABC
 from agent.component.base import ComponentBase, ComponentParamBase
 import deepl
 
+"""
+“提供一个 DeepL 翻译节点，接收文本输入，并将其翻译成指定语言，供 Agent 或工作流中的后续步骤继续使用。”
 
+"""
 class DeepLParam(ComponentParamBase):
     """
     Define the DeepL component parameters.

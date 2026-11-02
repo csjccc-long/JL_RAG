@@ -32,7 +32,7 @@ def _is_deadlock_error(exc: OperationalError) -> bool:
 
 
 def retry_deadlock_operation(max_retries=3, retry_delay=0.1):
-    """Retry a full DB operation when MySQL/OceanBase aborts it due to deadlock."""
+    """Retry a full DB operation when MySQL aborts it due to deadlock."""
 
     def decorator(func):
         @wraps(func)

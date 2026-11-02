@@ -25,31 +25,16 @@ import (
 type StorageType int
 
 const (
-	StorageMinio    StorageType = 1
-	StorageAzureSpn StorageType = 2
-	StorageAzureSas StorageType = 3
-	StorageAWSS3    StorageType = 4
-	StorageOSS      StorageType = 5
-	StorageOpenDAL  StorageType = 6
-	StorageGCS      StorageType = 7
+	StorageMinio StorageType = 1
+	StorageAWSS3 StorageType = 4
 )
 
 func (s StorageType) String() string {
 	switch s {
 	case StorageMinio:
 		return "MINIO"
-	case StorageAzureSpn:
-		return "AZURE_SPN"
-	case StorageAzureSas:
-		return "AZURE_SAS"
 	case StorageAWSS3:
 		return "AWS_S3"
-	case StorageOSS:
-		return "OSS"
-	case StorageOpenDAL:
-		return "OPENDAL"
-	case StorageGCS:
-		return "GCS"
 	default:
 		return "UNKNOWN"
 	}

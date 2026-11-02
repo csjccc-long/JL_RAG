@@ -630,16 +630,6 @@ Esempio: un messaggio di 1 KB con embedding a 1024 dimensioni usa ~9 KB. Il limi
       imageTableContextWindowTip:
         "Cattura N token di testo sopra e sotto l'immagine e la tabella per fornire un contesto più ricco.",
       autoMetadata: 'Metadati automatici',
-      mineruOptions: 'Opzioni MinerU',
-      mineruParseMethod: 'Metodo di analisi',
-      mineruParseMethodTip:
-        "Metodo per l'analisi del PDF: auto (rilevamento automatico), txt (estrazione testo), ocr (riconoscimento ottico dei caratteri)",
-      mineruFormulaEnable: 'Riconoscimento formule',
-      mineruFormulaEnableTip:
-        'Abilita il riconoscimento delle formule. Nota: questo potrebbe non funzionare correttamente per documenti cirillici.',
-      mineruTableEnable: 'Riconoscimento tabelle',
-      mineruTableEnableTip:
-        "Abilita il riconoscimento e l'estrazione delle tabelle.",
       paddleocrOptions: 'Opzioni PaddleOCR',
       paddleocrApiUrl: 'URL API di PaddleOCR',
       paddleocrApiUrlTip: "L'URL dell'endpoint API del servizio PaddleOCR",
@@ -1733,30 +1723,6 @@ Esempio: Virtual Hosted Style`,
       modelsToBeAddedTooltip:
         'Se il tuo fornitore di modelli non è elencato ma dichiara di essere "OpenAI-compatible", seleziona la scheda OpenAI-API-compatible per aggiungere i modelli pertinenti. ',
       mcp: 'MCP',
-      mineru: {
-        modelNameRequired: 'Il nome del modello è obbligatorio',
-        apiServerRequired:
-          'La configurazione del MinerU API Server è richiesta',
-        serverUrlBackendLimit:
-          "L'indirizzo URL del MinerU Server è disponibile solo per il backend client HTTP",
-        apiserver: 'Configurazione MinerU API Server',
-        outputDir: 'Percorso directory di output MinerU',
-        backend: 'Tipo di backend di elaborazione MinerU',
-        serverUrl: 'Indirizzo URL MinerU Server',
-        deleteOutput: "Elimina i file di output dopo l'elaborazione",
-        selectBackend: 'Seleziona backend di elaborazione',
-        backendOptions: {
-          pipeline: 'Elaborazione pipeline standard',
-          vlmTransformers: 'Vision Language Model con Transformers',
-          vlmVllmEngine: 'Vision Language Model con vLLM Engine',
-          vlmHttpClient: 'Vision Language Model via HTTP Client',
-          vlmMlxEngine: 'Vision Language Model con MLX Engine',
-          vlmVllmAsyncEngine:
-            'Vision Language Model con vLLM Async Engine (Sperimentale)',
-          vlmLmdeployEngine:
-            'Vision Language Model con LMDeploy Engine (Sperimentale)',
-        },
-      },
       modelTypes: {
         chat: 'Chat',
         embedding: 'Embedding',

@@ -32,6 +32,7 @@ from common.constants import ConnectorTaskType, TaskStatus
 from common.settings import TIMEZONE
 from common.time_utils import current_timestamp, timestamp_to_date
 
+# 该模块用于管理数据源连接器
 LOGGER = logging.getLogger(__name__)
 
 

@@ -32,6 +32,15 @@ from rag.app.naive import by_plaintext, PARSERS
 from common.parser_config_utils import normalize_layout_recognizer
 
 
+"""
+这是一个通用文档解析与切分模块，负责将多种格式的文件（docx、pdf、txt、md、html、doc）解析成结构化的文本块。
+核心能力包括：Docx 解析器通过遍历文档 body 按顺序处理段落和表格，
+将表格转 HTML 并赋予哨兵层级值使其归入最近的章节作为叶子内容，
+同时根据标题层级构建树状结构；Pdf 解析器通过 OCR、布局分析、垂直合并提取文本；
+主函数 chunk 按文件格式分发到不同解析器，统一执行移除目录、冒号转标题、树合并等后处理，
+最终通过 tokenize_chunks 生成带文件名、标题分词等元数据的检索块，为 RAG 系统的索引和检索提供基础数据。
+"""
+
 class Docx(DocxParser):
     def __init__(self):
         pass
@@ -209,16 +218,15 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             callback=callback,
             pdf_cls=Pdf,
             layout_recognizer=layout_recognizer,
-            mineru_llm_name=parser_model_name,
-            mistral_ocr_llm_name=parser_model_name,
             paddleocr_llm_name=parser_model_name,
+            somark_llm_name=parser_model_name,
             **kwargs,
         )
 
         if not raw_sections and not tables:
             return []
 
-        if name in ["tcadp", "docling", "mineru", "paddleocr"]:
+        if name in ["paddleocr", "somark"]:
             parser_config["chunk_token_num"] = 0
 
         for txt, poss in raw_sections:

@@ -5,7 +5,102 @@ import re
 import hashlib
 from common import settings
 from .navigation import _kg_scopes
+"""
+是为高级 RAG 系统提供“高质量证据检索与裁剪能力”：
+它既负责普通知识库检索，也负责结构化知识扩展，并在返回前过滤噪声、去重、缓存和聚焦关键句子，确保后续推理基于最相关的证据。
 
+
+1. 检索结果通常太长、太杂
+检索回来的 chunk 往往包含很多无关句子。这个模块会把内容按句子拆分，并在其中找关键词命中句子，再扩展到前后一个句子，形成更聚焦的证据片段。
+
+这部分逻辑主要在：
+
+_split_sentences
+_narrow_content
+_normalize：
+    输入：父文档 chunks
+    │
+    ├─ 提取每个 chunk 的 doc_id
+    ├─ 查询这些 doc_id 的子文档
+    ├─ 返回子文档的 chunks
+    │
+    输出：子文档 chunks（替换原 chunks）
+
+_narrow_by_keywords：
+    逗号分隔：通常来自 formalize 生成的正式关键词，如 "北京, 天气, 旅游"
+    len(kwds) < 3：
+        空格分隔：可能是原始查询的自然语言，如 "北京天气怎么样"
+        二元组合：把 ["北京", "天气", "怎么样"] 变成 ["北京 天气", "天气 怎么样"]，这样匹配更精确
+_narrow_or_keep：
+    场景：父问题是 "中国的首都是哪里？"，子问题是 "北京的人口"。
+    检索器返回的片段是关于北京的，但可能不包含 "中国" 或 "首都" 这些关键词。
+
+    如果强制窄化 → 所有片段都被丢弃 → 空结果
+    回退保留原始 → 至少还有内容可用
+
+！！按长度降序排序 优先匹配更长的句子能获得更准确的结果
+
+它的目的是让每个 chunk 变成“更贴近当前提问”的局部证据，而不是整段原文。
+
+2. 表格/Markdown 结构不能被随意拆坏
+它特别处理了表格内容：
+
+_HTML_TABLE
+_MD_TABLE
+_protected_spans
+这里强调“表格必须作为一个原子块”处理，不能因为句号或分号被拆成碎片。这样做的好处是，表格中的信息不会被误切分，关键词匹配更稳定。
+
+3. 检索策略不止一种
+这个模块提供了三种主搜索入口：
+
+hybrid_search
+vector_search
+bm25_search
+它们分别对应：
+
+混合搜索：向量 + 关键词，适合综合召回
+向量搜索：按语义相似度召回
+BM25 搜索：按关键词命中强度召回
+其中 hybrid_search 还会做 query （加入keywords)） 扩展，并加入缓存，减少重复检索。
+
+4. 既查文档 chunk，也查“编译产物”
+这个模块不仅仅检索普通文档片段，还支持“已编译的结构化知识内容”扩展，例如：
+
+knowledge graph
+mind map
+timeline
+page index
+tree
+wiki page
+artifact page
+essence
+这部分逻辑在：
+
+_expand_with_compiled
+_search_compiled_rows
+_expand_compiled_strategy
+_search_synthesis_pages
+_expand_wiki_page_strategy
+它的思路是：如果普通文档片段不足以回答问题，可以进一步从结构化产物中补充上下文，提升证据覆盖面。
+
+5. 做了缓存和去重
+模块中还有：
+
+_search_cache_key
+dedup 机制
+作用是避免相同查询重复检索，减少无意义的 ES/向量查询开销，并减少重复 chunk。
+
+总体设计意图
+这个模块的核心设计是：
+
+先广召回
+再精筛选（窄化和归一）
+再扩展结构化证据
+最后输出更有用、更聚焦的证据集合
+可以把它理解成 RAG 流程中的“证据筛选器 + 检索增强器”。
+
+它并不直接推理答案，而是保证后续回答模块拿到的是“更相关、更可信、更不混乱”的上下文。
+"""
 _LOG = logging.getLogger(__name__)
 
 

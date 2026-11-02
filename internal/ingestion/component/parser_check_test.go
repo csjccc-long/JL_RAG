@@ -55,10 +55,7 @@ func TestParserComponent_Check(t *testing.T) {
 			name:   "pdf: plain_text (whitelist, case-insensitive) without lang → pass",
 			setups: map[string]schema.ParserSetup{"pdf": {"parse_method": "PLAIN_TEXT"}},
 		},
-		{
-			name:   "pdf: tcadp parser (whitelist with space) without lang → pass",
-			setups: map[string]schema.ParserSetup{"pdf": {"parse_method": "tcadp parser"}},
-		},
+
 		{
 			name:    "pdf: unknown VLM method without lang → error",
 			setups:  map[string]schema.ParserSetup{"pdf": {"parse_method": "some_vlm", "lang": ""}},

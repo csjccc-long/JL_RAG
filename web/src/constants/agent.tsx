@@ -108,6 +108,7 @@ export enum Operator {
   Code = 'CodeExec',
   WaitingDialogue = 'WaitingDialogue',
   Agent = 'Agent',
+  AgentTeam = 'AgentTeam',
   Tool = 'Tool',
   TavilySearch = 'TavilySearch',
   TavilyExtract = 'TavilyExtract',

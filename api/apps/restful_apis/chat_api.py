@@ -60,22 +60,16 @@ from rag.prompts.template import load_prompt
 
 
 def _sanitize_json_floats(obj):
-    """Replace NaN/Infinity floats with None so the result is RFC 8259 JSON.
+    """将 NaN/Infinity 浮点数替换为 None，使结果符合 RFC 8259 JSON 规范。
 
-    `json.dumps` emits the literal tokens `NaN`/`Infinity` by default
-    (allow_nan=True). Those tokens are valid Python JSON output but invalid
-    per the JSON spec, and downstream proxies / Go consumers reject the
-    response with `failed to encode response: json: unsupported value: NaN`
-    (fixes #15245). Retrieval scores (similarity, vector_similarity,
-    term_similarity) can become NaN when an aggregation runs over an empty
-    set or when a similarity denominator is zero, so the chat completions
-    stream is the realistic trigger.
+    json.dumps 默认会输出字面量标记 NaN/Infinity（allow_nan=True）。这些标记是 Python JSON 的有效输出，
+    但不符合 JSON 规范，下游代理 / Go 消费者会拒绝该响应，报错 failed to encode response: json: unsupported value: NaN（修复 #15245）。
+    当聚合操作在空集上运行或相似度分母为零时，检索分数（similarity、vector_similarity、term_similarity）
+    可能变为 NaN，因此聊天补全流是实际触发此问题的场景。
 
-    `isinstance(obj, float)` alone catches Python float and numpy.float64
-    (a float subclass) but misses numpy.float32 / numpy.float16 and any
-    other duck-typed numeric. Probe via math.isnan/isinf in a try/except
-    so any object math can evaluate gets sanitized — without changing
-    upstream callers like chunks_format or rag/nlp/search.py.
+    单独使用 isinstance(obj, float) 可以捕获 Python float 和 numpy.float64（float 的子类），
+    但会漏掉 numpy.float32 / numpy.float16 以及任何其他鸭子类型数值。通过 try/except 块调用 math.isnan/isinf 进行检测，
+    这样任何可进行数学求值的对象都会被清理——而无需修改上游调用方（如 chunks_format 或 rag/nlp/search.py）。
     """
     try:
         if math.isnan(obj) or math.isinf(obj):
@@ -90,7 +84,28 @@ def _sanitize_json_floats(obj):
         return tuple(_sanitize_json_floats(v) for v in obj)
     return obj
 
+# 对于聊天补全流，我们使用默认的 prompt_config，其中包含一个系统提示，要求模型总结数据集内容以回答问题，并在数据集内容与问题无关时提供特定的响应。
+"""
+系统提示词（system）：
+    你是一个智能助手。请总结数据集的内容以回答问题。“请列出数据集中的数据并详细作答。当所有数据集内容与问题无关时，
+    你的回答必须包含句子”The answer you are looking for is not found in the dataset!“。答案需要考虑聊天历史。
 
+    以下是知识库：
+
+    {knowledge}
+
+    以上是知识库。
+开场白（prologue）：
+    你好！我是你的助手。有什么我可以帮你的吗？
+parameters：
+    knowledge：知识库，包含知识库内容。
+    date：日期，包含知识库内容。
+    optional：参数是否可选。
+empty_response：当没有找到相关的内容时，返回的默认响应。
+quote：是否引用知识库内容。
+tts：是否使用 TTS 播放响应。
+refine_multiturn：是否对多轮对话进行修正。
+"""
 _DEFAULT_PROMPT_CONFIG = {
     "system": (
         "You are an intelligent assistant. Please summarize the content of the dataset to answer the question. "
@@ -108,6 +123,8 @@ _DEFAULT_PROMPT_CONFIG = {
     "tts": False,
     "refine_multiturn": True,
 }
+
+# 对于直接聊天，我们使用默认的 prompt_config，其中包含一个系统提示，要求模型总结数据集内容以回答问题。
 _DEFAULT_DIRECT_CHAT_PROMPT_CONFIG = {
     "system": "",
     "prologue": "",
@@ -117,12 +134,21 @@ _DEFAULT_DIRECT_CHAT_PROMPT_CONFIG = {
     "tts": False,
     "refine_multiturn": True,
 }
+# 用于 RAG 模型的默认重排序模型集合。包含两个模型：BAAI/bge-reranker-v2-m3 和 maidalun1020/bce-reranker-base_v1。
 _DEFAULT_RERANK_MODELS = {"BAAI/bge-reranker-v2-m3", "maidalun1020/bce-reranker-base_v1"}
+#定义聊天补全流中使用的字段
 _READONLY_FIELDS = {"id", "tenant_id", "created_by", "create_time", "create_date", "update_time", "update_date"}
+#定义聊天补全流中可持久化的字段
 _PERSISTED_FIELDS = set(DialogService.model._meta.fields)
 
 
 def _build_chat_response(chat):
+    """将聊天对象转换为 API 响应。
+
+    :param chat: 聊天对象
+    :return: 聊天对象转换后的 API 响应
+    """
+
     data = chat.to_dict() if hasattr(chat, "to_dict") else dict(chat)
     kb_ids, kb_names = _resolve_kb_names(data.get("kb_ids", []))
     data["dataset_ids"] = kb_ids
@@ -132,6 +158,12 @@ def _build_chat_response(chat):
 
 
 def _resolve_kb_names(kb_ids):
+    """解析知识库 ID 为名称。
+
+    :param kb_ids: 知识库 ID
+    :return: 知识库 ID 和名称
+    """
+
     ids, names = [], []
     for kb_id in kb_ids or []:
         ok, kb = KnowledgebaseService.get_by_id(kb_id)
@@ -143,10 +175,23 @@ def _resolve_kb_names(kb_ids):
 
 
 def _has_knowledge_placeholder(prompt_config):
+    """检查系统提示中是否包含知识库占位符。
+
+    :param prompt_config: 提示配置
+    :return: 是否包含知识库占位符
+    """
+
     return "{knowledge}" in (prompt_config or {}).get("system", "")
 
 
 def _validate_name(name, *, required=True):
+    """验证聊天名称。
+
+    :param name: 聊天名称
+    :param required: 是否必填
+    :return: 验证结果
+    """
+
     if name is None:
         if required:
             return None, "`name` is required"
@@ -162,6 +207,11 @@ def _validate_name(name, *, required=True):
 
 
 def _validate_prompt_parameters(prompt_config):
+    """验证提示参数。
+
+    :param prompt_config: 提示配置
+    :return: 验证结果
+    """
     parameters = prompt_config.get("parameters")
     if not isinstance(parameters, list):
         return None
@@ -180,6 +230,11 @@ def _validate_prompt_parameters(prompt_config):
 
 
 def _build_session_response(conv: dict) -> dict:
+    """将会话对象转换为 API 响应。
+
+    :param conv: 会话对象
+    :return: 会话对象转换后的 API 响应
+    """
     conv = dict(conv)
     conv["chat_id"] = conv.pop("dialog_id", conv.get("chat_id"))
     conv["messages"] = conv.pop("message", conv.get("messages", []))
@@ -187,10 +242,20 @@ def _build_session_response(conv: dict) -> dict:
 
 
 async def _ensure_owned_chat(chat_id):
+    """确保会话属于当前用户。
+
+    :param chat_id: 会话 ID
+    :return: 会话对象
+    """
+
     return await thread_pool_exec(DialogService.query, tenant_id=current_user.id, id=chat_id, status=StatusEnum.VALID.value)
 
 
 def _build_default_completion_dialog():
+    """构建默认的聊天补全对话。
+
+    :return: 默认的聊天补全对话
+    """
     return SimpleNamespace(
         tenant_id=current_user.id,
         llm_id="",
@@ -208,6 +273,15 @@ def _build_default_completion_dialog():
 
 
 async def _create_session_for_completion(chat_id, dialog, user_id, save_session=True):
+    """为聊天补全对话创建会话。
+
+    :param chat_id: 聊天 ID
+    :param dialog: 聊天补全对话
+    :param user_id: 用户 ID
+    :param save_session: 是否保存会话
+    :return: 会话对象
+    """
+
     conv = {
         "id": get_uuid(),
         "dialog_id": chat_id,
@@ -227,6 +301,13 @@ async def _create_session_for_completion(chat_id, dialog, user_id, save_session=
 
 
 def _get_bool_request_flag(req, *names, default=False):
+    """获取布尔请求参数。
+
+    :param req: 请求参数
+    :param names: 参数名称
+    :param default: 默认值
+    :return: 参数值
+    """
     for name in names:
         if name not in req:
             continue
@@ -238,6 +319,12 @@ def _get_bool_request_flag(req, *names, default=False):
 
 
 def _normalize_completion_messages(req):
+    """归一化补全消息。
+
+    :param req: 请求参数
+    :return: 归一化后的消息
+    """
+
     messages = req.get("messages")
     if messages is None:
         question = req.get("question")
@@ -289,11 +376,16 @@ def _normalize_completion_messages(req):
     if not msg[-1].get("id"):
         msg[-1]["id"] = get_uuid()
 
-    # till now, message and msg are sharing the same copy
+    # 到目前为止，message 和 msg 共享同一份副本。
     return (messages, msg), None
 
 
 def _llm_model_type(llm_setting):
+    """获取 LLM 模型类型。
+
+    :param llm_setting: LLM 设置
+    :return: LLM 模型类型
+    """
     model_type = (llm_setting or {}).get("model_type")
     if isinstance(model_type, list):
         return "vision" if "vision" in model_type else "chat"
@@ -301,7 +393,17 @@ def _llm_model_type(llm_setting):
 
 
 async def _normalize_model_pair(req, tenant_id, name_field, id_field, model_type):
-    """Validate and synchronize a model name with its tenant-model ID."""
+    """验证并同步模型名称及其租户模型ID。
+    1.  两个都没传 → 无事发生
+    2. 类型校验（必须是字符串）
+    3. 如果传了 model_id → 查 DB，确认存在且属于该租户
+    4. 如果传了 model_name → 解析它：
+    a. 先当成 model_id 查
+    b. 查不到 → 当成“显示名”去解析
+    5. 如果两个都传 → 必须指向同一个模型
+    6. 如果只传一个 → 自动补全另一个
+    7. 如果清空一个 → 同步清空另一个
+    """
     if name_field not in req and id_field not in req:
         return None
 
@@ -327,8 +429,7 @@ async def _normalize_model_pair(req, tenant_id, name_field, id_field, model_type
                 return f"`{name_field}` and `{id_field}` must refer to the same model"
         else:
             try:
-                # A name field may already contain a tenant model ID. Resolve it
-                # strictly first, then fall back to the composite model name.
+                #名称字段可能已经包含租户模型ID。先严格解析它，然后回退到复合模型名称。
                 try:
                     await thread_pool_exec(get_model_config_by_id, tenant_id, model_type, model_name)
                     resolved_name_id = model_name
@@ -350,7 +451,7 @@ async def _normalize_model_pair(req, tenant_id, name_field, id_field, model_type
             logging.error("Fail to get composite name for %s %s: %s", id_field, model_id, e)
             return f"`{id_field}` must be a valid tenant model id"
     else:
-        # Clearing one side must not leave a stale ID/name on the other side.
+        # 清除一侧时，不得在另一侧留下过期的ID/名称。
         req[id_field] = None
         req[name_field] = ""
 
@@ -367,6 +468,14 @@ async def _normalize_model_pair(req, tenant_id, name_field, id_field, model_type
 
 
 async def _validate_dataset_ids(dataset_ids, tenant_id):
+    """验证数据集 ID。
+
+    :param dataset_ids: 数据集 ID 列表
+    :param tenant_id: 租户 ID
+    :return: 验证结果
+    """
+    #**“批量校验 Embedding 模型一致性”，意思是：
+    #强制要求一次检索中涉及的所有知识库（Dataset），必须使用“同一个 Embedding 模型”生成的向量，否则向量之间的相似度计算在数学上是无效的，检索结果会完全不可信。**
     if dataset_ids is None:
         return []
     if not isinstance(dataset_ids, list):
@@ -393,6 +502,7 @@ async def _validate_dataset_ids(dataset_ids, tenant_id):
 
 
 def _apply_prompt_defaults(req):
+    """将默认的提示配置应用到请求中。"""
     prompt_config = req.setdefault("prompt_config", {})
     for key, value in _DEFAULT_PROMPT_CONFIG.items():
         temp = prompt_config.get(key)
@@ -408,17 +518,32 @@ def _apply_prompt_defaults(req):
 @manager.route("/chats", methods=["POST"])  # noqa: F821
 @login_required
 async def create():
+    """创建一个chat。
+    1. 鉴权（当前用户）
+    2. 校验租户存在
+    3. 禁止前端伪造 tenant_id
+    4. 校验并清洗 name
+    5. 校验并准入 dataset_ids（知识库）
+    6. 设置默认 LLM / Rerank
+    7. 模型名称 ↔ ID 一致性校验（核心）
+    8. Prompt 配置校验与补全
+    9. 设置默认值（兜底）
+    10. 字段白名单 + 只读字段清理
+    11. 唯一性校验（同名检查）
+    12. 持久化（生成 UUID）
+    13. 返回标准化响应
+    """
     try:
         req = await get_request_json()
         ok, tenant = TenantService.get_by_id(current_user.id)
         if not ok:
             return get_data_error_result(message="Tenant not found!")
 
-        # Validate tenant_id should not be provided
+        # 验证不应提供 tenant_id
         if req.get("tenant_id"):
             return get_data_error_result(message="`tenant_id` must not be provided")
 
-        # Validate name
+        # 验证名称
         name, err = _validate_name(req.get("name"), required=True)
         if err:
             return get_data_error_result(message=err)
@@ -497,6 +622,15 @@ async def create():
 @manager.route("/chats", methods=["GET"])  # noqa: F821
 @login_required
 async def list_chats():
+    """列出当前用户的所有chat。
+    1. 解析查询参数（id / name / keywords / 排序 / 分页）
+    2. 参数合法性校验
+    3. 判断是否按 owner_ids 过滤
+    4. 调用 DialogService 查 DB
+    5. 内存级二次过滤（owner_ids）
+    6. 内存级分页（owner_ids 场景）
+    7. 构建标准化响应
+    """
     chat_id = request.args.get("id")
     name = request.args.get("name")
     keywords = request.args.get("keywords", "")
@@ -516,8 +650,7 @@ async def list_chats():
         return get_json_result(code=RetCode.ARGUMENT_ERROR, message=str(ex))
 
     try:
-        # Invalid or negative pagination values fall back to defaults
-        # instead of leaking internal conversion/SQL errors.
+        # 无效或负数的分页值会回退到默认值，而不是泄露内部转换/SQL错误
         page_number = validate_rest_api_page(request.args.get("page", DEFAULT_PAGE))
         items_per_page = validate_rest_api_page_size(request.args.get("page_size", DEFAULT_PAGE_SIZE))
 
@@ -559,6 +692,12 @@ async def list_chats():
 @manager.route("/chats/<chat_id>", methods=["GET"])  # noqa: F821
 @login_required
 async def get_chat(chat_id):
+    """获取指定chat。
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 DialogService 查 DB
+    4. 构建标准化响应
+    """
     try:
         tenants = await thread_pool_exec(UserTenantService.query, user_id=current_user.id)
         for tenant in tenants:
@@ -587,6 +726,14 @@ async def get_chat(chat_id):
 @manager.route("/chats/<chat_id>", methods=["PUT"])  # noqa: F821
 @login_required
 async def update_chat(chat_id):
+    """更新指定chat。
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 获取当前聊天
+    4. 参数合法性校验
+    5. 调用 DialogService 更新 DB
+    6. 构建标准化响应
+    """
     if not await _ensure_owned_chat(chat_id):
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
 
@@ -670,6 +817,14 @@ async def update_chat(chat_id):
 @manager.route("/chats/<chat_id>", methods=["PATCH"])  # noqa: F821
 @login_required
 async def patch_chat(chat_id):
+    """更新指定聊天（部分字段）
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 获取当前聊天
+    4. 构建参数
+    5. 调用 DialogService 更新 DB
+    6. 构建标准化响应
+    """
     if not await _ensure_owned_chat(chat_id):
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
 
@@ -761,6 +916,12 @@ async def patch_chat(chat_id):
 @manager.route("/chats/<chat_id>", methods=["DELETE"])  # noqa: F821
 @login_required
 async def delete_chat(chat_id):
+    """删除指定聊天
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 DialogService 更新 DB
+    4. 构建标准化响应
+    """
     if not await _ensure_owned_chat(chat_id):
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
 
@@ -775,6 +936,12 @@ async def delete_chat(chat_id):
 @manager.route("/chats", methods=["DELETE"])  # noqa: F821
 @login_required
 async def bulk_delete_chats():
+    """批量删除聊天
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 DialogService 批量更新 DB
+    4. 构建标准化响应
+    """
     req = await get_request_json()
     if not req:
         return get_json_result(data={})
@@ -822,7 +989,12 @@ async def bulk_delete_chats():
 @manager.route("/chats/<chat_id>/sessions", methods=["POST"])  # noqa: F821
 @login_required
 async def create_session(chat_id):
-    """Create a new conversation session for the given chat, owned by the authenticated user."""
+    """为已认证的用户创建给定聊天的新对话会话
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 DialogService 获取该聊天
+    4. 构建标准化响应
+    """
     if not await _ensure_owned_chat(chat_id):
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
     try:
@@ -854,6 +1026,12 @@ async def create_session(chat_id):
 @manager.route("/chats/<chat_id>/sessions", methods=["GET"])  # noqa: F821
 @login_required
 async def list_sessions(chat_id):
+    """列出指定聊天的会话会话
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 ConversationService 获取该聊天的会话会话
+    4. 构建标准化响应
+    """
     try:
         if not await _ensure_owned_chat(chat_id):
             return get_json_result(
@@ -861,8 +1039,7 @@ async def list_sessions(chat_id):
                 message="no authorization",
                 code=RetCode.AUTHENTICATION_ERROR,
             )
-        # Invalid or negative pagination values fall back to defaults
-        # instead of leaking internal conversion/SQL errors.
+        # 无效或负数的分页值会回退到默认值，而不是泄露内部转换/SQL错误。
         page_number = validate_rest_api_page(request.args.get("page", DEFAULT_PAGE))
         items_per_page = validate_rest_api_page_size(request.args.get("page_size", DEFAULT_PAGE_SIZE))
         orderby = request.args.get("orderby", "create_time")
@@ -883,6 +1060,12 @@ async def list_sessions(chat_id):
 @manager.route("/chats/<chat_id>/sessions/<session_id>", methods=["GET"])  # noqa: F821
 @login_required
 async def get_session(chat_id, session_id):
+    """获取指定会话会话
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 ConversationService 获取该会话会话
+    4. 构建标准化响应
+    """
     if not await _ensure_owned_chat(chat_id):
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
     try:
@@ -907,6 +1090,12 @@ async def get_session(chat_id, session_id):
 @manager.route("/chats/<chat_id>/sessions/<session_id>", methods=["PATCH"])  # noqa: F821
 @login_required
 async def update_session(chat_id, session_id):
+    """更新指定会话会话
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 ConversationService 获取该会话会话
+    4. 构建标准化响应
+    """
     if not await _ensure_owned_chat(chat_id):
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
     try:
@@ -936,6 +1125,12 @@ async def update_session(chat_id, session_id):
 @manager.route("/chats/<chat_id>/sessions", methods=["DELETE"])  # noqa: F821
 @login_required
 async def delete_sessions(chat_id):
+    """删除指定会话会话
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 ConversationService 获取该会话会话
+    4. 构建标准化响应
+    """
     if not await _ensure_owned_chat(chat_id):
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
     try:
@@ -990,6 +1185,12 @@ async def delete_sessions(chat_id):
 @manager.route("/chats/<chat_id>/sessions/<session_id>/messages/<msg_id>", methods=["DELETE"])  # noqa: F821
 @login_required
 async def delete_session_message(chat_id, session_id, msg_id):
+    """删除指定会话会话（消息）
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 ConversationService 获取该会话会话
+    4. 构建标准化响应
+    """
     if not await _ensure_owned_chat(chat_id):
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
     try:
@@ -1015,6 +1216,12 @@ async def delete_session_message(chat_id, session_id, msg_id):
 @manager.route("/chats/<chat_id>/sessions/<session_id>/messages/<msg_id>/feedback", methods=["PUT"])  # noqa: F821
 @login_required
 async def update_message_feedback(chat_id, session_id, msg_id):
+    """更新指定会话会话（消息）反馈 用于评分
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 调用 ConversationService 获取该会话会话
+    4. 构建标准化响应
+    """
     owned = await _ensure_owned_chat(chat_id)
     if not owned:
         return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
@@ -1082,6 +1289,15 @@ async def update_message_feedback(chat_id, session_id, msg_id):
 @manager.route("/chat/audio/speech", methods=["POST"])  # noqa: F821
 @login_required
 async def tts():
+    """
+    将文本转为语音
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 获取默认TTS模型
+    4. 调用TTS模型进行语音合成
+    5. 构建响应
+    """
+
     req = await get_request_json()
     text = req["text"]
 
@@ -1110,6 +1326,14 @@ async def tts():
 @manager.route("/chat/audio/transcription", methods=["POST"])  # noqa: F821
 @login_required
 async def transcription():
+    """
+    将语音转为文本
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 获取默认ASR模型
+    4. 调用ASR模型进行语音识别
+    5. 构建响应
+    """
     req = await request.form
     stream_mode = req.get("stream", "false").lower() == "true"
     files = await request.files
@@ -1138,12 +1362,12 @@ async def transcription():
     fd, temp_audio_path = tempfile.mkstemp(suffix=suffix)
     os.close(fd)
     await uploaded.save(temp_audio_path)
-
+    # 获取默认ASR模型
     try:
         default_asr_model_config = get_tenant_default_model_by_type(current_user.id, LLMType.ASR)
     except Exception as e:
         return get_data_error_result(message=str(e))
-
+    # 调用ASR模型进行语音识别
     asr_mdl = LLMBundle(current_user.id, default_asr_model_config)
     if not stream_mode:
         text = asr_mdl.transcription(temp_audio_path)
@@ -1173,6 +1397,14 @@ async def transcription():
 @login_required
 @validate_request("question", "kb_ids")
 async def mindmap():
+    """
+    获取思维导图
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 获取默认Mindmap模型
+    4. 调用Mindmap模型进行思维导图生成
+    5. 构建响应
+    """
     req = await get_request_json()
     search_id = req.get("search_id", "")
     search_app = SearchService.get_detail(search_id) if search_id else {}
@@ -1191,6 +1423,14 @@ async def mindmap():
 @login_required
 @validate_request("question")
 async def recommendation():
+    """
+    获取推荐问题
+    1. 获取当前用户所有租户
+    2. 遍历租户，判断当前用户是否有权限访问该聊天
+    3. 获取默认Chat模型
+    4. 调用Chat模型进行推荐问题生成
+    5. 构建响应
+    """
     req = await get_request_json()
 
     search_id = req.get("search_id", "")
@@ -1228,7 +1468,18 @@ async def recommendation():
 @manager.route("/chat/completions", methods=["POST"])  # noqa: F821
 @login_required
 async def session_completion(chat_id_in_arg=""):
-    """Handle chat completion requests, streaming or non-streaming, scoped to the authenticated user."""
+    """处理聊天补全请求（流式或非流式），限定于已认证用户
+    1. 鉴权（当前用户）
+    2. 解析并标准化 messages
+    3. 解析控制参数（历史、存储、流式）
+    4. 校验 chat_id + session_id 归属
+    5. 加载或创建 Dialog / Session
+    6. 合并 / 裁剪历史消息（滑动窗口）
+    7. 确定 LLM 配置（指定 / 默认）
+    8. 调用 rag_agent（RAG 核心）
+    9. 流式 or 非流式返回
+    10. 持久化会话
+    """
     req = await get_request_json()
     normalized, error = _normalize_completion_messages(req)
     if error:
@@ -1330,9 +1581,7 @@ async def session_completion(chat_id_in_arg=""):
             nonlocal dia, msg, req, conv
             try:
                 if legacy:
-                    # v0.23.0-style streaming: emit accumulated answer text and
-                    # reconstruct raw <think>...</think> markers from the newer
-                    # start_to_think/end_to_think events.
+                    #v0.23.0 风格的流式输出：发送累积的回答文本，并根据较新的 start_to_think/end_to_think 事件重建原始的 <think>...</think> 标记。
                     legacy_answer = ""
                     final_answer = None
                     async for ans in rag_agent(dia, msg, True, session_id=session_id, **req):

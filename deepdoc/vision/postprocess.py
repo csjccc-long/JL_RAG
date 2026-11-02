@@ -20,7 +20,28 @@ import numpy as np
 import cv2
 from shapely.geometry import Polygon
 import pyclipper
+"""
+负责把 OCR 模型的原始输出转换成可用结果。它不执行模型推理，而是接在 ocr.py 中的 ONNX 模型之后，整理文字框和识别文字。
 
+DBPostProcess：整理文字检测结果
+文字检测模型输出的是概率图（maps），不是最终的坐标框。DBPostProcess 会：
+
+根据阈值把概率图转成二值区域。
+查找轮廓，筛掉过小或置信度不足的区域。
+扩展文字框边界，并按原始图片尺寸还原坐标。
+返回每个文字区域的四边形或多边形坐标。
+因此，TextDetector 得到的文字框由它从模型概率图中计算出来。
+
+CTCLabelDecode：把识别结果解码成文字
+识别模型输出的是每个位置对应字符的概率。CTCLabelDecode 会：
+
+选取每个位置概率最高的字符；
+去除 CTC 的空白标记和连续重复字符；
+使用字符字典 ocr.res 将索引还原为文字；
+计算识别结果的平均置信度。
+build_post_process()：按配置创建后处理器
+它根据配置中的名称创建 DBPostProcess 或 CTCLabelDecode。在当前 OCR 流程中，检测器用前者，识别器用后者。
+"""
 
 def build_post_process(config, global_config=None):
     support_dict = {"DBPostProcess": DBPostProcess, "CTCLabelDecode": CTCLabelDecode}

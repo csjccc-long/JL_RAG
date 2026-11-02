@@ -203,20 +203,21 @@ function transformObjectArrayToPureArray(
     : [];
 }
 
+type SerializedParserSetup = Omit<
+  ParserFormSchemaType['setups'][number],
+  'pages'
+> & {
+  suffix?: string[];
+  pages?: number[][];
+  order_index: number;
+};
+
 export function transformParserParams(params: ParserFormSchemaType) {
-  const setups = params.setups.reduce<
-    Record<string, ParserFormSchemaType['setups'][0]>
-  >((pre, cur, index) => {
+  const setups = params.setups.reduce<Record<string, SerializedParserSetup>>(
+    (pre, cur, index) => {
     if (cur.fileFormat) {
-      let filteredSetup: Partial<
-        ParserFormSchemaType['setups'][0] & { suffix: string[] } & {
-          two_column_check: boolean;
-          enable_multi_column: boolean;
-          pages: number[][];
-        }
-      > = {
+      let filteredSetup: Partial<SerializedParserSetup> = {
         output_format: cur.output_format,
-        preprocess: cur.preprocess,
         suffix: FileTypeSuffixMap[cur.fileFormat as FileType],
       };
 
@@ -237,12 +238,6 @@ export function transformParserParams(params: ParserFormSchemaType) {
                 }
               : {}),
           };
-          // Only include TCADP parameters if TCADP Parser is selected
-          if (cur.parse_method?.toLowerCase() === 'tcadp parser') {
-            filteredSetup.table_result_type = cur.table_result_type;
-            filteredSetup.markdown_image_response_type =
-              cur.markdown_image_response_type;
-          }
           break;
         case FileType.Spreadsheet:
           filteredSetup = {
@@ -251,24 +246,12 @@ export function transformParserParams(params: ParserFormSchemaType) {
             vlm: { llm_id: cur.vlm?.llm_id },
             flatten_media_to_text: cur.flatten_media_to_text,
           };
-          // Only include TCADP parameters if TCADP Parser is selected
-          if (cur.parse_method?.toLowerCase() === 'tcadp parser') {
-            filteredSetup.table_result_type = cur.table_result_type;
-            filteredSetup.markdown_image_response_type =
-              cur.markdown_image_response_type;
-          }
           break;
         case FileType.PowerPoint:
           filteredSetup = {
             ...filteredSetup,
             parse_method: cur.parse_method,
           };
-          // Only include TCADP parameters if TCADP Parser is selected
-          if (cur.parse_method?.toLowerCase() === 'tcadp parser') {
-            filteredSetup.table_result_type = cur.table_result_type;
-            filteredSetup.markdown_image_response_type =
-              cur.markdown_image_response_type;
-          }
           break;
         case FileType.Image:
           filteredSetup = {
@@ -328,7 +311,7 @@ export function transformParserParams(params: ParserFormSchemaType) {
       pre[cur.fileFormat] = {
         ...filteredSetup,
         order_index: index,
-      } as any;
+      };
     }
     return pre;
   }, {});
@@ -371,18 +354,18 @@ export function transformTitleChunkerParams(
   params: TitleChunkerFormSchemaType,
 ) {
   const activeRules =
-    (params.method === TitleChunkerMethod.Group
+    params.method === TitleChunkerMethod.Group
       ? params.groupRules
-      : params.hierarchyRules) ?? params.rules;
+      : params.hierarchyRules;
 
   const levels = (activeRules || []).map((rule) =>
     transformObjectArrayToPureArray(rule.levels, 'expression'),
   );
 
   const hierarchyValue =
-    (params.method === TitleChunkerMethod.Group
+    params.method === TitleChunkerMethod.Group
       ? params.hierarchyGroup
-      : params.hierarchyHierarchy) ?? params.hierarchy;
+      : params.hierarchyHierarchy;
 
   return {
     ...omit(params, [
@@ -643,7 +626,7 @@ export const buildNewPositionMap = (
   >((pre, cur) => {
     // take a coordinate
     const effectiveIdxes = CategorizeAnchorPointPositions.map(
-      (x, idx) => idx,
+      (_, idx) => idx,
     ).filter((x) => !indexesInUse.some((y) => y === x));
     const idx = sample(effectiveIdxes);
     if (idx !== undefined) {

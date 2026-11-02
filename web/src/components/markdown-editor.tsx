@@ -23,7 +23,10 @@ interface MarkdownEditorProps {
   content: string;
   onChange?: (content: string) => void;
   readOnly?: boolean;
-  onWikiLinkClick?: (pageType: 'concept' | 'entity', slug: string) => void;
+  onWikiLinkClick?: (
+    pageType: 'concept' | 'entity' | 'topic',
+    slug: string,
+  ) => void;
 }
 
 export default function MarkdownEditor({

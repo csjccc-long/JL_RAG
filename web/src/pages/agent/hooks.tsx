@@ -44,7 +44,11 @@ export const useGetNodeName = () => {
   const { t } = useTranslation();
 
   return (type: string) => {
-    const name = t(`flow.${lowerFirst(type)}`);
+    const nameKey =
+      type === Operator.AgentTeam
+        ? 'flow.agentTeamLabel'
+        : `flow.${lowerFirst(type)}`;
+    const name = t(nameKey);
     return name;
   };
 };

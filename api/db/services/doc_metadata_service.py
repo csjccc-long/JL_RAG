@@ -133,13 +133,13 @@ class DocMetadataService:
     @classmethod
     def _iter_search_results(cls, results):
         """
-        Iterate over search results in various formats (DataFrame, ES, OceanBase, list).
+        Iterate over search results in supported formats (DataFrame, ES, list).
 
         Yields:
             Tuple of (doc_id, doc_dict) for each document
 
         Args:
-            results: Search results from ES/Infinity/OceanBase in any format
+            results: Search results from ES or Infinity in any supported format
         """
         # Handle tuple return from Infinity: (DataFrame, int)
         # Check this FIRST because pandas DataFrames also have __getitem__
@@ -178,14 +178,6 @@ class DocMetadataService:
                     doc_id = cls._extract_doc_id(doc)
                     if doc_id:
                         yield doc_id, doc
-
-        # Check if OceanBase SearchResult format
-        elif hasattr(results, "chunks") and hasattr(results, "total"):
-            # OceanBase format: SearchResult(total=int, chunks=[{...}, {...}])
-            for doc in results.chunks:
-                doc_id = cls._extract_doc_id(doc)
-                if doc_id:
-                    yield doc_id, doc
 
     @classmethod
     def _search_metadata(cls, kb_id: str, condition: Dict = None):
@@ -411,7 +403,7 @@ class DocMetadataService:
                 logging.error(f"Failed to insert metadata for document {doc_id}: {result}")
                 return False
             # Force refresh so metadata is immediately searchable.
-            # Both Elasticsearch and OpenSearch backends expose refresh_idx;
+            # Elasticsearch exposes refresh_idx;
             # Infinity does not need a manual refresh.
             if not settings.DOC_ENGINE_INFINITY:
                 refresh_idx = getattr(settings.docStoreConn, "refresh_idx", None)
@@ -470,7 +462,7 @@ class DocMetadataService:
             logging.debug(f"[update_document_metadata] Updating doc_id: {doc_id}, kb_id: {kb_id}, meta_fields: {processed_meta}")
 
             # For Elasticsearch, use efficient partial update
-            if not settings.DOC_ENGINE_INFINITY and not settings.DOC_ENGINE_OCEANBASE and not settings.DOC_ENGINE_SERENEDB:
+            if not settings.DOC_ENGINE_INFINITY:
                 # Check if index exists first
                 index_exists = settings.docStoreConn.index_exist(index_name, "")
                 if not index_exists:

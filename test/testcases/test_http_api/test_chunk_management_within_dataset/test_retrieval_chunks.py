@@ -185,14 +185,14 @@ class TestChunksRetrieval:
                 0,
                 4,
                 "",
-                marks=pytest.mark.skipif(os.getenv("DOC_ENGINE") in ["infinity", "opensearch"], reason="Infinity"),
+                marks=pytest.mark.skipif(os.getenv("DOC_ENGINE") in ["infinity"], reason="Infinity"),
             ),
             pytest.param(
                 {"top_k": 1},
                 0,
                 1,
                 "",
-                marks=pytest.mark.skipif(os.getenv("DOC_ENGINE") in [None, "opensearch", "elasticsearch"], reason="elasticsearch"),
+                marks=pytest.mark.skipif(os.getenv("DOC_ENGINE") in [None, "elasticsearch"], reason="elasticsearch"),
             ),
             ({"top_k": -1}, 100, 4, "must be greater than 0"),
             pytest.param(

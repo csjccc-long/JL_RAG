@@ -14,7 +14,25 @@
 #  limitations under the License.
 #
 from agent.component.fillup import UserFillUpParam, UserFillUp
+"""
+定义开始节点参数
 
+BeginParam 继承自用户填充参数类，增加了两个关键字段：
+mode：启动模式，支持 conversational、task、Webhook
+prologue：欢迎语
+这里的 check() 会校验这些值是否合法，确保配置符合允许范围。
+负责合并真实用户输入
+
+Begin._merge_runtime_inputs()
+它会从 canvas 的全局变量里拿取当前请求的输入，例如 sys.query
+如果用户给的是字典或单个值，它会把它整理成组件输入字段对应的结构
+把输入写入输出和输入缓存
+
+_invoke() 中会遍历合并后的输入
+对每个字段执行 set_output() 和 set_input_value()
+也就是把“用户输入”转成后续节点能读取的变量
+
+"""
 
 class BeginParam(UserFillUpParam):
     """

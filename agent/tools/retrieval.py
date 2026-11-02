@@ -33,6 +33,9 @@ from common.connection_utils import timeout
 from rag.app.tag import label_question
 from rag.prompts.generator import cross_languages, kb_prompt, memory_prompt
 
+"""
+“在本地知识库和记忆库中做召回检索，把最相关的内容找出来，并整理成标准文本，供 Agent 作为上下文来回答问题。”
+"""
 
 class RetrievalParam(ToolParamBase):
     """

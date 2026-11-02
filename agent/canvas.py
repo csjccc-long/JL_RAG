@@ -43,7 +43,105 @@ from rag.prompts.generator import chunks_format
 from rag.utils.redis_conn import REDIS_CONN
 from rag.utils.tts_cache import synthesize_with_cache
 
+
+"""
+核心职责是“把一份 DSL 工作流定义，变成可执行的图执行引擎” ，
+这里和实际使用的逻辑不一样实际agent主要对此进行循环动态决策。
+
+它负责：
+
+解析工作流配置
+创建各个组件实例
+按组件之间的上下游关系组织执行顺序
+处理变量引用、全局状态、历史记录和检索结果
+运行时流式输出事件，供前端或调用方实时展示
+它本质上是整套 Agent/Workflow 的“运行时核心”。
+
+1. Graph
+这是底层图结构基类，主要做：
+
+读取 DSL
+规范化旧 DSL（它会调用 dsl_migration.py 里的 normalize_chunker_dsl）
+构建 components 映射
+解析组件参数和变量引用
+提供组件获取、变量读写、取消任务等基础能力
+也就是说，Graph 负责“图”和“运行时基础设施”。
+
+globals 是全局变量，如 sys.query、sys.user_id、sys.history
+没有 @ → 全局变量
+
+2. Canvas
+Canvas 继承自 Graph，是更贴近业务的工作流运行容器。它额外维护：
+
+globals：系统级变量，如 sys.query、sys.user_id、sys.history
+variables：环境/变量配置
+history：用户和助手的历史对话
+retrieval：检索引用结果
+memory：记忆内容
+_run_token_usage：本次运行的 token 使用统计
+Canvas 真正负责“执行一条工作流”。
+
+它如何执行工作流
+在 Canvas._run_impl() 里，流程大致是：
+
+初始化运行上下文
+
+设置当前时间
+初始化 token 统计
+建立 LLM 请求上下文
+处理用户输入
+清理和重置路径
+
+只执行当前路径中的组件
+避免旧运行残留状态污染新一次执行
+处理输入和全局变量
+
+    如果上次执行在 UserFillUp 组件暂停（等待用户输入）
+    本次执行是恢复，不需要重新走完整流程
+    RAGFlow Canvas 这里的“断点恢复”，本质上是用 DSL 里的 path + history + globals
+例如 query、files、user_id 等会写入 self.globals
+执行组件
+
+依次遍历当前 path
+调用组件的 invoke / invoke_async
+处理上下游连接、分支、循环、异常跳转等
+产出事件流
+
+workflow_started
+node_started
+message
+message_end
+workflow_finished
+这也是为什么它很适合前端实时展示工作流状态和中间输出。
+
+这个模块的核心价值
+1. 把“定义”和“执行”分开
+DSL 只描述流程，真正执行由 Canvas 驱动，而不是把逻辑硬编码进某个单独节点。
+
+2. 支持复杂工作流
+它能处理：
+
+顺序执行
+分支
+循环
+用户补充输入
+异常处理
+多种组件输出流
+3. 统一变量系统
+get_variable_value / set_variable_value 允许组件之间通过引用变量传递信息，保证节点之间联动。
+
+4. 统一运行时状态
+它负责：
+
+取消任务
+统计 token
+记录历史
+维护引用文档和 chunks
+处理 TTS / 音频输出
+
+"""
 _logger = logging.getLogger(__name__)
+
 
 
 class Graph:

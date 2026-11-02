@@ -1,18 +1,18 @@
-# Auth
+# 认证
 
-The Auth module provides implementations of OAuth2 and OpenID Connect (OIDC) authentication for integration with third-party identity providers. 
+Auth 模块提供了 OAuth2 和 OpenID Connect (OIDC) 认证的实现，用于与第三方身份提供商集成。
 
-**Features**
+**功能特性**
 
-- Supports both OAuth2 and OIDC authentication protocols
-- Automatic OIDC configuration discovery (via `/.well-known/openid-configuration`)
-- JWT token validation
-- Unified user information handling
+- 支持 OAuth2 和 OIDC 认证协议
+- 自动 OIDC 配置发现（通过 `/.well-known/openid-configuration`）
+- JWT 令牌验证
+- 统一的用户信息处理
 
-## Usage
+## 使用方法
 
 ```python
-# OAuth2 configuration
+# OAuth2 配置
 oauth_config = {
     "type": "oauth2",
     "client_id": "your_client_id",
@@ -23,7 +23,7 @@ oauth_config = {
     "redirect_uri": "https://your-app.com/api/v1/auth/oauth/<channel>/callback"
 }
 
-# OIDC configuration
+# OIDC 配置
 oidc_config = {
     "type": "oidc",
     "issuer": "https://your-oauth-provider.com/oidc",
@@ -32,39 +32,39 @@ oidc_config = {
     "redirect_uri": "https://your-app.com/api/v1/auth/oauth/<channel>/callback"
 }
 
-# Github OAuth configuration
+# GitHub OAuth 配置
 github_config = {
-    "type": "github"
+    "type": "github",
     "client_id": "your_client_id",
     "client_secret": "your_client_secret",
     "redirect_uri": "https://your-app.com/v1/user/oauth/callback/<channel>"
 }
 
-# Get client instance
+# 获取客户端实例
 client = get_auth_client(oauth_config)
 ```
 
-### Authentication Flow
+### 认证流程
 
-1. Get authorization URL:
+1. 获取授权 URL：
 ```python
 auth_url = client.get_authorization_url()
 ```
 
-2. After user authorization, exchange authorization code for token:
+2. 用户授权后，用授权码交换令牌：
 ```python
 token_response = client.exchange_code_for_token(authorization_code)
 access_token = token_response["access_token"]
 ```
 
-3. Fetch user information:
+3. 获取用户信息：
 ```python
 user_info = client.fetch_user_info(access_token)
 ```
 
-## User Information Structure
+## 用户信息结构
 
-All authentication methods return user information following this structure:
+所有认证方法返回的用户信息均遵循以下结构：
 
 ```python
 {

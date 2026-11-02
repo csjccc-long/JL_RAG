@@ -1,7 +1,9 @@
 import logging
 from agent.plugin.llm_tool_plugin import LLMToolMetadata, LLMToolPlugin
 
+"""这个文件是一个具体的 LLM 工具插件示例，用来演示“如何把一个函数封装成可被系统发现和调用的插件”。
 
+它不是核心业务代码，而是一个“演示型工具插件”，用于说明插件机制的用法"""
 class BadCalculatorPlugin(LLMToolPlugin):
     """
     A sample LLM tool plugin, will add two numbers with 100.

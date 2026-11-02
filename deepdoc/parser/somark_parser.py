@@ -46,6 +46,108 @@ from deepdoc.parser.utils import extract_pdf_outlines
 
 from common.constants import MAXIMUM_PAGE_NUMBER
 
+
+"""
+1. 调用 SoMark 异步解析接口
+它有几个固定接口：
+
+SUBMIT_PATH = "/parse/async"
+CHECK_PATH = "/parse/async_check"
+USAGE_PATH = "/usage"
+这说明它以“异步任务”方式工作，不是一次性直接返回结果，而是先提交任务，再轮询状态。
+
+2. 处理 API 认证和可用性检查
+check_installation() 会检查：
+
+base_url 是否配置正确
+是否是 SaaS 模式还是私有部署
+API Key 是否有效
+是否还有剩余解析额度
+这一步是“接入前置检查”。
+
+3. 提交 PDF 并轮询结果
+_submit_task() 负责上传 PDF 文件和配置参数。
+_poll_task() 会循环查询任务状态，直到：
+
+成功
+失败
+超时
+这说明 SoMark 的解析结果是异步返回的，这和云端 OCR/文档结构化服务很常见。
+
+4. 把 SoMark 的 JSON 块转换成 RAGFlow 的内部结构
+最关键的函数是：
+
+_transfer_to_sections()
+_resolve_internal_type()
+_block_text()
+它会把 SoMark 返回的块类型，例如：
+
+text
+title
+figure
+table
+code
+equation
+header
+footer
+统一映射成 RAGFlow 内部的类型，比如：
+
+text
+table
+image
+equation
+code
+这一步非常重要，因为后续下游 chunker、检索、布局处理都依赖统一类型。
+
+5. 生成位置信息 tag
+_line_tag() 负责给每一块生成一段位置信息，例如：
+
+页面号
+左上/右下坐标
+位置标签
+这样后续就能依据位置进行裁剪、定位、图像回溯，形成“文本 + 坐标”的结构。
+
+6. 支持图像块和表格块的裁剪/恢复
+    这是位置标签最重要的作用。当解析结果中包含图片类型的 block 时，代码并不会直接使用 SoMark 返回的图片 URL，而是：
+    在本地将 PDF 页面渲染为图像
+    根据位置标签中的坐标，在渲染图像上裁剪出对应的区域
+    将裁剪结果作为最终的图片
+
+    这个流程通过 crop 方法实现：
+    crop() 这部分是为了把页面中的图像区域按位置裁出来，便于后续处理图片或布局。
+
+    具体流程：
+
+    从包含位置标签的文本中提取所有坐标
+    过滤无效页码
+    根据坐标在渲染的页面图像上裁剪出对应区域
+    支持跨页裁剪（拼接多页内容）
+    首尾添加渐变遮罩效果
+    3.2 文本与页面的关联
+
+    位置标签让文本内容与 PDF 页面上的具体位置建立关联。这样下游系统可以：
+
+    知道某段文本在 PDF 的哪一页
+    知道某段文本在页面上的具体位置（左、右、上、下边界）
+    实现"点击文本跳转到 PDF 对应位置"的功能
+    3.3 支持跨页内容的处理
+
+    位置标签的页码支持多页（如 1-2），这为跨页内容的处理提供了基础：
+
+    跨页文本：一段文本跨越两页时，位置标签记录了两个页码
+    跨页图片：一张图片跨越两页时，裁剪时会拼接两页的内容
+    3.4 下游 tokenize 和 chunk 的定位
+
+    在 RAGFlow 的后续处理中：
+
+    tokenize_chunks() 会解析位置标签
+    crop() 根据位置标签裁剪图片
+    remove_tag() 在处理完成后剥离位置标签，只保留纯文本内容
+
+    这样设计的好处是：位置标签在处理的中间阶段存在，帮助定位和裁剪，但在最终结果中会被移除，不会污染最终的文本内容。
+    _transfer_to_sections() 里对 image 类型也会特别处理，避免直接丢掉图表信息
+"""
+
 LOCK_KEY_pdfplumber = "global_shared_lock_pdfplumber"
 if LOCK_KEY_pdfplumber not in sys.modules:
     sys.modules[LOCK_KEY_pdfplumber] = threading.Lock()
@@ -617,7 +719,7 @@ class SoMarkParser(RAGFlowPdfParser):
         return content
 
     def _transfer_to_sections(self, pages: list[dict], parse_method: Optional[str] = None) -> list[tuple]:
-        # MinerU contract: manual/pipeline callers (the rag/flow DAG) want typed
+        # Manual/pipeline callers (the rag/flow DAG) expect typed
         # 3-tuples ``(text, layout_type, line_tag)`` so the consumer can set
         # box["layout_type"] and crop via the separate position field; every other
         # caller (naive.py standard chunking) wants 2-tuples ``(text, line_tag)``
@@ -641,7 +743,7 @@ class SoMarkParser(RAGFlowPdfParser):
                     "page_size": page_size,
                 }
                 if internal == "image":
-                    # Align with MinerU: the figure is recovered by cropping the
+                    # Recover the figure by cropping the
                     # locally rendered page region via crop(), not from img_url.
                     if not bbox or len(bbox) != 4:
                         continue  # no geometry -> nothing to crop

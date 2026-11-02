@@ -15,7 +15,10 @@
 #
 from abc import ABC
 from agent.component.base import ComponentBase, ComponentParamBase
-
+"""
+定义的是“循环控制组件”。
+它的职责不是处理列表元素本身，而是负责“初始化循环变量”和“设定循环状态”，为后续的循环体执行准备上下文。
+"""
 
 class LoopParam(ComponentParamBase):
     """

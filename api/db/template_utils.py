@@ -54,7 +54,7 @@ def _collect_canvas_types(canvas_type: Any, canvas_types: Any) -> list[str]:
 
     return deduplicated
 
-
+#raw canvas_type, canvas_types 分别是新旧模版对应的数据
 def normalize_canvas_template_categories(template: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(template)
     raw_canvas_type = normalized.get("canvas_type")

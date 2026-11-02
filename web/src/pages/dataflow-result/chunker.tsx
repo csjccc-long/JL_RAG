@@ -44,7 +44,7 @@ const ChunkerContainer = (props: IProps) => {
     available,
     handleSetAvailable,
   } = useFetchNextChunkList();
-  const { handleChunkCardClick, selectedChunkId } = useHandleChunkCardClick();
+  const { handleChunkCardClick, selectedChunk } = useHandleChunkCardClick();
   const isPdf = documentInfo?.type === 'pdf';
   const {
     chunkUpdatingLoading,
@@ -164,6 +164,7 @@ const ChunkerContainer = (props: IProps) => {
               </div>
             </div>
             <ChunkResultBar
+              isReadonly={false}
               handleInputChange={handleInputChange}
               searchString={searchString}
               changeChunkTextMode={changeChunkTextMode}
@@ -202,7 +203,7 @@ const ChunkerContainer = (props: IProps) => {
                     handleCheckboxClick={handleSingleCheckboxClick}
                     switchChunk={handleSwitchChunk}
                     clickChunkCard={handleChunkCardClick}
-                    selected={item.chunk_id === selectedChunkId}
+                    selected={item.chunk_id === selectedChunk?.chunk_id}
                     textMode={textMode}
                   ></ChunkCard>
                 ))}

@@ -34,7 +34,53 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 from enum import StrEnum
 
+"""
+1. 连接 RAGFlow 后端
+RAGFlowConnector 负责调用真实接口，例如：
 
+/datasets
+/chats
+/retrieval
+它封装了 httpx.AsyncClient，用于向后端发送请求。
+
+2. 暴露工具列表
+@app.list_tools() 下面的代码注册了几个工具：
+
+ragflow_retrieval
+ragflow_list_datasets
+ragflow_list_chats
+这意味着客户端可以先调用 list_tools()，再知道有哪些能力可用。
+
+3. 执行具体工具
+@app.call_tool() 里根据 name 分发请求：
+
+ragflow_retrieval → 调用检索
+ragflow_list_datasets → 列数据集
+ragflow_list_chats → 列聊天助手
+这就是 MCP server 的关键执行入口。
+
+4. 支持两种传输方式
+它支持：
+
+SSE
+Streamable HTTP
+并且可以在启动时配置：
+
+--transport-sse-enabled
+--transport-streamable-http-enabled
+这让它兼容不同的客户端连接方式。
+
+5. 认证和多租户模式
+代码里还处理了两种模式：
+
+self-host
+host
+以及 Authorization / API Key 的读取逻辑。
+
+也就是说，它既支持单租户自托管，也支持多租户环境。
+
+
+"""
 class LaunchMode(StrEnum):
     SELF_HOST = "self-host"
     HOST = "host"

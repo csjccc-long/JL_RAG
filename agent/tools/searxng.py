@@ -22,7 +22,10 @@ from agent.tools.base import ToolMeta, ToolParamBase, ToolBase
 from common.connection_utils import timeout
 from common.ssrf_guard import assert_url_is_safe, pin_dns
 
-
+"""
+“提供一个自托管/隐私优先的搜索工具，通过 SearXNG 聚合多个搜索 engine，并把结果标准化为 Agent 可消费的文档片段。”
+可私有化部署的联网搜索能力
+"""
 class SearXNGParam(ToolParamBase):
     """
     Define the SearXNG component parameters.

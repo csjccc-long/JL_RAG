@@ -333,15 +333,11 @@ func normalizeLayoutRecognizer(raw string) (recognizer, modelName string) {
 	if strings.HasSuffix(lowered, "@paddleocr") {
 		return "PaddleOCR", raw
 	}
-	if strings.HasSuffix(lowered, "@mineru") {
-		return "MinerU", raw
-	}
+
 	if strings.HasSuffix(lowered, "@somark") {
 		return "SoMark", raw
 	}
-	if strings.HasSuffix(lowered, "@opendataloader") {
-		return "OpenDataLoader", raw
-	}
+
 	return raw, ""
 }
 

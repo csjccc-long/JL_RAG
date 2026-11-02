@@ -37,6 +37,19 @@ from rag.nlp import rag_tokenizer, tokenize, tokenize_table
 from deepdoc.parser import ExcelParser
 from common import settings
 
+"""
+表格文件解析器，负责把 Excel、CSV、TXT 中的表格数据转换为 RAGFlow 可索引、可检索的 chunk。
+
+核心做法是每一行生成一个 chunk，并保留列名与对应值，例如“供应商：某公司”。这样检索时能保留数据字段之间的关系，而不是把整张表当成一段普通文本。
+
+主要处理包括：
+
+读取 Excel 多个工作表，识别简单或多层表头；CSV/TXT 则按首行为表头读取。
+推断列的数据类型，如文本、整数、浮点数、日期和布尔值，并处理重复列名。
+根据列角色决定用途：indexing / vectorize 用于文本检索或向量化，metadata 用于结构化存储，both 两者兼用。默认是 both。
+生成字段映射并更新知识库配置；对 Excel 内的图片，也会尝试生成图片描述并纳入解析结果。
+"""
+
 logger = logging.getLogger(__name__)
 
 
@@ -547,7 +560,7 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_TASK_PAGE_NUMBER, 
         clmns_map = [(py_clmns[i].lower() + fields_map[clmn_tys[i]], str(clmns[i]).replace("_", " ")) for i in range(len(clmns))]
         # field_map: only columns stored in chunk_data (metadata or both) — used for retrieval/SQL
         stored_indices = [i for i in range(len(clmns)) if column_roles.get(clmns[i], "both") in ("metadata", "both")]
-        if settings.DOC_ENGINE_INFINITY or settings.DOC_ENGINE_OCEANBASE or settings.DOC_ENGINE_SERENEDB:
+        if settings.DOC_ENGINE_INFINITY:
             field_map = {py_clmns[i].lower(): str(clmns[i]).replace("_", " ") for i in stored_indices}
         else:
             field_map = {clmns_map[i][0]: clmns_map[i][1] for i in stored_indices}
@@ -608,7 +621,7 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_TASK_PAGE_NUMBER, 
                 if role in ("indexing", "vectorize", "both"):
                     text_fields.append((col_name, row[col_name]))
                 if role in ("metadata", "both"):
-                    if settings.DOC_ENGINE_INFINITY or settings.DOC_ENGINE_OCEANBASE or settings.DOC_ENGINE_SERENEDB:
+                    if settings.DOC_ENGINE_INFINITY:
                         stored[str(col_name)] = row[col_name]
                     else:
                         fld = clmns_map[j][0]
@@ -631,7 +644,7 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_TASK_PAGE_NUMBER, 
                                 stored[f"{py_clmns[j].lower()}_raw"] = raw_s
             if not text_fields and not stored:
                 continue
-            if settings.DOC_ENGINE_INFINITY or settings.DOC_ENGINE_OCEANBASE or settings.DOC_ENGINE_SERENEDB:
+            if settings.DOC_ENGINE_INFINITY:
                 if stored:
                     d["chunk_data"] = stored
             else:
@@ -642,7 +655,7 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_TASK_PAGE_NUMBER, 
                 logger.debug(f"[TABLE_PARSER_DEBUG] Chunk content_with_weight length: {len(d.get('content_with_weight', '') or '')}")
                 _cd = d.get("chunk_data")
                 logger.debug(f"[TABLE_PARSER_DEBUG] Chunk chunk_data keys: {list(_cd.keys()) if isinstance(_cd, dict) else 'N/A'}")
-                if not (settings.DOC_ENGINE_INFINITY or settings.DOC_ENGINE_OCEANBASE or settings.DOC_ENGINE_SERENEDB):
+                if not settings.DOC_ENGINE_INFINITY:
                     _extra = [k for k in d if k not in ("docnm_kwd", "title_tks", "content_with_weight", "content_ltks", "content_sm_ltks")]
                     logger.debug(f"[TABLE_PARSER_DEBUG] Chunk ES extra field keys (sample): {_extra[:20]}")
             res.append(d)

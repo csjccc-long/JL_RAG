@@ -80,7 +80,7 @@ func (s *stubProvider) SupportedLanguages() []string                            
 func TestProviderManager_BuildProvider_KnownTypes(t *testing.T) {
 	t.Parallel()
 
-	for _, ptype := range []ProviderType{ProviderSelfManaged, ProviderAliyun, ProviderE2B, ProviderLocal, ProviderSSH, ProviderUCloudAgentSandbox} {
+	for _, ptype := range []ProviderType{ProviderSelfManaged, ProviderLocal, ProviderSSH} {
 		t.Run(string(ptype), func(t *testing.T) {
 			p, err := buildProvider(ptype)
 			if err != nil {
@@ -97,42 +97,6 @@ func TestProviderManager_BuildProvider_UnknownType(t *testing.T) {
 	t.Parallel()
 	if _, err := buildProvider("not-a-real-provider"); err == nil {
 		t.Errorf("buildProvider on unknown: got nil error, want one")
-	}
-}
-
-func TestE2BProvider_AllOps_LoudFail(t *testing.T) {
-	// v3: e2b is now a real implementation. The "all ops loud-fail"
-	// expectation is obsolete. The new "no creds → error" path is
-	// covered by TestE2BProvider_Initialize_MissingCreds in
-	// e2b_test.go. This stub is kept as a no-op marker to make the
-	// migration trace explicit; remove once the test has been
-	// confirmed obsolete in a later cleanup pass.
-	t.Skip("removed in v3 — see e2b_test.go for the new behavior")
-}
-
-func TestAliyun_ProviderTypeAndLanguages(t *testing.T) {
-	t.Parallel()
-	p := newAliyunProviderFromEnv()
-	if p.ProviderType() != ProviderAliyun {
-		t.Errorf("ProviderType = %q, want %q", p.ProviderType(), ProviderAliyun)
-	}
-	langs := p.SupportedLanguages()
-	if len(langs) == 0 {
-		t.Errorf("SupportedLanguages is empty")
-	}
-}
-
-func TestAliyun_Initialize_MissingCreds(t *testing.T) {
-	// Cannot use t.Parallel() with t.Setenv.
-	// Save and clear AGENTRUN_* env vars to simulate an unconfigured
-	// operator.
-	for _, k := range []string{"AGENTRUN_ACCESS_KEY_ID", "AGENTRUN_ACCESS_KEY_SECRET", "AGENTRUN_ACCOUNT_ID"} {
-		t.Setenv(k, "")
-	}
-	ctx := t.Context()
-	p := newAliyunProviderFromEnv()
-	if err := p.Initialize(ctx); err == nil {
-		t.Errorf("Initialize with missing creds: got nil error, want one")
 	}
 }
 
@@ -249,36 +213,6 @@ func TestNewSelfManagedProviderFromConfig_TimeoutAsString(t *testing.T) {
 	}
 }
 
-// TestNewAliyunProviderFromConfig_Minimal pins the aliyun
-// settings-driven init. The 30s hard cap from the env path
-// must apply here too.
-func TestNewAliyunProviderFromConfig_Minimal(t *testing.T) {
-	t.Parallel()
-	p := newAliyunProviderFromConfig(map[string]any{})
-	if p.region != aliyunDefaultRegion {
-		t.Errorf("region = %q, want %q (default)", p.region, aliyunDefaultRegion)
-	}
-	if p.timeout != 30 {
-		t.Errorf("timeout = %d, want 30 (default + cap)", p.timeout)
-	}
-}
-
-// TestNewAliyunProviderFromConfig_TimeoutCap: timeout above 30
-// must clamp to 30.
-func TestNewAliyunProviderFromConfig_TimeoutCap(t *testing.T) {
-	t.Parallel()
-	p := newAliyunProviderFromConfig(map[string]any{
-		"ACCESS_KEY_ID":     "k",
-		"ACCESS_KEY_SECRET": "s",
-		"ACCOUNT_ID":        "a",
-		"REGION":            "cn-shanghai",
-		"TIMEOUT":           float64(120),
-	})
-	if p.timeout != 30 {
-		t.Errorf("timeout = %d, want 30 (hard cap)", p.timeout)
-	}
-}
-
 // TestNewLocalProviderFromConfig_Defaults pins the local provider's
 // settings-driven defaults.
 func TestNewLocalProviderFromConfig_Defaults(t *testing.T) {
@@ -332,19 +266,6 @@ func TestNewLocalProviderFromConfig_FullConfig(t *testing.T) {
 	}
 	if p.maxArtifactBytes != 20_000_000 {
 		t.Errorf("maxArtifactBytes = %d", p.maxArtifactBytes)
-	}
-}
-
-// TestNewE2BProviderFromConfig_Default pins the e2b settings-driven
-// defaults (template + 60s timeout).
-func TestNewE2BProviderFromConfig_Default(t *testing.T) {
-	t.Parallel()
-	p := newE2BProviderFromConfig(map[string]any{})
-	if p.template != e2bDefaultTemplate {
-		t.Errorf("template = %q, want %q", p.template, e2bDefaultTemplate)
-	}
-	if p.sandboxTimeout != e2bDefaultSandboxTimeout {
-		t.Errorf("sandboxTimeout = %v, want %v", p.sandboxTimeout, e2bDefaultSandboxTimeout)
 	}
 }
 

@@ -341,7 +341,7 @@ export const useSendAgentMessage = ({
         clearUploadResponseList();
 
         if (receiveMessageError(res)) {
-          sonnerMessage.error(res?.data?.message);
+          sonnerMessage.error(String(res?.data?.message ?? 'Request failed'));
 
           // cancel loading
           setValue(message.content);

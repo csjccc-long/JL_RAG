@@ -2863,7 +2863,7 @@ def _parse_list_field(value):
     """Normalize a search-result ``_kwd`` field to a Python list.
 
     Infinity stores keyword fields as ``###``-joined strings;
-    ES / OpenSearch / OceanBase keep native lists.
+    Elasticsearch keeps native lists.
     """
     if isinstance(value, list):
         return [v for v in value if v]
@@ -3322,7 +3322,7 @@ async def delete_nav_node(dataset_id: str, tenant_id: str, name: str):
     try:
         # ES requires the keyword subfield for exact node-name matching. Infinity
         # has a scalar varchar name field, while parent_kwd is exact-matchable.
-        name_field = "name.keyword" if settings.DOC_ENGINE.lower() in {"elasticsearch", "opensearch"} else "name"
+        name_field = "name.keyword" if settings.DOC_ENGINE.lower() == "elasticsearch" else "name"
         target_condition = {"compile_kwd": [_NAV_COMPILE_KWD], name_field: [name]}
         rows = await search_rows(target_condition)
         if not rows and name_field != "name":

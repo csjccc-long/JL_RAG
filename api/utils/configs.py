@@ -21,7 +21,7 @@ from api.utils.common import bytes_to_string, string_to_bytes
 
 safe_module = {"numpy", "rag_flow"}
 
-
+# 反序列化器
 class RestrictedUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
         import importlib

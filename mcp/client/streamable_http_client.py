@@ -16,7 +16,14 @@
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
+"""
+是一个“基于 HTTP 的 MCP 客户端示例”，它用来连接 MCP Server，并调用服务端暴露的工具。
 
+它和上一版的 SSE 客户端本质一样，区别在于连接方式不同：
+
+sse_client：基于 SSE
+streamablehttp_client：基于流式 HTTP
+"""
 async def main():
     try:
         # To access RAGFlow server in `host` mode, you need to attach `api_key` for each request to indicate identification.

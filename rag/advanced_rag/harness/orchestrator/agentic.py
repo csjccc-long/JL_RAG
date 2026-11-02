@@ -21,6 +21,17 @@ from rag.advanced_rag.harness.orchestrator.sufficiency_llm import llm_sufficienc
 _LOG = logging.getLogger(__name__)
 CLAIM_RESEARCH_TIMEOUT_SECONDS = 180
 
+"""
+high/ultra 模式的研究编排器。它本身不直接实现检索，而是把工作分配给 research_agent_loop，管理每个 claim 的研究、验证和后续决策。
+
+主要流程：
+
+并行研究尚未验证的 claims；每个 claim 的研究最多等待 180 秒。
+收集结果后检查证据充分性，并用 LLM 检查报告中的断言是否有证据支撑。缺失信息可生成下一轮的定向查询。
+通过决策阶梯决定完整回答、部分回答、继续研究或弃答。
+Ultra 模式还可根据研究中发现的新问题动态增加 claims，并在需要时重新规划；连续多轮得分没有明显提升时会提前停止。
+完成时把各 claim 的研究报告合并到 kbinfos["pre_summary"]，并尽量只保留被 claim 引用的证据块，供后续生成最终答案使用。
+"""
 
 def _snip(text: str, limit: int = 160) -> str:
     text = (text or "").replace("\n", " ").strip()

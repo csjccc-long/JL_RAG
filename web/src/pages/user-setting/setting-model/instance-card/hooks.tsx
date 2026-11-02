@@ -197,8 +197,8 @@ export function useProviderInitialValues(
       // Provider-specific echo: reverse the `submitTransform` mapping so
       // credential fields that the backend persists either at the top
       // level (Google Cloud, Tencent Cloud, Fish Audio) or nested inside
-      // `api_key` (XunFei Spark, Baidu YiYan, OpenDataLoader, PaddleOCR,
-      // MinerU) are restored into their own form inputs.
+      // `api_key` (XunFei Spark, Baidu YiYan, PaddleOCR, and SoMark)
+      // are restored into their own form inputs.
       Object.assign(values, echoTransform(merged));
     } else if (merged.api_key) {
       // api_key may come back as a JSON string, an already-parsed object,
@@ -297,8 +297,8 @@ export function useFormResetOnDetailsLoad(
 // ---------------------------------------------------------------------------
 
 /** Optional transform supplied by the provider config. When present it
- *  maps provider-specific form field names (e.g. OpenDataLoader's
- *  `opendataloader_apiserver`) onto the `{ apiKey, baseUrl, modelInfo }`
+ *  maps provider-specific form field names (e.g. PaddleOCR's
+ *  `paddleocr_api_url`) onto the `{ apiKey, baseUrl, modelInfo }`
  *  shape the verify endpoint expects. When absent the generic mapping
  *  (`values.api_key` / `values.base_url`) is used. */
 type VerifyTransform = (values: Record<string, any>) => {
@@ -314,8 +314,8 @@ type VerifyTransform = (values: Record<string, any>) => {
  * `VerifyResult` consumed by {@link VerifyButton}.
  *
  * When `verifyTransform` is supplied (provider-specific field mapping,
- * e.g. OpenDataLoader's nested `opendataloader_apiserver` /
- * `opendataloader_api_key`), it is used to build the verify args;
+ * e.g. PaddleOCR's `paddleocr_api_url` /
+ * `paddleocr_access_token`), it is used to build the verify args;
  * otherwise the generic `values.api_key` / `values.base_url` mapping
  * is used.
  */
@@ -420,8 +420,8 @@ interface UseInstanceSaveStateArgs {
   modelInfoRef: { current: IModelInfo[] };
   /**
    * Optional provider-specific transform that maps form values to the
-   * submit API body (e.g. OpenDataLoader's nested
-   * `opendataloader_apiserver` / `opendataloader_api_key` fields). When
+   * submit API body (e.g. PaddleOCR's
+   * `paddleocr_api_url` / `paddleocr_access_token` fields). When
    * absent the generic `buildApiKeyValue` + `values.base_url` mapping is
    * used.
    */
@@ -488,8 +488,8 @@ export function useInstanceSaveState({
     const modelInfo =
       modelInfoRef.current.length > 0 ? modelInfoRef.current : [];
 
-    // Provider-specific field mapping (e.g. OpenDataLoader's nested
-    // `opendataloader_apiserver` / `opendataloader_api_key`). The
+    // Provider-specific field mapping (e.g. PaddleOCR's
+    // `paddleocr_api_url` / `paddleocr_access_token`). The
     // transform produces the canonical submit body shape
     // (`instance_name`, `llm_factory`, `api_key`, `base_url`,
     // `model_info`); we then layer on the card's own state (typed /

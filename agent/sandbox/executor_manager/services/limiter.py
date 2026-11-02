@@ -23,7 +23,9 @@ from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 
-
+"""
+这个文件是“限流控制模块”，它的职责是：当用户对代码执行接口发起请求过快时，拦住超额请求，避免沙箱被压垮或资源被耗尽。
+"""
 async def rate_limit_exceeded_handler(request: Request, exc: Exception) -> JSONResponse:
     if isinstance(exc, RateLimitExceeded):
         return JSONResponse(

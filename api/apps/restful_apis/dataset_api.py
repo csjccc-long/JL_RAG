@@ -510,14 +510,15 @@ async def rename_tag(tenant_id, dataset_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def search_datasets(tenant_id):
-    """Search (retrieval test) across multiple datasets.
+    """跨多个数据集的搜索（检索测试）。
+
 
     POST /api/v1/datasets/search
-    JSON body: {"dataset_ids": list[str] (required), "question": str (required), "doc_ids": list[str], "top_k": int, "page": int, "size": int,
-               "similarity_threshold": float, "vector_similarity_weight": float, "use_kg": bool,
-               "cross_languages": list[str], "keyword": bool, "meta_data_filter": dict}
-    Success: {"code": 0, "data": {"chunks": [...], "total": int, "labels": [...]}}
-    Errors: ARGUMENT_ERROR (101) for invalid payload; DATA_ERROR (102) for access denied or internal errors.
+    JSON 请求体：{"dataset_ids": list[str]（必填）, "question": str（必填）, "doc_ids": list[str], "top_k": int, "page": int, "size": int,
+            "similarity_threshold": float, "vector_similarity_weight": float, "use_kg": bool,
+            "cross_languages": list[str], "keyword": bool, "meta_data_filter": dict}
+    成功：{"code": 0, "data": {"chunks": [...], "total": int, "labels": [...]}}
+    错误：参数错误（101）表示无效负载；数据错误（102）表示访问被拒绝或内部错误。
     """
     req, err = await validate_and_parse_json_request(request, SearchDatasetsReq)
     if err is not None:
@@ -533,14 +534,15 @@ async def search_datasets(tenant_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def search(tenant_id, dataset_id):
-    """Search (retrieval test) within a dataset.
+    """在数据集内搜索（检索测试）。
 
+纯文本
     POST /api/v1/datasets/<dataset_id>/search
-    JSON body: {"question": str (required), "doc_ids": list[str], "top_k": int, "page": int, "size": int,
-               "similarity_threshold": float, "vector_similarity_weight": float, "use_kg": bool,
-               "cross_languages": list[str], "keyword": bool, "meta_data_filter": dict}
-    Success: {"code": 0, "data": {"chunks": [...], "total": int, "labels": [...]}}
-    Errors: ARGUMENT_ERROR (101) for invalid payload; DATA_ERROR (102) for access denied or internal errors.
+    JSON 请求体：{"question": 字符串（必填）, "doc_ids": 字符串列表, "top_k": 整数, "page": 整数, "size": 整数,
+            "similar32_threshold": 浮点数, "vector_similarity_weight": 浮点数, "use_kg": 布尔值,
+            "cross_languages": 字符串列表, "keyword": 布尔值, "meta_data_filter": 字典}
+    成功响应：{"code": 0, "data": {"chunks": [...], "total": 整数, "labels": [...]}}
+    错误响应：参数错误（101）表示无效负载；数据错误（102）表示访问被拒绝或内部错误。
     """
     req, err = await validate_and_parse_json_request(request, SearchDatasetReq)
     if err is not None:
@@ -683,19 +685,17 @@ async def list_wiki_topics(tenant_id, dataset_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def get_wiki_graph(tenant_id, dataset_id):
-    """Return an incremental slice of the canvas graph for this dataset.
+    """返回该数据集画布图的增量切片。
+
 
     GET /api/v1/datasets/<dataset_id>/artifacts/graph[?node=<slug>][&keywords=<q>][&top_n=<n>]
-    - ``node`` omitted: overview centred on the heaviest-weighted
-      entities, expanded outward until the entity budget is hit.
-    - ``node`` provided: subgraph centred on that entity, including all
-      outgoing relations and their ``to`` targets (also capped).
-    - ``keywords`` (overview only; ignored with ``node``): seed the overview
-      from the best BM25 matches instead of the heaviest-weighted entities.
-    - ``top_n`` (a.k.a. ``topN``): override the entity budget (default 128).
+    - 省略 ``node``：以权重最高的实体为中心的概览，向外扩展直至达到实体数量上限。
+    - 提供 ``node``：以该实体为中心的子图，包含所有出边关系及其 ``to`` 目标实体（同样受上限约束）。
+    - ``keywords``（仅用于概览；若提供 ``node`` 则忽略）：使用最佳 BM25 匹配结果作为种子来生成概览，而不是权重最高的实体。
+    - ``top_n``（也称 ``topN``）：覆盖默认的实体数量上限（默认为 128）。
 
-    Only entities referenced by at least one relation are returned.
-    Success: ``{"code": 0, "data": {"entities":[…],"relations":[…]}}``.
+    仅返回至少被一条关系引用过的实体。
+    成功时返回：``{"code": 0, "data": {"entities":[…],"relations":[…]}}``。
     """
     try:
         node = request.args.get("node", None)
@@ -734,15 +734,14 @@ async def get_wiki_graph(tenant_id, dataset_id):
 @login_required
 @add_tenant_id_to_kwargs
 async def get_dataset_structure(tenant_id, dataset_id):
-    """Return the dataset-scope (KB-wide) structure graph for one kind.
+    """返回一种类型的全数据集（跨知识库）结构图。
+
 
     GET /api/v1/datasets/<dataset_id>/artifacts/structure?kind=<kind>
-    where ``kind`` is one of:
-      graph | mindmap | timeline | session_essence | session_graph
+    其中 ``kind`` 为以下之一：
+    graph（图谱） | mindmap（思维导图） | timeline（时间线） | session_essence（会话摘要） | session_graph（会话图谱）
 
-    These are the non-tree structured artifacts merged across the whole
-    dataset (written when a template has ``dataset_merge`` enabled). Response
-    mirrors the per-document structure graph so the frontend reuses its view::
+    这些是在整个数据集中合并的非树状结构化产物（当模板启用了 ``dataset_merge`` 时写入）。响应格式与单文档结构图一致，以便前端复用其视图：
 
         {"code": 0, "data": {"kind": "<kind>", "templates": [
             {"template_id", "template_name", "kind", "entities", "relations"}

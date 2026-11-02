@@ -4,12 +4,16 @@ const config: Config = {
   testEnvironment: 'jsdom',
   transform: {
     '^.+\\.(ts|tsx|js|jsx)$': [
-      'esbuild-jest',
+      'babel-jest',
       {
-        sourcemap: true,
-        loaders: {
-          '.ts': 'tsx',
-        },
+        configFile: false,
+        babelrc: false,
+        presets: [
+          ['@babel/preset-env', { targets: { node: 'current' } }],
+          '@babel/preset-typescript',
+          ['@babel/preset-react', { runtime: 'automatic' }],
+        ],
+        plugins: ['./jest/babel-plugin-vite-env.cjs'],
       },
     ],
   },

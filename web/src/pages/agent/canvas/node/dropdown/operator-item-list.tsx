@@ -65,10 +65,14 @@ export function OperatorItemList({
     };
 
   const renderOperatorItem = (operator: Operator) => {
+    const labelKey =
+      operator === Operator.AgentTeam
+        ? 'flow.agentTeamLabel'
+        : `flow.${lowerFirst(operator)}`;
     const commonContent = (
       <div className="hover:bg-background-card py-1 px-3 cursor-pointer rounded-sm flex gap-2 items-center justify-start">
         <OperatorIcon name={operator} />
-        {t(`flow.${lowerFirst(operator)}`)}
+        {t(labelKey)}
       </div>
     );
 
@@ -85,7 +89,7 @@ export function OperatorItemList({
               onSelect={() => hideModal?.()}
             >
               <OperatorIcon name={operator} />
-              {t(`flow.${lowerFirst(operator)}`)}
+              {t(labelKey)}
             </DropdownMenuItem>
           )}
         </TooltipTrigger>

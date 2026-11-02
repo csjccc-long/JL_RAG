@@ -17,21 +17,16 @@
 // Package sandbox implements RAGFlow's Go-side CodeExec sandbox subsystem.
 //
 // The package is the Go port of `agent/sandbox/` in the Python repo. It
-// exposes a single active provider (self_managed or aliyun_codeinterpreter
-// today; e2b is a loud stub) through a ProviderManager. The
+// exposes one active local or remote provider through a ProviderManager.
+// The supported backends are self_managed, local, and ssh. The
 // ManagerClient returned by NewManagerClient implements the
 // tool.SandboxClient interface in the parent package, so the CodeExec
 // tool can dispatch code execution through this manager without
 // knowing which provider is active.
-//
-// See §17 of docs/develop/agent-go-port-design.md for the decision
-// record and the SDK gap that forced an HTTP fallback for the
-// aliyun execute path.
 package sandbox
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -46,48 +41,15 @@ const (
 	// and is the default. Matches Python's SelfManagedProvider.
 	ProviderSelfManaged ProviderType = "self_managed"
 
-	// ProviderAliyun uses Alibaba Cloud's Code Interpreter service
-	// (agentrun SDK). Matches Python's AliyunCodeInterpreterProvider.
-	ProviderAliyun ProviderType = "aliyun_codeinterpreter"
-
-	// ProviderE2B uses e2b cloud sandboxes (community Go SDK).
-	// Matches Python's E2BProvider (which is a stub on the
-	// Python side; the Go side goes further with a real
-	// implementation).
-	ProviderE2B ProviderType = "e2b"
-
 	// ProviderLocal runs the user's code on the Go host itself
 	// via os/exec. Matches Python's LocalProvider. There is no
-	// sandboxing — operators that need isolation should
-	// configure SelfManaged or Aliyun / e2b.
+	// sandboxing, so operators that need isolation should use
+	// self_managed or ssh.
 	ProviderLocal ProviderType = "local"
 
 	// ProviderSSH runs the user's code on a remote host via
 	// SSH. Matches Python's SSHProvider.
 	ProviderSSH ProviderType = "ssh"
-
-	// ProviderTenki runs each execution in a disposable Tenki
-	// microVM (TenkiCloud Go SDK). Matches Python's TenkiProvider.
-	ProviderTenki ProviderType = "tenki"
-
-	// ProviderUCloudAgentSandbox runs each execution in a disposable
-	// UCloud Agent Sandbox using UCloud's native Go SDK.
-	ProviderUCloudAgentSandbox ProviderType = "ucloud_agent_sandbox"
-)
-
-// ErrE2BProviderNotImplemented is returned when an operator configures
-// SANDBOX_PROVIDER_TYPE=e2b. The Go port does not yet ship an e2b
-// provider; route such workflows to the Python canvas until a Go SDK
-// or wire protocol is established. This is a loud-fail sentinel in the
-// same family as ErrRetrievalServiceMissing and
-// ErrTTSEngineNotConfigured.
-var ErrE2BProviderNotImplemented = errors.New(
-	"sandbox: e2b provider is not implemented in the Go port — " +
-		"route CodeExec nodes that need e2b to the Python canvas " +
-		"(see §17.4 of docs/develop/agent-go-port-design.md for the deferral rationale — " +
-		"the e2b provider IS implemented in the Go port via the community SDK, " +
-		"so this sentinel is no longer surfaced; kept for forward-compat with the " +
-		"ErrCodeExecSandboxMissing pattern in tool.SandboxClient)",
 )
 
 // ExecutionResult is the wire shape returned by every provider. The
@@ -105,13 +67,13 @@ type ExecutionResult struct {
 	// ExecutionTime is wall-clock duration in seconds.
 	ExecutionTime float64
 	// Metadata carries provider-specific extras: structured result
-	// value, artifact list (self_managed), context id (aliyun), etc.
+	// value, artifact list, runner context, and similar extras.
 	Metadata map[string]any
 }
 
 // SandboxInstance is the logical handle returned by CreateInstance.
 // Self-managed treats this as a UUID tracking label (executor_manager
-// pools internally); aliyun returns the agentrun CodeInterpreterId.
+// pools internally); remote providers return their runner handle.
 type SandboxInstance struct {
 	// InstanceID is the opaque provider-specific handle. Pass it back
 	// to ExecuteCode / DestroyInstance.
@@ -142,8 +104,8 @@ type SandboxProvider interface {
 	ProviderType() ProviderType
 
 	// CreateInstance provisions a logical instance handle. For
-	// self-managed this is a UUID label; for aliyun this triggers a
-	// CreateCodeInterpreter API call.
+	// self-managed this is a UUID label; remote providers return
+	// a handle for their runner.
 	CreateInstance(ctx context.Context, template string) (*SandboxInstance, error)
 
 	// ExecuteCode runs the user's code in the instance. Implementations
@@ -153,8 +115,7 @@ type SandboxProvider interface {
 	ExecuteCode(ctx context.Context, inst *SandboxInstance, code, language string, timeoutSec int, args map[string]any) (*ExecutionResult, error)
 
 	// DestroyInstance releases the instance. Self-managed returns true
-	// unconditionally because the container is owned by the pool;
-	// aliyun calls DeleteCodeInterpreter and surfaces its error.
+	// unconditionally because the container is owned by the pool.
 	DestroyInstance(ctx context.Context, inst *SandboxInstance) error
 
 	// HealthCheck returns nil if the upstream is reachable. Used by
@@ -184,7 +145,6 @@ func normalizeLanguage(in string) string {
 }
 
 // validateTimeout clamps a requested timeout to the [1, 600] range.
-// The Python side has the same hard 30s cap for aliyun specifically;
 // 600s matches the Python self_managed range (1..600). Callers
 // (CodeExec tool) pick a timeout based on user input; this is a
 // defense-in-depth clamp.

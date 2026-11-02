@@ -10,9 +10,14 @@ export type PaginationProps = {
 
 export type DefaultOptionType = {
   label: string | React.ReactNode;
-  value: string | number;
+  value?: string | number;
+  title?: React.ReactNode;
+  parentLabel?: React.ReactNode;
+  icon?: React.ReactNode;
+  type?: string;
   disabled?: boolean;
   children?: DefaultOptionType[];
+  options?: DefaultOptionType[];
 };
 
 export type UploadFile = {

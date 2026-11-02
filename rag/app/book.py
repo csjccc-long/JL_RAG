@@ -31,7 +31,16 @@ from deepdoc.parser.figure_parser import vision_figure_parser_docx_wrapper
 from PIL import Image
 from rag.utils.lazy_image import LazyImage
 
+"""
+面向书籍和长文档的解析与分块器。它先按文件类型提取文本、表格和图片，再针对长文档结构组织成适合检索的 chunks。
 
+主要处理包括：
+
+支持 PDF、DOCX、TXT、HTML 和 DOC；PDF 可按配置选择布局解析方式，并提取表格、图片等内容。
+尝试移除目录，识别标题或项目符号结构；有层级结构时按层级合并，否则按 token 数和分隔符切块。
+将正文、表格分别转换成检索数据；还可按配置把相邻表格或图片的上下文关联到 chunk。
+尽量保留 PDF 的位置等信息，便于后续定位和高亮。
+"""
 class Pdf(PdfParser):
     def __call__(self, filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, zoomin=3, callback=None):
         from timeit import default_timer as timer
@@ -117,16 +126,15 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             callback=callback,
             pdf_cls=Pdf,
             layout_recognizer=layout_recognizer,
-            mineru_llm_name=parser_model_name,
-            mistral_ocr_llm_name=parser_model_name,
             paddleocr_llm_name=parser_model_name,
+            somark_llm_name=parser_model_name,
             **kwargs,
         )
 
         if not sections and not tables:
             return []
 
-        if name in ["tcadp", "docling", "mineru", "paddleocr"]:
+        if name in ["paddleocr", "somark"]:
             parser_config["chunk_token_num"] = 0
 
         callback(0.8, "Finish parsing.")

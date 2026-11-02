@@ -301,17 +301,17 @@ window.addEventListener('message',e=>{
     }
 
     await onSaveWidgetSettings({
-      enableStreaming: values.enableStreaming,
-      muteWidget: values.muteWidget,
-      widgetTitle: values.widgetTitle,
-      widgetSubtitle: values.widgetSubtitle,
-      widgetFooterText: values.widgetFooterText,
-      widgetFooterLink: values.widgetFooterLink,
-      widgetAccentColor: values.widgetAccentColor,
-      widgetBackgroundColor: values.widgetBackgroundColor,
-      widgetTextColor: values.widgetTextColor,
-      widgetHeaderTextColor: values.widgetHeaderTextColor,
-      widgetFooterTextColor: values.widgetFooterTextColor,
+      enableStreaming: values.enableStreaming ?? false,
+      muteWidget: values.muteWidget ?? false,
+      widgetTitle: values.widgetTitle ?? '',
+      widgetSubtitle: values.widgetSubtitle ?? '',
+      widgetFooterText: values.widgetFooterText ?? '',
+      widgetFooterLink: values.widgetFooterLink ?? '',
+      widgetAccentColor: values.widgetAccentColor ?? '',
+      widgetBackgroundColor: values.widgetBackgroundColor ?? '',
+      widgetTextColor: values.widgetTextColor ?? '',
+      widgetHeaderTextColor: values.widgetHeaderTextColor ?? '',
+      widgetFooterTextColor: values.widgetFooterTextColor ?? '',
     });
   }, [onSaveWidgetSettings, values]);
 

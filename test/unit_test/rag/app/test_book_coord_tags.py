@@ -124,8 +124,6 @@ def _env(monkeypatch):
         vision_figure_parser_pdf_wrapper=lambda *a, **k: [],
         vision_figure_parser_docx_wrapper=lambda *a, **k: [],
     )
-    dp.docling_parser = mk("deepdoc.parser.docling_parser", DoclingParser=object)
-    dp.tcadp_parser = mk("deepdoc.parser.tcadp_parser", TCADPParser=object)
 
     nlp = importlib.import_module("rag.nlp")
     book = importlib.import_module("rag.app.book")

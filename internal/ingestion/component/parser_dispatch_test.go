@@ -26,20 +26,16 @@
 package component
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"ragflow/internal/common"
 	"reflect"
 	"strings"
 	"testing"
 
-	"ragflow/internal/entity"
 	modelModule "ragflow/internal/entity/models"
 	"ragflow/internal/ingestion/component/schema"
 	"ragflow/internal/utility"
@@ -543,107 +539,6 @@ func TestDispatch_PDFVisionJSON_PreservesEmptyPages(t *testing.T) {
 	}
 }
 
-func TestDispatch_PDFMinerUMarkdown_UsesConfiguredBackend(t *testing.T) {
-	withSSRFBypass(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == "/file_parse" {
-			buf := new(bytes.Buffer)
-			zw := zip.NewWriter(buf)
-			f, _ := zw.Create("content_list.json")
-			_, _ = f.Write([]byte(`[{"type":"text","text":"# Title\n\nBody\n"}]`))
-			_ = zw.Close()
-			w.Header().Set("Content-Type", "application/zip")
-			_, _ = w.Write(buf.Bytes())
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	defer server.Close()
-
-	// Mock resolveTenantModelByType to return a MinerU driver pointing at the test server.
-	origResolver := resolveTenantModelByType
-	defer func() { resolveTenantModelByType = origResolver }()
-	baseURL := server.URL
-	apiKey := ""
-	resolveTenantModelByType = func(ctx context.Context, db *gorm.DB, tenantID string, modelType entity.ModelType) (modelModule.ModelDriver, string, *modelModule.APIConfig, int, error) {
-		return &mineruTestDriver{}, "mineru-model", &modelModule.APIConfig{ApiKey: &apiKey, BaseURL: &baseURL}, 0, nil
-	}
-
-	param := schema.ParserParam{}.Defaults()
-	setups := defaultSetups()
-	setups["pdf"]["parse_method"] = "mineru"
-	setups["pdf"]["output_format"] = "markdown"
-	c := &ParserComponent{Param: param, Setups: setups}
-
-	out, err := c.Invoke(t.Context(), nil, map[string]any{
-		"binary":    []byte("%PDF-1.4"),
-		"file_type": "pdf",
-		"name":      "sample.pdf",
-		"tenant_id": "test-tenant",
-	})
-	if err != nil {
-		t.Fatalf("Invoke: %v", err)
-	}
-	if got, want := out["output_format"], "markdown"; got != want {
-		t.Fatalf("output_format = %v, want %v", got, want)
-	}
-	md, ok := out["markdown"].(string)
-	if !ok || !strings.Contains(md, "Title") {
-		t.Fatalf("markdown payload = %#v, want Title content", out["markdown"])
-	}
-}
-
-// mineruTestDriver is a minimal ModelDriver mock whose Name() returns "mineru".
-type mineruTestDriver struct{}
-
-func (d *mineruTestDriver) NewInstance(baseURL map[string]string) modelModule.ModelDriver { return d }
-func (d *mineruTestDriver) Name() string                                                  { return "mineru" }
-func (d *mineruTestDriver) ChatWithMessages(ctx context.Context, modelName string, messages []modelModule.Message, apiConfig *modelModule.APIConfig, chatModelConfig *modelModule.ChatConfig, usage *common.ModelUsage) (*modelModule.ChatResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) ChatStreamlyWithSender(ctx context.Context, modelName string, messages []modelModule.Message, apiConfig *modelModule.APIConfig, modelConfig *modelModule.ChatConfig, usage *common.ModelUsage, sender func(*string, *string) error) error {
-	return fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) Embed(ctx context.Context, modelName *string, texts []string, apiConfig *modelModule.APIConfig, embeddingConfig *modelModule.EmbeddingConfig, usage *common.ModelUsage) ([]modelModule.EmbeddingData, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) Rerank(ctx context.Context, modelName *string, query string, documents []string, apiConfig *modelModule.APIConfig, rerankConfig *modelModule.RerankConfig, usage *common.ModelUsage) (*modelModule.RerankResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) TranscribeAudio(ctx context.Context, modelName *string, file *string, apiConfig *modelModule.APIConfig, asrConfig *modelModule.ASRConfig, usage *common.ModelUsage) (*modelModule.ASRResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) TranscribeAudioWithSender(ctx context.Context, modelName *string, file *string, apiConfig *modelModule.APIConfig, asrConfig *modelModule.ASRConfig, usage *common.ModelUsage, sender func(*string, *string) error) error {
-	return fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) AudioSpeech(ctx context.Context, modelName *string, audioContent *string, apiConfig *modelModule.APIConfig, ttsConfig *modelModule.TTSConfig, usage *common.ModelUsage) (*modelModule.TTSResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) AudioSpeechWithSender(ctx context.Context, modelName *string, audioContent *string, apiConfig *modelModule.APIConfig, ttsConfig *modelModule.TTSConfig, usage *common.ModelUsage, sender func(*string, *string) error) error {
-	return fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) OCRFile(ctx context.Context, modelName *string, content []byte, url *string, apiConfig *modelModule.APIConfig, ocrConfig *modelModule.OCRConfig, usage *common.ModelUsage) (*modelModule.OCRFileResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) ParseFile(ctx context.Context, modelName *string, content []byte, url *string, apiConfig *modelModule.APIConfig, parseFileConfig *modelModule.ParseFileConfig, usage *common.ModelUsage) (*modelModule.ParseFileResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) ListModels(ctx context.Context, apiConfig *modelModule.APIConfig) ([]modelModule.ListModelResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) Balance(ctx context.Context, apiConfig *modelModule.APIConfig) (map[string]interface{}, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) CheckConnection(ctx context.Context, apiConfig *modelModule.APIConfig) error {
-	return fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) ListTasks(ctx context.Context, apiConfig *modelModule.APIConfig) ([]modelModule.ListTaskStatus, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (d *mineruTestDriver) ShowTask(ctx context.Context, taskID string, apiConfig *modelModule.APIConfig) (*modelModule.TaskResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
 func TestDispatch_PDFPaddleOCRMarkdown_UsesConfiguredBackend(t *testing.T) {
 	withSSRFBypass(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -685,92 +580,6 @@ func TestDispatch_PDFPaddleOCRMarkdown_UsesConfiguredBackend(t *testing.T) {
 	}
 }
 
-func TestDispatch_PDFDoclingMarkdown_UsesConfiguredBackend(t *testing.T) {
-	withSSRFBypass(t)
-	var requestCount int
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestCount++
-		if got, want := r.Header.Get("Authorization"), "Bearer doc-secret"; got != want {
-			t.Errorf("Authorization = %q, want %q", got, want)
-			return
-		}
-		switch {
-		case r.Method == http.MethodPost && r.URL.Path == "/v1/convert/source" && requestCount == 1:
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			_, _ = w.Write([]byte(`{"detail":"chunking unsupported"}`))
-		case r.Method == http.MethodPost && r.URL.Path == "/v1alpha/convert/source" && requestCount == 2:
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			_, _ = w.Write([]byte(`{"detail":"chunking unsupported"}`))
-		case r.Method == http.MethodPost && r.URL.Path == "/v1/convert/source" && requestCount == 3:
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"document":{"md_content":"# Docling Title\n\nDocling body.\n"}}`))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-
-	param := schema.ParserParam{}.Defaults()
-	setups := defaultSetups()
-	setups["pdf"]["parse_method"] = "Docling"
-	setups["pdf"]["output_format"] = "markdown"
-	setups["pdf"]["docling_server_url"] = server.URL
-	setups["pdf"]["docling_api_key"] = "doc-secret"
-	c := &ParserComponent{Param: param, Setups: setups}
-
-	out, err := c.Invoke(t.Context(), nil, map[string]any{
-		"binary":    []byte("%PDF-1.4"),
-		"file_type": "pdf",
-		"name":      "sample.pdf",
-	})
-	if err != nil {
-		t.Fatalf("Invoke: %v", err)
-	}
-	if got, want := out["output_format"], "markdown"; got != want {
-		t.Fatalf("output_format = %v, want %v", got, want)
-	}
-	md, ok := out["markdown"].(string)
-	if !ok || !strings.Contains(md, "Docling Title") {
-		t.Fatalf("markdown payload = %#v, want Docling Title content", out["markdown"])
-	}
-	if got, want := requestCount, 3; got != want {
-		t.Fatalf("requestCount = %d, want %d", got, want)
-	}
-}
-
-func TestDispatch_PDFOpenDataLoaderMarkdown_UsesConfiguredBackend(t *testing.T) {
-	withSSRFBypass(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/file_parse" {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"json_doc":null,"md_text":"# ODL Title\n\nODL body.\n"}`))
-	}))
-	defer server.Close()
-
-	param := schema.ParserParam{}.Defaults()
-	setups := defaultSetups()
-	setups["pdf"]["parse_method"] = "OpenDataLoader"
-	setups["pdf"]["output_format"] = "markdown"
-	setups["pdf"]["opendataloader_apiserver"] = server.URL
-	c := &ParserComponent{Param: param, Setups: setups}
-
-	out, err := c.Invoke(t.Context(), nil, map[string]any{
-		"binary":    []byte("%PDF-1.4"),
-		"file_type": "pdf",
-		"name":      "sample.pdf",
-	})
-	if err != nil {
-		t.Fatalf("Invoke: %v", err)
-	}
-	md, ok := out["markdown"].(string)
-	if !ok || !strings.Contains(md, "ODL Title") {
-		t.Fatalf("markdown payload = %#v, want ODL Title", out["markdown"])
-	}
-}
-
 func TestDispatch_PDFSoMarkMarkdown_UsesConfiguredBackend(t *testing.T) {
 	withSSRFBypass(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -804,58 +613,6 @@ func TestDispatch_PDFSoMarkMarkdown_UsesConfiguredBackend(t *testing.T) {
 	if !ok || !strings.Contains(md, "SoMark Title") {
 		t.Fatalf("markdown payload = %#v, want SoMark Title", out["markdown"])
 	}
-}
-
-func TestDispatch_PDFTCADPMarkdown_UsesConfiguredBackend(t *testing.T) {
-	withSSRFBypass(t)
-	zipPayload := tcadpZipFixtureForComponent(t)
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/reconstruct_document":
-			_, _ = w.Write([]byte(`{"DocumentRecognizeResultUrl":"` + server.URL + `/download.zip"}`))
-		case "/download.zip":
-			_, _ = w.Write(zipPayload)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer server.Close()
-
-	param := schema.ParserParam{}.Defaults()
-	setups := defaultSetups()
-	setups["pdf"]["parse_method"] = "TCADP parser"
-	setups["pdf"]["output_format"] = "markdown"
-	setups["pdf"]["tcadp_apiserver"] = server.URL
-	c := &ParserComponent{Param: param, Setups: setups}
-
-	out, err := c.Invoke(t.Context(), nil, map[string]any{
-		"binary":    []byte("%PDF-1.4"),
-		"file_type": "pdf",
-		"name":      "sample.pdf",
-	})
-	if err != nil {
-		t.Fatalf("Invoke: %v", err)
-	}
-	md, ok := out["markdown"].(string)
-	if !ok || !strings.Contains(md, "Hello TCADP") {
-		t.Fatalf("markdown payload = %#v, want Hello TCADP", out["markdown"])
-	}
-}
-
-func tcadpZipFixtureForComponent(t *testing.T) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	writer := zip.NewWriter(&buf)
-	f1, err := writer.Create("result.md")
-	if err != nil {
-		t.Fatalf("Create md: %v", err)
-	}
-	_, _ = f1.Write([]byte("Hello TCADP"))
-	if err := writer.Close(); err != nil {
-		t.Fatalf("Close zip: %v", err)
-	}
-	return buf.Bytes()
 }
 
 // TestPythonFamilyName_FileTypeConstants pins the contract that every

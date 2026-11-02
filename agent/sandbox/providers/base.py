@@ -25,7 +25,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List
 
-
+"""
+定义沙箱执行器的统一抽象接口和标准返回结构，让不同的 sandbox 后端能够按同一规范实现，并被上层无缝切换
+"""
 class SandboxProviderConfigError(Exception):
     """Raised when the selected provider is explicitly configured but unusable."""
 
@@ -63,7 +65,7 @@ class SandboxProvider(ABC):
     """
     Base interface for all sandbox providers.
 
-    Each provider implementation (self-managed, Aliyun OpenSandbox, E2B, etc.)
+    Each provider implementation (self-managed, local, or SSH)
     must implement these methods to provide code execution capabilities.
     """
 

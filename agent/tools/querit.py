@@ -28,6 +28,11 @@ from agent.tools.base import ToolBase, ToolMeta, ToolParamBase
 from common.connection_utils import timeout
 from common.http_client import DEFAULT_TIMEOUT
 
+
+"""
+“把 Querit 的搜索和内容抓取能力封装成两个工具，分别用于实时搜索与页面内容抓取，便于 Agent 在网页信息获取和深度阅读场景中使用。
+”"""
+
 QUERIT_SEARCH_URL = "https://api.querit.ai/v1/search"
 QUERIT_CONTENTS_URL = "https://api.querit.ai/v1/contents"
 QUERIT_MAX_ATTEMPTS = 3

@@ -18,7 +18,9 @@ from rag.flow.chunker.title_chunker.common import (
     BaseTitleChunker,
     resolve_target_level,
 )
-
+# 该模块用于将标题进行分组
+# 通过分组标题的层级关系，将文本内容进行分组，调整chucks的颗粒粒度
+# levels, target_level分别表示标题的层级关系和目标层级关系（即分几层）
 MIN_GROUP_TOKENS = 32
 MAX_GROUP_TOKENS = 1024
 

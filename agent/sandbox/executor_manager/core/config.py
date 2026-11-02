@@ -22,6 +22,10 @@ from util import format_timeout_duration, parse_timeout_duration
 from core.container import init_containers, teardown_containers
 from core.logger import logger
 
+
+"""
+管理沙箱执行器的启动、初始化、超时配置和资源清理，确保代码执行服务在启动后能稳定运行，并在退出时正确释放资源。
+"""
 TIMEOUT = parse_timeout_duration(os.getenv("SANDBOX_TIMEOUT", "10s"))
 
 

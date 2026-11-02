@@ -244,7 +244,7 @@ func (s *AgentService) TestDBConnection(ctx context.Context, userID string, req 
 	}
 
 	switch req.DBType {
-	case "mysql", "mariadb", "oceanbase":
+	case "mysql", "mariadb":
 		port := dbConnectionPort(req.Port)
 		dbProbeTimeout := 5 * time.Second
 		config := mysql.Config{

@@ -1,5 +1,5 @@
-import { NodeMouseHandler, useReactFlow } from '@xyflow/react';
-import { useCallback, useRef, useState } from 'react';
+import { useReactFlow } from '@xyflow/react';
+import { useCallback } from 'react';
 
 import styles from './index.module.less';
 
@@ -24,13 +24,14 @@ export function NodeContextMenu({
 
   const duplicateNode = useCallback(() => {
     const node = getNode(id);
+    if (!node) return;
     const position = {
       x: node?.position?.x || 0 + 50,
       y: node?.position?.y || 0 + 50,
     };
 
     addNodes({
-      ...(node || {}),
+      ...node,
       data: node?.data,
       selected: false,
       dragging: false,
@@ -62,46 +63,3 @@ export function NodeContextMenu({
     </div>
   );
 }
-
-/*  @deprecated
- */
-export const useHandleNodeContextMenu = (sideWidth: number) => {
-  const [menu, setMenu] = useState<INodeContextMenu>({} as INodeContextMenu);
-  const ref = useRef<any>(null);
-
-  const onNodeContextMenu: NodeMouseHandler = useCallback(
-    (event, node) => {
-      // Prevent native context menu from showing
-      event.preventDefault();
-
-      // Calculate position of the context menu. We want to make sure it
-      // doesn't get positioned off-screen.
-      const pane = ref.current?.getBoundingClientRect();
-      // setMenu({
-      //   id: node.id,
-      //   top: event.clientY < pane.height - 200 ? event.clientY : 0,
-      //   left: event.clientX < pane.width - 200 ? event.clientX : 0,
-      //   right: event.clientX >= pane.width - 200 ? pane.width - event.clientX : 0,
-      //   bottom:
-      //     event.clientY >= pane.height - 200 ? pane.height - event.clientY : 0,
-      // });
-
-      setMenu({
-        id: node.id,
-        top: event.clientY - 144,
-        left: event.clientX - sideWidth,
-        // top: event.clientY < pane.height - 200 ? event.clientY - 72 : 0,
-        // left: event.clientX < pane.width - 200 ? event.clientX : 0,
-      });
-    },
-    [sideWidth],
-  );
-
-  // Close the context menu if it's open whenever the window is clicked.
-  const onPaneClick = useCallback(
-    () => setMenu({} as INodeContextMenu),
-    [setMenu],
-  );
-
-  return { onNodeContextMenu, menu, onPaneClick, ref };
-};

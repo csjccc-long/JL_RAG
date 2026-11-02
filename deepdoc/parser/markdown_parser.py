@@ -25,7 +25,27 @@ from rag.nlp.delim import (
     normalize_text_newlines,
     parse_delimiter_field,
 )
+"""
+主要处理 Markdown 文档中的两件事：提取表格，以及按结构或指定分隔符拆分内容。它由两个类组成。
 
+RAGFlowMarkdownParser：提取表格
+extract_tables_and_remainder() 从 Markdown 文本中识别两类表格：
+
+Markdown 管道表格，例如 | 列1 | 列2 |
+HTML 表格，例如 <table>...</table>
+它返回 (working_text, tables)：
+
+默认 separate_tables=True：把表格从正文中移除，单独放进 tables。
+设置为 False：Markdown 表格会转换为 HTML 后保留在正文里；HTML 表格也会留在正文中。
+提取时会避开代码围栏内的内容，防止把代码示例里的表格语法误认成真实表格。
+
+MarkdownElementExtractor：提取和切分 Markdown 结构
+extract_elements() 有两种处理方式：
+
+**提供 delimiter：**按指定分隔符切分正文，同时保护代码块和表格，避免从它们内部切开。单独切出来的标题会尽量与后续正文合并。
+**不提供 delimiter：**按 Markdown 结构提取标题、代码块、列表、引用和普通文本块。
+通过 include_meta=True，结果还可以带上块类型和起止行号。
+"""
 logger = logging.getLogger(__name__)
 
 

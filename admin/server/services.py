@@ -489,26 +489,6 @@ class SandboxMgr:
             "description": "Execute code on a remote machine over SSH.",
             "tags": ["remote", "ssh", "custom-runtime"],
         },
-        "aliyun_codeinterpreter": {
-            "name": "Aliyun Code Interpreter",
-            "description": "Aliyun Function Compute Code Interpreter - Code execution in serverless microVMs",
-            "tags": ["saas", "cloud", "scalable", "aliyun"],
-        },
-        "e2b": {
-            "name": "E2B",
-            "description": "E2B Cloud - Code Execution Sandboxes",
-            "tags": ["saas", "fast", "global"],
-        },
-        "tenki": {
-            "name": "Tenki",
-            "description": "Tenki - Disposable microVM code sandboxes",
-            "tags": ["saas", "cloud", "microvm", "isolated"],
-        },
-        "ucloud_agent_sandbox": {
-            "name": "UCloud Agent Sandbox",
-            "description": "UCloud Agent Sandbox - Disposable cloud sandboxes for agent code execution",
-            "tags": ["saas", "cloud", "isolated", "ucloud"],
-        },
     }
 
     @staticmethod
@@ -526,20 +506,12 @@ class SandboxMgr:
             LocalProvider,
             SelfManagedProvider,
             SSHProvider,
-            AliyunCodeInterpreterProvider,
-            E2BProvider,
-            TenkiProvider,
-            UCloudAgentSandboxProvider,
         )
 
         schemas = {
             "local": LocalProvider.get_config_schema(),
             "self_managed": SelfManagedProvider.get_config_schema(),
             "ssh": SSHProvider.get_config_schema(),
-            "aliyun_codeinterpreter": AliyunCodeInterpreterProvider.get_config_schema(),
-            "e2b": E2BProvider.get_config_schema(),
-            "tenki": TenkiProvider.get_config_schema(),
-            "ucloud_agent_sandbox": UCloudAgentSandboxProvider.get_config_schema(),
         }
 
         if provider_id not in schemas:
@@ -590,7 +562,7 @@ class SandboxMgr:
         Set sandbox provider configuration.
 
         Args:
-            provider_type: Provider identifier (e.g., "self_managed", "e2b")
+            provider_type: Provider identifier
             config: Provider configuration dictionary
             set_active: If True, also update the active provider. If False,
                        only update the configuration without switching providers.
@@ -603,10 +575,6 @@ class SandboxMgr:
             LocalProvider,
             SelfManagedProvider,
             SSHProvider,
-            AliyunCodeInterpreterProvider,
-            E2BProvider,
-            TenkiProvider,
-            UCloudAgentSandboxProvider,
         )
 
         try:
@@ -649,10 +617,6 @@ class SandboxMgr:
                 "local": LocalProvider,
                 "self_managed": SelfManagedProvider,
                 "ssh": SSHProvider,
-                "aliyun_codeinterpreter": AliyunCodeInterpreterProvider,
-                "e2b": E2BProvider,
-                "tenki": TenkiProvider,
-                "ucloud_agent_sandbox": UCloudAgentSandboxProvider,
             }
             provider = provider_classes[provider_type]()
             is_valid, error_msg = provider.validate_config(config)
@@ -698,10 +662,6 @@ class SandboxMgr:
                 LocalProvider,
                 SelfManagedProvider,
                 SSHProvider,
-                AliyunCodeInterpreterProvider,
-                E2BProvider,
-                TenkiProvider,
-                UCloudAgentSandboxProvider,
             )
 
             # Instantiate provider based on type
@@ -709,10 +669,6 @@ class SandboxMgr:
                 "local": LocalProvider,
                 "self_managed": SelfManagedProvider,
                 "ssh": SSHProvider,
-                "aliyun_codeinterpreter": AliyunCodeInterpreterProvider,
-                "e2b": E2BProvider,
-                "tenki": TenkiProvider,
-                "ucloud_agent_sandbox": UCloudAgentSandboxProvider,
             }
 
             if provider_type not in provider_classes:

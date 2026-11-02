@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { RunningStatus, RunningStatusOld } from '@/constants/knowledge';
+import { RunningStatus } from '@/constants/knowledge';
 import { isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
@@ -166,17 +166,14 @@ const SourceDetailPage = () => {
 
   const isUnstarted = useMemo(
     () =>
-      detail?.status === RunningStatus.UNSTART ||
-      detail?.status === RunningStatusOld.UNSTART,
+      detail?.status === RunningStatus.UNSTART,
     [detail?.status],
   );
 
   const isConnectorActive = useMemo(
     () =>
       detail?.status === RunningStatus.RUNNING ||
-      detail?.status === RunningStatus.SCHEDULE ||
-      detail?.status === RunningStatusOld.RUNNING ||
-      detail?.status === RunningStatusOld.SCHEDULE,
+      detail?.status === RunningStatus.SCHEDULE,
     [detail?.status],
   );
 

@@ -18,7 +18,7 @@ function baseNode(id: string, label: Operator) {
 const createNode = (
   id: string,
   label: Operator,
-  options: Partial<ReturnType<typeof baseNode>> = {},
+  options: Record<string, unknown> = {},
 ) => ({
   ...baseNode(id, label),
   ...options,
@@ -58,7 +58,7 @@ describe('useGraphStore.deleteIterationNodeById', () => {
       }),
       createNode('message:0', Operator.Message, { parentId: 'iteration:0' }),
       createNode('message:1', Operator.Message, { parentId: 'message:0' }),
-      createNode('generate:0', Operator.Generate),
+      createNode('generate:0', Operator.Agent),
     ];
 
     const edges = [
@@ -97,7 +97,7 @@ describe('useGraphStore.deleteIterationNodeById', () => {
       }),
       createNode('message:0', Operator.Message, { parentId: 'iteration:0' }),
       createNode('begin', Operator.Begin),
-      createNode('generate:0', Operator.Generate),
+      createNode('generate:0', Operator.Agent),
       createNode('message:2', Operator.Message),
     ];
 
@@ -135,7 +135,7 @@ describe('useGraphStore.deleteIterationNodeById', () => {
       createNode('tool:0', Operator.Tool),
       createNode('message:0', Operator.Message),
       createNode('begin', Operator.Begin),
-      createNode('generate:0', Operator.Generate),
+      createNode('generate:0', Operator.Agent),
     ];
 
     const edges = [

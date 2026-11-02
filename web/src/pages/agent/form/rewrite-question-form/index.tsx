@@ -9,12 +9,14 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { RAGFlowSelect } from '@/components/ui/select';
+import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { INextOperatorForm } from '../../interface';
 import { useOwnerTenantId } from '../../context';
 import { GoogleLanguageOptions } from '../../options';
 
-const RewriteQuestionForm = ({ form }: INextOperatorForm) => {
+const RewriteQuestionForm = (_props: INextOperatorForm) => {
+  const form = useFormContext();
   const { t } = useTranslation();
   const ownerTenantId = useOwnerTenantId();
 

@@ -8,7 +8,7 @@ def _load_somark_parser(monkeypatch):
     """Load somark_parser.py directly, bypassing deepdoc/__init__.py's
     beartype_this_package() and the heavy deepdoc dependency chain.
 
-    Mirrors the pattern used by test_mineru_parser.py / test_opendataloader_parser.py.
+    Mirrors the parser adapter contract used by the other OCR backends.
     """
     repo_root = Path(__file__).resolve().parents[4]
 
@@ -204,7 +204,7 @@ def test_transfer_to_sections_naive_path_returns_2_tuples(monkeypatch):
 
 def test_transfer_to_sections_pipeline_path_returns_3_tuples(monkeypatch):
     """parse_method='pipeline' — rag/flow consumer — must receive typed
-    3-tuples (text, layout_type, line_tag), mirroring MinerU's contract."""
+    3-tuples (text, layout_type, line_tag), matching the shared PDF parser contract."""
     m = _load_somark_parser(monkeypatch)
     p = _make_parser(m)
 

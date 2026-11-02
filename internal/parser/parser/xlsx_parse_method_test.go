@@ -12,8 +12,7 @@ import (
 // spreadsheet parse_method (see schema.ParserParam.Defaults and the
 // matching Python ParserParam), and the DSL templates ship "DeepDOC".
 // Both must normalize to "" so the default Excelize/CSV path is taken,
-// matching rag/flow/parser/parser.py:_spreadsheet which only special-cases
-// "tcadp parser" and routes everything else to the default parser.
+// matching rag/flow/parser/parser.py:_spreadsheet.
 func TestNormalizeXLSXParseMethod(t *testing.T) {
 	cases := []struct {
 		in, want string
@@ -25,8 +24,6 @@ func TestNormalizeXLSXParseMethod(t *testing.T) {
 		{"  deepdoc  ", ""},
 		{"deepdoc parser", ""},
 		{"DeepDOC Parser", ""},
-		{"tcadp parser", "tcadp"},
-		{"TCADP Parser", "tcadp"},
 		{"excelize", "excelize"},
 		{"csv", "csv"},
 		{"unknown", "unknown"}, // preserved so the switch rejects it

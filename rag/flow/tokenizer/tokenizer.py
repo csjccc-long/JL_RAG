@@ -32,7 +32,7 @@ from common import settings
 from common.token_utils import truncate
 
 from common.misc_utils import thread_pool_exec
-
+# 该类用于对输入的文本进行分词，并返回分词结果
 
 class TokenizerParam(ProcessParamBase):
     def __init__(self):

@@ -609,9 +609,7 @@ class TenantModelInstanceStage(MigrationStage):
           Google Cloud:        {"google_project_id": ..., "google_region": ..., "google_service_account_key": ...}
           Azure-OpenAI:        {"api_key": ..., "api_version": ...}
           OpenRouter:          {"api_key": ..., "provider_order": ...}
-          MinerU:              {"api_key": ..., "provider_order": ...}
           PaddleOCR:           {"api_key": ..., "provider_order": ...}
-          OpenDataLoader:      {"api_key": ..., "provider_order": ...}
         """
         if not api_key:
             return api_key

@@ -24,7 +24,9 @@ import requests
 from agent.tools.base import ToolBase, ToolMeta, ToolParamBase
 from common.connection_utils import timeout
 
-
+"""
+“将 Keenable 的网页搜索 API 封装成 Agent 工具，支持无 key 免费搜索和有 key 增强搜索，并将搜索结果标准化为系统可消费的文本内容。”
+"""
 def _base_url() -> str:
     """Resolve the Keenable API base URL from ``KEENABLE_API_URL`` (HTTPS enforced)."""
     base = (os.environ.get("KEENABLE_API_URL") or "https://api.keenable.ai").rstrip("/")

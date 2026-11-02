@@ -23,7 +23,7 @@ from quart import jsonify
 
 from api.apps import login_required, current_user
 from api.utils.api_utils import get_json_result, get_data_error_result, server_error_response, generate_confirmation_token
-from api.utils.health_utils import run_health_checks, get_oceanbase_status
+from api.utils.health_utils import run_health_checks
 from common.versions import get_ragflow_version
 from common.time_utils import current_timestamp, datetime_format
 from api.db.db_models import APIToken
@@ -176,36 +176,6 @@ def status():
     res["task_executor_heartbeats"] = task_executor_heartbeats
 
     return get_json_result(data=res)
-
-
-@manager.route("/system/oceanbase/status", methods=["GET"])  # noqa: F821
-@login_required
-def oceanbase_status():
-    """
-    Get OceanBase health status and performance metrics.
-    ---
-    tags:
-      - System
-    security:
-      - ApiKeyAuth: []
-    responses:
-      200:
-        description: OceanBase status retrieved successfully.
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-              description: Status (alive/timeout).
-            message:
-              type: object
-              description: Detailed status information including health and performance metrics.
-    """
-    try:
-        status_info = get_oceanbase_status()
-        return get_json_result(data=status_info)
-    except Exception as e:
-        return get_json_result(data={"status": "error", "message": f"Failed to get OceanBase status: {str(e)}"}, code=500)
 
 
 @manager.route("/system/config", methods=["GET"])  # noqa: F821

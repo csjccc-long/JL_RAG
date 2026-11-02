@@ -130,46 +130,6 @@ The [.env](./.env) file contains important environment variables for Docker.
 - `EMBEDDING_BATCH_SIZE`
   The number of text chunks processed in a single batch during embedding vectorization. Defaults to `16`.
 
-### OceanBase prerequisites
-
-Before setting `DOC_ENGINE=oceanbase`, make sure the host OS allows the file descriptor and core dump limits OceanBase expects.
-
-1. Set host limits:
-
-   ```bash
-   sudo tee /etc/security/limits.d/99-oceanbase.conf >/dev/null <<'EOF'
-   root soft nofile 655350
-   root hard nofile 655350
-   * soft nofile 655350
-   * hard nofile 655350
-   * soft core unlimited
-   * hard core unlimited
-   EOF
-   ```
-
-2. Make sure PAM limits are enabled:
-
-   ```bash
-   grep -E 'pam_limits\.so' /etc/pam.d/common-session /etc/pam.d/common-session-noninteractive
-   ```
-
-   If missing, add them:
-
-   ```bash
-   echo 'session required pam_limits.so' | sudo tee -a /etc/pam.d/common-session
-   echo 'session required pam_limits.so' | sudo tee -a /etc/pam.d/common-session-noninteractive
-   ```
-
-3. Log out and log back in, or reboot.
-
-4. Verify the effective limit:
-
-   ```bash
-   ulimit -n
-   ```
-
-   Expected: `655350`, or at least `20000`.
-
 ## 🐋 Service configuration
 
 [service_conf.yaml](./service_conf.yaml) specifies the system-level configuration for RAGFlow and is used by its API server and task executor. In a dockerized setup, this file is automatically created based on the [service_conf.yaml.template](./service_conf.yaml.template) file (replacing all environment variables by their values).
@@ -197,23 +157,6 @@ Before setting `DOC_ENGINE=oceanbase`, make sure the host OS allows the file des
   - `user`: The username for MinIO.
   - `password`: The password for MinIO.
   - `host`: The MinIO serving IP *and* port inside the Docker container. Defaults to `minio:9000`.
-
-- `oceanbase`
-  - `scheme`: The connection scheme. Set to `mysql` to use mysql config, or other values to use config below.
-  - `config`:
-    - `db_name`: The OceanBase database name.
-    - `user`: The username for OceanBase.
-    - `password`: The password for OceanBase.
-    - `host`: The hostname of the OceanBase service.
-    - `port`: The port of OceanBase.
-
-- `oss`
-  - `access_key`: The access key ID used to authenticate requests to the OSS service.
-  - `secret_key`: The secret access key used to authenticate requests to the OSS service.
-  - `endpoint_url`: The URL of the OSS service endpoint.
-  - `region`: The OSS region where the bucket is located.
-  - `bucket`: The name of the OSS bucket where files will be stored. When you want to store all files in a specified bucket, you need this configuration item.
-  - `prefix_path`: Optional. A prefix path to prepend to file names in the OSS bucket, which can help organize files within the bucket.
 
 - `s3`:
   - `access_key`: The access key ID used to authenticate requests to the S3 service.

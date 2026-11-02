@@ -46,8 +46,7 @@ export function applyChatToImage2Text(
  * already-parsed object, or a bare string) into the underlying object.
  * Used by `echoTransform` implementations to lift provider-specific
  * credential fields that the backend persists nested inside `api_key`
- * (e.g. XunFei Spark's `spark_api_password`, PaddleOCR's nested config,
- * MinerU's full config bundle).
+ * (e.g. XunFei Spark's `spark_api_password`, PaddleOCR's nested config).
  *
  * Returns `undefined` for bare strings or unparseable input so callers
  * can fall back to empty values via `??`.

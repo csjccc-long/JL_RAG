@@ -6,8 +6,10 @@ import pluginlib
 from .common import PLUGIN_TYPE_LLM_TOOLS
 
 from .llm_tool_plugin import LLMToolPlugin
+"""
+负责加载并管理所有 LLM 工具插件，建立名称到插件实例的映射，供上层按需查找和调用工具。
 
-
+"""
 class PluginManager:
     _llm_tool_plugins: dict[str, LLMToolPlugin]
 

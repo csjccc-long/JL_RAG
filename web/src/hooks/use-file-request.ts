@@ -61,6 +61,7 @@ export const useGetFolderId = () => {
 };
 
 export const useUploadFile = () => {
+  type UploadFileInput = File | { file: File; path: string };
   const { setPaginationParams } = useSetPaginationParams();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -70,14 +71,18 @@ export const useUploadFile = () => {
     mutateAsync,
   } = useMutation({
     mutationKey: [FileApiAction.UploadFile],
-    mutationFn: async (params: { fileList: File[]; parentId: string }) => {
+    mutationFn: async (params: {
+      fileList: UploadFileInput[];
+      parentId: string;
+    }) => {
       const fileList = params.fileList;
-      const pathList = params.fileList.map(
-        (file) => (file as any).webkitRelativePath,
+      const pathList = params.fileList.map((file) =>
+        file instanceof File ? (file as any).webkitRelativePath : file.path,
       );
       const formData = new FormData();
       formData.append('parent_id', params.parentId);
-      fileList.forEach((file: any, index: number) => {
+      fileList.forEach((item: UploadFileInput, index: number) => {
+        const file = item instanceof File ? item : item.file;
         // Explicitly set filename to file.name (base name) to prevent the
         // browser from using webkitRelativePath (e.g. "folder/file.txt")
         // which would cause the backend to create an extra folder.

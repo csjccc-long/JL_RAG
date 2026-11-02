@@ -30,7 +30,14 @@ from api.db.joint_services.tenant_model_service import get_composite_model_name_
 from rag.app.naive import by_plaintext, PARSERS
 from common.parser_config_utils import normalize_layout_recognizer
 
-
+"""
+这是一个 PDF/DOCX 专用文档解析与切分模块，相比第一模块增加了更精细的结构化处理。
+Pdf 解析器在 OCR 和布局分析基础上新增表格识别、文本合并、位置标注，输出带页码和坐标的文本块；
+Docx 解析器通过标题栈维护层级关系，将标题与正文配对存储，同时提取段落图片并转为 base64。
+主函数 chunk 对 PDF 执行大纲匹配或标题频率分析确定层级，生成 section ID 分组，按语义完整性合并 chunk，
+并支持表格视觉解析和媒体上下文附加；对 DOCX 则提取问答对和表格，
+统一 tokenize 后输出带图片、位置信息、大纲结构的检索块，为精确引用和跨模态检索提供支持。
+"""
 class Pdf(PdfParser):
     def __init__(self):
         self.model_species = ParserType.MANUAL.value
@@ -164,7 +171,6 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
         callback(0.1, "Start to parse.")
 
         kwargs.pop("parse_method", None)
-        kwargs.pop("mineru_llm_name", None)
         sections, tbls, pdf_parser = pdf_parser(
             filename=filename,
             binary=binary,
@@ -174,9 +180,8 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             callback=callback,
             pdf_cls=Pdf,
             layout_recognizer=layout_recognizer,
-            mineru_llm_name=parser_model_name,
-            mistral_ocr_llm_name=parser_model_name,
             paddleocr_llm_name=parser_model_name,
+            somark_llm_name=parser_model_name,
             parse_method="manual",
             **kwargs,
         )
@@ -207,7 +212,7 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
         if not sections and not tbls:
             return []
 
-        if name in ["tcadp", "docling", "mineru", "paddleocr"]:
+        if name in ["paddleocr", "somark"]:
             parser_config["chunk_token_num"] = 0
 
         callback(0.8, "Finish parsing.")

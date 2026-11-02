@@ -101,7 +101,7 @@ const (
 // configuration and are not exposed from Info.
 type exesqlConnParams struct {
 	SQL        string `json:"sql"`
-	DBType     string `json:"db_type"` // mysql | postgres | mariadb | mssql | oceanbase
+	DBType     string `json:"db_type"` // mysql | postgres | mariadb | mssql
 	Database   string `json:"database"`
 	Username   string `json:"username"`
 	Host       string `json:"host"`
@@ -604,19 +604,15 @@ func exesqlMarshalResult(r *exesqlResult) (string, error) {
 }
 
 // exesqlDriverAndDSN maps a (db_type, conn) tuple to the registered
-// driver name and DSN. OceanBase reuses the MySQL driver with a
-// utf8mb4 charset — same trick the Python tool pulls in
-// `pymysql.connect(..., charset='utf8mb4')`.
+// driver name and DSN.
 //
 // IPv6 safety: `ValidateDBHost` (PR #15609) can return a public IPv6
 // literal (e.g. "2001:db8::1"). The MySQL driver requires bracketed
-// host:port for IPv6 — we route the MySQL/OceanBase paths through
-// net.JoinHostPort so an IPv6 host produces `tcp([2001:db8::1]:3306)`.
+// host:port for IPv6, so net.JoinHostPort produces `tcp([2001:db8::1]:3306)`.
 //
-// Driver-specific format rules (PR review round 6, Major #4):
-//   - mysql / oceanbase: `tcp(<host:port>)` URL form — host:port is
-//     a single bracketed value (JoinHostPort handles IPv6).
-//   - lib/pq: keyword=value DSN — `host=` and `port=` are DISTINCT
+// Driver-specific format rules:
+//   - mysql: `tcp(<host:port>)` URL form; host:port is
+//     a single bracketed value (JoinHostPort handles IPv6).//   - lib/pq: keyword=value DSN — `host=` and `port=` are DISTINCT
 //     fields. Combining them as `host=h:p` is rejected by the driver.
 //   - go-mssqldb (denisenkom): ADO-style DSN — `server=` and `port=`
 //     are DISTINCT fields. `server=h:p;port=p` is also rejected.
@@ -624,12 +620,6 @@ func exesqlDriverAndDSN(c exesqlConnParams) (driver, dsn string, err error) {
 	mysqlHostPort := net.JoinHostPort(c.Host, strconv.Itoa(c.Port))
 	switch strings.ToLower(c.DBType) {
 	case "mysql", "mariadb":
-		return "mysql", fmt.Sprintf(
-			"%s:%s@tcp(%s)/%s?parseTime=true&charset=utf8mb4",
-			c.Username, c.Password, mysqlHostPort, c.Database,
-		), nil
-	case "oceanbase":
-		// OceanBase MySQL-compat mode: same driver, MySQL wire protocol.
 		return "mysql", fmt.Sprintf(
 			"%s:%s@tcp(%s)/%s?parseTime=true&charset=utf8mb4",
 			c.Username, c.Password, mysqlHostPort, c.Database,
@@ -746,7 +736,7 @@ var sqlKeywordRe = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_$]*`)
 func maskSQLLiteralsAndComments(s, dbType string) (string, bool) {
 	masked := []byte(s)
 	dialect := strings.ToLower(dbType)
-	isMySQL := dialect == "mysql" || dialect == "mariadb" || dialect == "oceanbase"
+	isMySQL := dialect == "mysql" || dialect == "mariadb"
 	isPostgres := dialect == "postgres" || dialect == "postgresql"
 	isMSSQL := dialect == "mssql" || dialect == "sqlserver"
 	executableComment := false

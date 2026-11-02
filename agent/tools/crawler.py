@@ -21,7 +21,9 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
 from agent.tools.base import ToolMeta, ToolParamBase, ToolBase
 from common.connection_utils import timeout
 
-
+"""
+定义了一个网页爬虫工具模块，用于抓取指定 URL 的网页内容
+"""
 class CrawlerParam(ToolParamBase):
     """
     Define the Crawler component parameters.

@@ -17,7 +17,62 @@ from api.utils.file_response import agent_attachment_preview_path
 from common import settings
 from common.misc_utils import get_uuid
 from .message import Message
+"""
+1. 定义文档参数
+DocGeneratorParam 里定义了文档生成需要的配置，包括：
 
+output_format：输出格式，可选 pdf / docx / txt / markdown / html
+content：要生成文档的正文内容
+filename：输出文件名
+header_text / footer_text / watermark_text：页头、页脚、浮水印
+add_page_numbers / add_timestamp：是否添加页码和时间
+font_size：正文字号
+这里还会做参数校验，确保格式和字体设置合法。
+
+2. 解析输入内容
+_resolve_content() 会读取 content，并解析里面的模板变量，例如：
+
+{sys.query}
+{某个组件输出变量}
+它会把这些变量替换成真实值，并去掉思考过程内容，确保最终生成的文档是干净文本。
+
+3. 生成文档
+_invoke() 里根据 output_format 选择不同生成逻辑：
+
+pdf → _generate_pdf()
+docx → _generate_docx()
+txt → _generate_txt()
+markdown → _generate_markdown()
+html → _generate_html()
+它会先生成文档 bytes，再写入临时文件，最后保存到存储中。
+
+4. 处理 PDF/DOCX 的增强样式
+这部分代码比较完整，尤其是 PDF 和 DOCX 的装饰逻辑：
+
+自动添加页眉、页脚、时间、页码
+添加水印
+调整标题大小和字体
+设置中文字体、页边距和布局
+例如：
+
+_build_pdf_heading_overrides()
+_apply_pdf_overlay()
+_decorate_docx()
+这些方法让输出文档更适合正式使用。
+
+5. 保存到系统存储并返回下载信息
+生成完成后，它不只会写到本地临时文件，还会：
+
+调用 settings.STORAGE_IMPL.put(...) 把文档保存在系统存储里
+生成一个 doc_id
+组装下载信息，如：
+doc_id
+filename
+mime_type
+size
+download URL/JSON
+这些结果会写进组件输出。
+"""
 
 def sanitize_filename(name: str, extension: str) -> str:
     if not name:

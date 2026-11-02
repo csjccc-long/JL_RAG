@@ -430,15 +430,6 @@ export default {
       imageTableContextWindowTip:
         'يلتقط رموز N المميزة للنص أعلى وأسفل الصورة والجدول لتوفير سياق خلفية أكثر ثراءً.',
       autoMetadata: 'البيانات الوصفية التلقائية',
-      mineruOptions: 'خيارات مينرو',
-      mineruParseMethod: 'طريقة التحليل',
-      mineruParseMethodTip:
-        'طريقة تحليل ملف PDF: تلقائي (الاكتشاف التلقائي)، txt (استخراج النص)، ocr (التعرف البصري على الأحرف)',
-      mineruFormulaEnable: 'التعرف على الصيغة',
-      mineruFormulaEnableTip:
-        'تمكين التعرف على الصيغة. ملاحظة: قد لا يعمل هذا بشكل صحيح مع المستندات السيريلية.',
-      mineruTableEnable: 'التعرف على الجدول',
-      mineruTableEnableTip: 'تمكين التعرف على الجدول واستخراجه.',
       paddleocrOptions: 'خيارات PaddleOCR',
       paddleocrApiUrl: 'عنوان URL لواجهة برمجة تطبيقات PaddleOCR',
       paddleocrApiUrlTip:
@@ -1260,27 +1251,6 @@ export default {
       modelsToBeAddedTooltip:
         'إذا لم يكن موفر النموذج الخاص بك مدرجًا ولكنه يدعي أنه "متوافق مع OpenAI"، فحدد البطاقة المتوافقة مع OpenAI-API لإضافة النموذج (النماذج) ذات الصلة.',
       mcp: 'العملية التشاورية المتعددة الأطراف',
-      mineru: {
-        modelNameRequired: 'اسم النموذج مطلوب',
-        apiServerRequired: 'مطلوب تكوين خادم MinerU API',
-        serverUrlBackendLimit:
-          'عنوان URL لخادم MinerU متاح فقط للواجهة الخلفية لعميل HTTP',
-        apiserver: 'تكوين خادم MinerU API',
-        outputDir: 'مسار دليل إخراج MinerU',
-        backend: 'نوع الواجهة الخلفية لمعالجة MinerU',
-        serverUrl: 'عنوان URL لخادم MinerU',
-        deleteOutput: 'حذف ملفات الإخراج بعد المعالجة',
-        selectBackend: 'حدد المعالجة الخلفية',
-        backendOptions: {
-          pipeline: 'معالجة خطوط الأنابيب القياسية',
-          vlmTransformers: 'نموذج لغة الرؤية مع المحولات',
-          vlmVllmEngine: 'نموذج لغة الرؤية مع محرك vLLM',
-          vlmHttpClient: 'نموذج لغة الرؤية عبر عميل HTTP',
-          vlmMlxEngine: 'نموذج لغة الرؤية مع محرك MLX',
-          vlmVllmAsyncEngine: 'نموذج لغة الرؤية مع محرك vLLM Async (تجريبي)',
-          vlmLmdeployEngine: 'نموذج لغة الرؤية مع محرك LMDeploy (تجريبي)',
-        },
-      },
       modelTypes: {
         chat: 'محادثة',
         embedding: 'التضمين',

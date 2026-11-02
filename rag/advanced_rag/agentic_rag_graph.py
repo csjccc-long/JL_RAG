@@ -168,7 +168,7 @@ class AgenticState(TypedDict, total=False):
     final_answer: str
     loop: int
     max_loops: int
-    feedback: str  # replanning feedback
+    feedback: str  # 重规划反馈
 
 
 # ── Think tag helpers ──

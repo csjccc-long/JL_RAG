@@ -14,21 +14,32 @@
  *  limitations under the License.
  */
 
-import { omit } from 'lodash';
 import { Segmented, SegmentedProps } from './ui/segmented';
 
-export function BoolSegmented({ ...props }: Omit<SegmentedProps, 'options'>) {
+type BoolSegmentedProps = Omit<
+  SegmentedProps,
+  'options' | 'value' | 'onChange'
+> & {
+  value?: boolean;
+  onChange?: (value: boolean) => void;
+};
+
+export function BoolSegmented({
+  value,
+  onChange,
+  ...props
+}: BoolSegmentedProps) {
   return (
     <Segmented
-      options={
-        [
-          { value: true, label: 'True' },
-          { value: false, label: 'False' },
-        ] as any
-      }
+      options={[
+        { value: 'true', label: 'True' },
+        { value: 'false', label: 'False' },
+      ]}
       sizeType="sm"
       itemClassName="justify-center flex-1"
-      {...omit(props, 'options')}
+      value={value === undefined ? undefined : String(value)}
+      onChange={(nextValue) => onChange?.(nextValue === 'true')}
+      {...props}
     ></Segmented>
   );
 }

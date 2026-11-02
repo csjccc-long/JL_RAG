@@ -91,7 +91,7 @@ func BoxesToSections(boxes []pdf.TextBox, pageHeights map[int]float64) []pdf.Sec
 // Callers should invoke this AFTER Parse() returns, just before consuming
 // Sections (e.g., before serialization to JSON or passing to the chunker).
 // The normalization is intentionally NOT embedded inside the parser pipeline
-// because Sections may come from multiple sources (deepdoc, MinerU, Docling,
+// because Sections may come from multiple sources (DeepDoc, PaddleOCR, SoMark,
 // JSON deserialization, etc.).
 func NormalizeSectionPositions(sections []pdf.Section) {
 	for i := range sections {

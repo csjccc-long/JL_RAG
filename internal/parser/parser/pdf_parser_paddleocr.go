@@ -59,5 +59,5 @@ func parsePDFWithPaddleOCR(ctx context.Context, filename string, data []byte, pa
 	if resp.Text != nil && strings.TrimSpace(*resp.Text) == "" {
 		pageCount = 0
 	}
-	return parseMinerUMarkdownResult(ctx, filename, *resp.Text, parser.OutputFormat, pageCount)
+	return parseRemoteMarkdownResult(ctx, filename, *resp.Text, parser.OutputFormat, pageCount)
 }

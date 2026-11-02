@@ -2,6 +2,24 @@ import { useIsDarkTheme } from '@/components/theme-provider';
 import type * as Monaco from 'monaco-editor';
 import type { JSONSchema } from '../types/json-schema.js';
 
+interface JsonDiagnosticsOptions {
+  validate: boolean;
+  allowComments: boolean;
+  schemaValidation: 'ignore' | 'warning' | 'error';
+  enableSchemaRequest: boolean;
+  schemas: Array<{
+    uri: string;
+    fileMatch: string[];
+    schema: JSONSchema;
+  }>;
+}
+
+interface MonacoJsonLanguage {
+  jsonDefaults: {
+    setDiagnosticsOptions(options: JsonDiagnosticsOptions): void;
+  };
+}
+
 export interface MonacoEditorOptions {
   minimap?: { enabled: boolean };
   fontSize?: number;
@@ -165,7 +183,7 @@ export function useMonacoTheme() {
     schema?: JSONSchema,
   ) => {
     // Create a new diagnostics options object
-    const diagnosticsOptions: Monaco.languages.json.DiagnosticsOptions = {
+    const diagnosticsOptions: JsonDiagnosticsOptions = {
       validate: true,
       allowComments: false,
       schemaValidation: 'error',
@@ -194,9 +212,12 @@ export function useMonacoTheme() {
           ],
     };
 
-    monaco.languages.json.jsonDefaults.setDiagnosticsOptions(
-      diagnosticsOptions,
-    );
+    const jsonLanguage = (
+      monaco.languages as typeof monaco.languages & {
+        json?: MonacoJsonLanguage;
+      }
+    ).json;
+    jsonLanguage?.jsonDefaults.setDiagnosticsOptions(diagnosticsOptions);
   };
 
   return {

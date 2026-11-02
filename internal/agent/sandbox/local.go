@@ -22,7 +22,7 @@
 // "local" provider is a convenience for development / trusted
 // environments, not a security boundary. Operators that need
 // isolation should configure SelfManaged (executor_manager
-// Docker+gVisor) or Aliyun / e2b.
+// Docker+gVisor) or SSH.
 //
 // Wire format matches the Python provider exactly: write the
 // wrapped code (BuildPythonWrapper / BuildJavaScriptWrapper) to
@@ -34,8 +34,6 @@
 // set the SSH provider uses (so an artifact accepted by one
 // provider is accepted by the other — the model sees the same
 // shape across the two).
-
-//go:build !windows
 
 package sandbox
 
@@ -52,15 +50,14 @@ import (
 	"ragflow/internal/common"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 // localDefaultWorkDir is the default work directory for local
-// code execution. Matches the Python side's default.
-const localDefaultWorkDir = "/tmp/ragflow-codeexec"
+// code execution.
+var localDefaultWorkDir = filepath.Join(os.TempDir(), "ragflow-codeexec")
 
 // localDefaultTimeout is the per-execution timeout in seconds.
 const localDefaultTimeout = 30
@@ -78,10 +75,6 @@ const localDefaultMaxArtifacts = 20
 // localDefaultMaxArtifactBytes caps the size of any single
 // artifact file.
 const localDefaultMaxArtifactBytes = 10 << 20 // 10 MiB
-
-// localDefaultNoFile sets RLIMIT_NOFILE on the child. Matches
-// the Python `_limit_child_process` value.
-const localDefaultNoFile = 64
 
 // localDefaultPythonBin / localDefaultNodeBin are the executables
 // used to run the wrapped code. The Python provider uses
@@ -107,8 +100,7 @@ type LocalProvider struct {
 }
 
 // newLocalProviderFromEnv reads LOCAL_* env vars and returns a
-// provider ready for Initialize. Matches the env-var pattern
-// used by SelfManaged and E2B.
+// provider ready for Initialize.
 func newLocalProviderFromEnv() *LocalProvider {
 	return newLocalProviderFromConfig(localConfigFromEnv())
 }
@@ -298,28 +290,11 @@ func (p *LocalProvider) ExecuteCode(
 	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 	cmd.Dir = instanceDir
 	cmd.Env = childEnv
-	// pdeath_signal + process group so the subprocess dies
-	// with the parent. On Linux this is SysProcAttr.Pdeathsig;
-	// Setpgid puts the child in its own process group, which
-	// lets us kill the whole group on timeout.
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid:   true,
-		Pdeathsig: syscall.SIGTERM,
-	}
-	// Apply rlimits via pre-start. Go's os/exec does not expose
-	// rlimit directly, so we do it after fork via the parent's
-	// process-group kill. We do NOT replicate the Python
-	// preexec_fn RLIMIT_* exactly because Go's os/exec does not
-	// support pre-start hooks portably. The Setpgid is the
-	// important part for hard-kill on timeout; rlimits are
-	// best-effort on POSIX (no-op on Windows — see build tag).
-	if p.maxMemoryMB > 0 {
-		// Advisory only; the subprocess inherits the parent's
-		// rlimits. Real isolation requires the SelfManaged or
-		// Aliyun / e2b providers. We do NOT try to set RLIMIT_AS
-		// post-fork because that would require ptrace or a
-		// side-channel — out of scope for a "local" provider.
-	}
+	// Put the child in its own process group on Unix so timeout
+	// can terminate it with descendants. Windows uses the native
+	// process handle. Resource limits remain a SelfManaged/SSH
+	// concern because Go has no portable pre-exec hook.
+	configureLocalCommand(cmd)
 
 	var stdout, stderr bytes.Buffer
 	maxOut := p.maxOutputBytes
@@ -334,10 +309,8 @@ func (p *LocalProvider) ExecuteCode(
 		return nil, fmt.Errorf("local: start subprocess: %w", err)
 	}
 
-	// Wait with a separate timer so we can hard-kill the process
-	// group on timeout. cmd.Wait alone does not kill on
-	// context cancellation if the child ignores SIGTERM; the
-	// process group + os.FindProcess lets us escalate to SIGKILL.
+	// Wait with a separate timer so timeout can forcefully terminate
+	// the subprocess when normal cancellation is ignored.
 	waitDone := make(chan error, 1)
 	go func() { waitDone <- cmd.Wait() }()
 
@@ -351,13 +324,13 @@ func (p *LocalProvider) ExecuteCode(
 		}
 	case <-ctx.Done():
 		// Caller cancelled.
-		_ = killProcessGroup(cmd.Process.Pid, syscall.SIGKILL)
+		_ = terminateLocalProcess(cmd.Process.Pid)
 		<-waitDone
 		return nil, fmt.Errorf("local: execution cancelled: %w", ctx.Err())
 	case <-time.After(time.Duration(timeout) * time.Second):
-		// Per-execution timeout. Hard-kill the process group so
-		// the subprocess can't outlive the timer.
-		_ = killProcessGroup(cmd.Process.Pid, syscall.SIGKILL)
+		// Per-execution timeout. Force termination so the subprocess
+		// cannot outlive the timer.
+		_ = terminateLocalProcess(cmd.Process.Pid)
 		<-waitDone
 		return nil, fmt.Errorf("local: execution timed out after %d seconds", timeout)
 	}
@@ -557,18 +530,6 @@ func (p *LocalProvider) collectArtifacts(instanceDir string) ([]map[string]any, 
 	return out, err
 }
 
-// killProcessGroup sends signal to the process group of pid.
-// Used by the timeout / cancellation paths in ExecuteCode to
-// hard-kill the child + any descendants. POSIX only.
-func killProcessGroup(pid int, sig syscall.Signal) error {
-	if pid <= 0 {
-		return errors.New("invalid pid")
-	}
-	// Kill the whole group; the negative pid is "send to
-	// process group with id = |pid|" on POSIX.
-	return syscall.Kill(-pid, sig)
-}
-
 // statusFromExitCode matches the Python side's metadata.status
 // string ("ok" or "error").
 func statusFromExitCode(code int) string {
@@ -597,10 +558,3 @@ func envIntOr(key string, fallback int) int {
 	}
 	return fallback
 }
-
-// readFile is a small helper for tests that want to assert on
-// the wrapped code we wrote to disk. It is exported via the
-// test file via a build-tag-free helper. (Currently unused in
-// production; kept for parity with the Python side's
-// _read_file helper if we add file-content assertions later.)
-var _ = func() {} // marker to avoid unused-import warnings if all helpers are removed

@@ -27,7 +27,21 @@ from rag.flow.parser.pdf_chunk_metadata import (
     restore_pdf_text_previews,
 )
 from rag.nlp import naive_merge
+"""token_chunker.py 是 RAGFlow 流程里的文本分块组件：接收解析器的文本或 JSON 分块，
+按分隔符或 token 数量组合成适合后续嵌入和索引的 chunks。主要入口是 TokenChunker._invoke。
 
+它的处理方式
+
+配置与校验：token_chunker.py:48 管理分块大小、分隔符、重叠比例，以及表格/图片的上下文窗口。
+旧配置值 token_size 会被转换为 delimiter。
+按输入格式处理：上游是 text、markdown 或 html 时，直接处理文本；上游是 JSON 或 chunks 时，
+会保留文本、表格、图片等条目的类型信息。
+决定分块边界：有有效分隔符时按分隔符切分；否则把相邻文本条目合并到 token 大小限制内。delimiter_mode="one"
+则把输入合并为一个文本块。
+处理多媒体和上下文：表格、图片作为独立块保留；配置了上下文窗口时，会从附近文本中取句子作为上下文。
+相关逻辑在 token_chunker.py:190。
+处理重叠与 PDF 坐标：合并文本块时可添加重叠文本；PDF 坐标信息保存在结构化字段中，最终输出前会移除文本里的坐标标记，
+避免它们进入嵌入和索引内容。合并和输出整理分别见 token_chunker.py:233 与 token_chunker.py:283。"""
 # _TAG_RE matches parser-emitted coordinate tags of the form
 # ``@@<page>\t<left>\t<right>\t<top>\t<bottom>##``. Mirrors Go's
 # posTagRemove (internal/ingestion/component/chunker/group.go) so the two

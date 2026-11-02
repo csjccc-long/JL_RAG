@@ -19,7 +19,6 @@ package models
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -349,10 +348,6 @@ type zhipuRerankResponse struct {
 		Index          int     `json:"index"`
 		RelevanceScore float64 `json:"relevance_score"`
 	} `json:"results"`
-}
-
-type zhipuOCRResponse struct {
-	MarkdownResults *string `json:"md_results"`
 }
 
 // Rerank calculates similarity scores between query and documents using
@@ -711,87 +706,8 @@ func (z *ZhipuAIModel) buildTTSRequest(modelName *string, audioContent *string, 
 	return reqBody, url, nil
 }
 
-// OCRFile OCR file
-func (z *ZhipuAIModel) OCRFile(ctx context.Context, modelName *string, content []byte, fileURL *string, apiConfig *APIConfig, ocrConfig *OCRConfig, modelUsage *common.ModelUsage) (*OCRFileResponse, error) {
-	if err := z.baseModel.APIConfigCheck(apiConfig); err != nil {
-		return nil, err
-	}
-
-	if modelName == nil || *modelName == "" {
-		return nil, fmt.Errorf("model name is required")
-	}
-
-	if (fileURL == nil || *fileURL == "") && len(content) == 0 {
-		return nil, fmt.Errorf("file url or content is required")
-	}
-
-	baseURL, err := z.baseModel.GetBaseURL(apiConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	if z.baseModel.URLSuffix.OCR == "" {
-		return nil, fmt.Errorf("zhipu-ai: no OCR URL suffix configured")
-	}
-
-	file := ""
-	if fileURL != nil && *fileURL != "" {
-		file = *fileURL
-	} else {
-		mimeType := http.DetectContentType(content)
-		if len(content) > 4 && string(content[:4]) == "%PDF" {
-			mimeType = "application/pdf"
-		}
-		file = fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(content))
-	}
-
-	reqBody := map[string]interface{}{
-		"model": *modelName,
-		"file":  file,
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/%s", baseURL, strings.TrimPrefix(z.baseModel.URLSuffix.OCR, "/"))
-	ctx, cancel := context.WithTimeout(ctx, longOpCallTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", *apiConfig.ApiKey))
-
-	resp, err := z.baseModel.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ZhipuAI OCR API error: %s, body: %s", resp.Status, string(body))
-	}
-
-	var zhipuResp zhipuOCRResponse
-	if err = json.Unmarshal(body, &zhipuResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	if zhipuResp.MarkdownResults == nil {
-		return nil, fmt.Errorf("ZhipuAI OCR API response missing md_results")
-	}
-
-	return &OCRFileResponse{Text: zhipuResp.MarkdownResults}, nil
+func (z *ZhipuAIModel) OCRFile(context.Context, *string, []byte, *string, *APIConfig, *OCRConfig, *common.ModelUsage) (*OCRFileResponse, error) {
+	return nil, fmt.Errorf("%s, no such method", z.Name())
 }
 
 // ParseFile parse file

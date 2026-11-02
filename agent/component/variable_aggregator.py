@@ -19,7 +19,14 @@ import os
 from common.connection_utils import timeout
 from agent.component.base import ComponentBase, ComponentParamBase
 
+"""
+它的核心作用是：
 
+按分组收集多个变量
+在一组候选变量中找出第一个“可用值”
+把最终结果输出到一个统一的字段里
+也就是说，它解决的是“多个输入来源里，选一个最合适的值”的问题。
+"""
 class VariableAggregatorParam(ComponentParamBase):
     """
     Parameters for VariableAggregator

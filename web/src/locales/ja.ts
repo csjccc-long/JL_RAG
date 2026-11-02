@@ -618,15 +618,6 @@ export default {
       autoMetadataTip:
         'メタデータを自動生成します。パース時に新規ファイルへ適用されます。既存ファイルを更新するには再パースが必要です（チャンクは保持されます）。「設定」で指定されたインデックスモデルにより、追加のトークンが消費される点にご注意ください。',
       autoMetadata: '自動メタデータ',
-      mineruOptions: 'MinerUオプション',
-      mineruParseMethod: 'パース方法',
-      mineruParseMethodTip:
-        'PDFのパース方法: auto（自動検出）、txt（テキスト抽出）、ocr（光学文字認識）',
-      mineruFormulaEnable: '数式認識',
-      mineruFormulaEnableTip:
-        '数式認識を有効にします。注: キリル文字のドキュメントでは正しく動作しない場合があります。',
-      mineruTableEnable: '表認識',
-      mineruTableEnableTip: '表の認識と抽出を有効にします。',
       overlappedPercent: '重複率（%）',
       generationScopeTip:
         'RAPTORをデータセット全体で生成するか、単一のファイルで生成するかを指定します。',
@@ -1737,25 +1728,6 @@ export default {
       paddleocrAccessTokenPlaceholder: 'AI Studioのトークン (任意)',
       paddleocrAlgorithm: 'PaddleOCRアルゴリズム',
       paddleocrAlgorithmMessage: 'PaddleOCRアルゴリズムを選択してください',
-      mineruApiserver: 'MinerU APIサーバー',
-      mineruApiserverMessage: 'MinerU APIサーバーのURLを入力してください!',
-      mineruApiserverPlaceholder: '例: http://host.docker.internal:9987',
-      mineruOutputDir: 'MinerU出力ディレクトリ',
-      mineruOutputDirMessage: 'MinerUの出力ディレクトリを入力してください!',
-      mineruOutputDirPlaceholder: '/tmp/mineru',
-      mineruBackend: 'MinerUバックエンド',
-      mineruBackendMessage: 'MinerUバックエンドを選択してください!',
-      mineruSelectBackend: '処理バックエンドを選択',
-      mineruServerUrl: 'MinerUサーバーURL',
-      mineruServerUrlMessage: 'MinerUサーバーURLを入力してください!',
-      mineruServerUrlPlaceholder: '例: http://your-vllm-server:30000',
-      mineruDeleteOutput: '出力ファイルを削除',
-      mineruDeleteOutputMessage: '出力ファイル削除の値が無効です',
-      opendataloaderApiserver: 'OpenDataLoader APIサーバー',
-      opendataloaderApiserverMessage:
-        'OpenDataLoader APIサーバーを入力してください!',
-      opendataloaderApiserverPlaceholder:
-        'http://your-opendataloader-service:9383',
       default: 'デフォルト',
       empty: 'データがありません',
       docLink: 'ドキュメントリンク',
@@ -1813,30 +1785,6 @@ export default {
       view: '表示',
       mcp: 'MCP',
 
-      mineru: {
-        modelNameRequired: 'モデル名は必須です',
-        apiServerRequired: 'MinerU APIサーバー設定は必須です',
-        serverUrlBackendLimit:
-          'MinerUサーバーURLアドレスはHTTPクライアントバックエンドでのみ使用できます',
-        apiserver: 'MinerU APIサーバー設定',
-        outputDir: 'MinerU出力ディレクトリのパス',
-        backend: 'MinerU処理バックエンドの種類',
-        serverUrl: 'MinerUサーバーURLアドレス',
-        deleteOutput: '処理後に出力ファイルを削除',
-        selectBackend: '処理バックエンドを選択',
-
-        backendOptions: {
-          pipeline: '標準パイプライン処理',
-          vlmTransformers: 'Vision Language Model (Transformers使用)',
-          vlmVllmEngine: 'Vision Language Model (vLLMエンジン使用)',
-          vlmHttpClient: 'Vision Language Model (HTTPクライアント経由)',
-          vlmMlxEngine: 'Vision Language Model (MLXエンジン使用)',
-          vlmVllmAsyncEngine:
-            'Vision Language Model (vLLM非同期エンジン使用、実験的機能)',
-          vlmLmdeployEngine:
-            'Vision Language Model (LMDeployエンジン使用、実験的機能)',
-        },
-      },
 
       somark: {
         modelNameMessage: 'モデル名を入力してください',

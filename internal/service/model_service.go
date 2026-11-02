@@ -1589,9 +1589,7 @@ func (m *ModelProviderService) ListTenantAddedModels(ctx context.Context, userID
 	}
 
 	// Mirror Python's ensure_*_from_env calls.
-	_ = m.ensureMineruFromEnv(ctx, tenantID)
 	_ = m.ensurePaddleOCREnabledFromEnv(ctx, tenantID)
-	_ = m.ensureOpenDataLoaderFromEnv(ctx, tenantID)
 
 	var modelTypeFilterBin entity.ModelType
 	if modelTypeFilter != "" {
@@ -1815,42 +1813,14 @@ func (m *ModelProviderService) resolveModelListTenant(ctx context.Context, userI
 	return tenant, common.CodeSuccess, nil
 }
 
-// ensureMineruFromEnv mirrors Python's ensure_mineru_from_env.
-// It ensures a MinerU OCR provider instance exists when env vars are configured.
-func (m *ModelProviderService) ensureMineruFromEnv(ctx context.Context, tenantID string) error {
-	config := collectEnvConfig(mineruEnvKeys, mineruDefaultConfig)
-	return m.ensureOCRProviderFromEnv(ctx, tenantID, "MinerU", "mineru-from-env", config)
-}
-
 // ensurePaddleOCREnabledFromEnv mirrors Python's ensure_paddleocr_from_env.
 func (m *ModelProviderService) ensurePaddleOCREnabledFromEnv(ctx context.Context, tenantID string) error {
 	config := collectEnvConfig(paddleOCREnvKeys, paddleOCRDefaultConfig)
 	return m.ensureOCRProviderFromEnv(ctx, tenantID, "PaddleOCR", "paddleocr-from-env", config)
 }
 
-// ensureOpenDataLoaderFromEnv mirrors Python's ensure_opendataloader_from_env.
-func (m *ModelProviderService) ensureOpenDataLoaderFromEnv(ctx context.Context, tenantID string) error {
-	config := collectEnvConfig(openDataLoaderEnvKeys, openDataLoaderDefaultConfig)
-	return m.ensureOCRProviderFromEnv(ctx, tenantID, "OpenDataLoader", "opendataloader-from-env", config)
-}
-
-// env key / default config tables for the three OCR providers.
-// Mirrors common/constants.py MINERU_ENV_KEYS, PADDLEOCR_ENV_KEYS, OPENDATALOADER_ENV_KEYS.
+// Environment-backed PaddleOCR provider configuration.
 var (
-	mineruEnvKeys = []string{
-		common.EnvMineruAPIServer,
-		"MINERU_OUTPUT_DIR",
-		common.EnvMineruBackend,
-		"MINERU_SERVER_URL",
-		"MINERU_DELETE_OUTPUT",
-	}
-	mineruDefaultConfig = map[string]interface{}{
-		common.EnvMineruAPIServer: "",
-		"MINERU_OUTPUT_DIR":       "",
-		common.EnvMineruBackend:   "pipeline",
-		"MINERU_SERVER_URL":       "",
-		"MINERU_DELETE_OUTPUT":    1,
-	}
 	paddleOCREnvKeys = []string{
 		common.EnvPaddleOCRBaseUrl,
 		common.EnvPaddleOCRAPIURL,
@@ -1862,12 +1832,6 @@ var (
 		common.EnvPaddleOCRAPIURL:      "",
 		common.EnvPaddleOCRAccessToken: nil,
 		common.EnvPaddleOCRAlgorithm:   "PaddleOCR-VL",
-	}
-	openDataLoaderEnvKeys = []string{
-		common.EnvOpenDataLoaderAPIServer,
-	}
-	openDataLoaderDefaultConfig = map[string]interface{}{
-		common.EnvOpenDataLoaderAPIServer: "",
 	}
 )
 

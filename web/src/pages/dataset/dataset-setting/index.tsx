@@ -12,7 +12,7 @@ import { Form } from '@/components/ui/form';
 import { FormLayout } from '@/constants/form';
 import { DocumentParserType, ParseType } from '@/constants/knowledge';
 import { PermissionRole } from '@/constants/permission';
-import { IConnector, IDataset } from '@/interfaces/database/dataset';
+import { IDataset } from '@/interfaces/database/dataset';
 import { useDataSourceInfo } from '@/pages/user-setting/data-source/constant';
 import { IDataSourceBase } from '@/pages/user-setting/data-source/interface';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -78,11 +78,6 @@ export default function DatasetSettings() {
         toc_extraction: false,
         image_table_context_window: 0,
         overlapped_percent: 0,
-        // MinerU-specific defaults
-        mineru_parse_method: 'auto',
-        mineru_formula_enable: true,
-        mineru_table_enable: true,
-        mineru_lang: 'English',
         raptor: {
           use_raptor: true,
           max_token: 256,
@@ -133,7 +128,7 @@ export default function DatasetSettings() {
 
       const source_data: IDataSourceNodeProps[] = (
         knowledgeDetails?.connectors ?? []
-      ).map((connector: IConnector) => {
+      ).map((connector) => {
         return {
           ...connector,
           icon:
@@ -171,7 +166,7 @@ export default function DatasetSettings() {
   //   }
   // };
 
-  const handleLinkOrEditSubmit = (data: IConnector[] | undefined) => {
+  const handleLinkOrEditSubmit = (data: IDataSourceBase[] | undefined) => {
     if (data) {
       const connectors = data.map((connector) => {
         return {

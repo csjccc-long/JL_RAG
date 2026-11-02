@@ -137,7 +137,7 @@ export function DynamicVariables({
   const renderParameter = useCallback(
     (keyFieldName: string, operatorFieldName: string) => {
       const logicalOperator = form.getValues(operatorFieldName);
-      const type = getVariableType(keyFieldName);
+      const type = getVariableType(keyFieldName) ?? JsonSchemaDataType.String;
 
       if (EmptyFields.includes(logicalOperator)) {
         return null;
@@ -267,7 +267,7 @@ export function DynamicVariables({
                           onChange(val);
                         }}
                         options={buildLogicalOptions(
-                          getVariableType(keyFieldAlias),
+                          getVariableType(keyFieldAlias) ?? '',
                         )}
                       ></SelectWithSearch>
                     )}

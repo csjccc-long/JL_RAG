@@ -23,7 +23,6 @@ import { ChevronDownIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { JsonSchemaDataType } from '../../constant';
 import {
   useFindAgentStructuredOutputLabel,
   useShowSecondaryMenu,
@@ -31,14 +30,17 @@ import {
 import { StructuredOutputSecondaryMenu } from './structured-output-secondary-menu';
 
 type Item = {
-  label: string;
+  label: React.ReactNode;
   value: string;
 };
 
 type Option = {
-  label: string;
+  label: React.ReactNode;
   value: string;
-  parentLabel?: string;
+  title?: React.ReactNode;
+  icon?: React.ReactNode;
+  type?: string;
+  parentLabel?: React.ReactNode;
   children?: Item[];
 };
 
@@ -52,7 +54,7 @@ interface GroupedSelectWithSecondaryMenuProps {
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
-  types?: JsonSchemaDataType[];
+  types?: string[];
 }
 
 export function GroupedSelectWithSecondaryMenu({
@@ -148,7 +150,7 @@ export function GroupedSelectWithSecondaryMenu({
                 {group.options.map((option) => {
                   const shouldShowSecondary = showSecondaryMenu(
                     option.value,
-                    option.label,
+                    String(option.label),
                   );
 
                   if (shouldShowSecondary) {
@@ -171,7 +173,7 @@ export function GroupedSelectWithSecondaryMenu({
                       <HoverCardTrigger asChild>
                         <CommandItem
                           value={option.value}
-                          keywords={[option.label]}
+                          keywords={[String(option.label)]}
                           onSelect={() => {}}
                           className="flex items-center justify-between cursor-default"
                         >
@@ -208,7 +210,7 @@ export function GroupedSelectWithSecondaryMenu({
                     <CommandItem
                       key={option.value}
                       value={option.value}
-                      keywords={[option.label]}
+                      keywords={[String(option.label)]}
                       onSelect={() => {
                         onChange?.(option.value);
                         setOpen(false);

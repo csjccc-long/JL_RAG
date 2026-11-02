@@ -33,11 +33,6 @@ export const formSchema = z
         toc_extraction: z.boolean().optional(),
         image_table_context_window: z.number().optional(),
         overlapped_percent: z.number().optional(),
-        // MinerU-specific options
-        mineru_parse_method: z.enum(['auto', 'txt', 'ocr']).optional(),
-        mineru_formula_enable: z.boolean().optional(),
-        mineru_table_enable: z.boolean().optional(),
-        mineru_lang: z.string().optional(),
         raptor: z
           .object({
             use_raptor: z.boolean().optional(),

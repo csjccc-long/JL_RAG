@@ -26,7 +26,6 @@ import (
 	"ragflow/internal/common"
 	"sort"
 	"strings"
-	"time"
 
 	deepdocpdf "ragflow/internal/deepdoc/parser/pdf"
 	"ragflow/internal/deepdoc/parser/pdf/inference"
@@ -43,19 +42,15 @@ import (
 var ErrPDFEngineUnavailable = errors.New("parser: PDF backend unavailable in this build")
 
 var supportedPDFParseMethods = map[string]struct{}{
-	"":               {},
-	"deepdoc":        {},
-	"plain_text":     {},
-	"mineru":         {},
-	"paddleocr":      {},
-	"docling":        {},
-	"opendataloader": {},
-	"somark":         {},
-	"tcadp":          {},
+	"":           {},
+	"deepdoc":    {},
+	"plain_text": {},
+	"paddleocr":  {},
+	"somark":     {},
 }
 
 type PDFParser struct {
-	ParserType string // DeepDoc, PaddleOCR, MinerU
+	ParserType string // DeepDoc, PaddleOCR, SoMark
 	Model      string // DeepDoc@buildin@ragflow
 	LibType    string // pdf_oxide, used by DeepDoc
 
@@ -69,21 +64,9 @@ type PDFParser struct {
 	// nil/empty means parse all pages. Populated by ConfigureFromSetup from
 	// the filetype setup map and forwarded to the deepdoc ParserConfig.
 	Pages                             [][]int
-	MinerUAPIServer                   string
-	MinerUAPIKey                      string
-	MinerUBackend                     string
-	MinerUPollTimeout                 time.Duration
 	PaddleOCRBaseURL                  string
 	PaddleOCRAPIKey                   string
 	PaddleOCRAlgorithm                string
-	DoclingServerURL                  string
-	DoclingAPIKey                     string
-	OpenDataLoaderAPIServer           string
-	OpenDataLoaderAPIKey              string
-	OpenDataLoaderTimeout             int
-	OpenDataLoaderHybrid              string
-	OpenDataLoaderImageOutput         string
-	OpenDataLoaderSanitize            *bool
 	SoMarkBaseURL                     string
 	SoMarkAPIKey                      string
 	SoMarkImageFormat                 string
@@ -97,10 +80,6 @@ type PDFParser struct {
 	SoMarkEnableTableImage            bool
 	SoMarkEnableImageUnderstanding    bool
 	SoMarkKeepHeaderFooter            bool
-	TCADPAPIServer                    string
-	TCADPAPIKey                       string
-	TCADPTableResultType              string
-	TCADPMarkdownImageResponseType    string
 }
 
 func NewPDFParser() *PDFParser {
@@ -110,10 +89,7 @@ func NewPDFParser() *PDFParser {
 		LibType:                        "pdf_oxide",
 		ParseMethod:                    "deepdoc",
 		OutputFormat:                   "json",
-		MinerUBackend:                  "pipeline",
-		MinerUPollTimeout:              minerUPollTimeout,
 		PaddleOCRAlgorithm:             "PaddleOCR-VL",
-		OpenDataLoaderTimeout:          600,
 		SoMarkBaseURL:                  "https://somark.cn/api/v1",
 		SoMarkImageFormat:              "url",
 		SoMarkFormulaFormat:            "latex",
@@ -122,8 +98,6 @@ func NewPDFParser() *PDFParser {
 		SoMarkEnableInlineImage:        true,
 		SoMarkEnableTableImage:         true,
 		SoMarkEnableImageUnderstanding: true,
-		TCADPTableResultType:           "1",
-		TCADPMarkdownImageResponseType: "1",
 	}
 }
 
@@ -150,21 +124,6 @@ func (p *PDFParser) ConfigureFromSetup(setup map[string]any) {
 	if v, ok := setup["parse_method"].(string); ok && v != "" {
 		p.ParseMethod = v
 	}
-	if v, ok := setup["mineru_apiserver"].(string); ok && v != "" {
-		p.MinerUAPIServer = v
-	}
-	if v, ok := setup["mineru_api_key"].(string); ok {
-		p.MinerUAPIKey = v
-	}
-	if v, ok := setup["mineru_backend"].(string); ok && v != "" {
-		p.MinerUBackend = v
-	}
-	if v, ok := setup["mineru_timeout_seconds"].(int); ok && v > 0 {
-		p.MinerUPollTimeout = time.Duration(v) * time.Second
-	}
-	if v, ok := setup["mineru_timeout_seconds"].(float64); ok && v > 0 {
-		p.MinerUPollTimeout = time.Duration(v * float64(time.Second))
-	}
 	if v, ok := setup["output_format"].(string); ok && v != "" {
 		p.OutputFormat = v
 	}
@@ -176,33 +135,6 @@ func (p *PDFParser) ConfigureFromSetup(setup map[string]any) {
 	}
 	if v, ok := setup["paddleocr_algorithm"].(string); ok && v != "" {
 		p.PaddleOCRAlgorithm = v
-	}
-	if v, ok := setup["docling_server_url"].(string); ok && v != "" {
-		p.DoclingServerURL = v
-	}
-	if v, ok := setup["docling_api_key"].(string); ok {
-		p.DoclingAPIKey = v
-	}
-	if v, ok := setup["opendataloader_apiserver"].(string); ok && v != "" {
-		p.OpenDataLoaderAPIServer = v
-	}
-	if v, ok := setup["opendataloader_api_key"].(string); ok {
-		p.OpenDataLoaderAPIKey = v
-	}
-	if v, ok := setup["opendataloader_timeout"].(int); ok && v > 0 {
-		p.OpenDataLoaderTimeout = v
-	}
-	if v, ok := setup["opendataloader_timeout"].(float64); ok && v > 0 {
-		p.OpenDataLoaderTimeout = int(v)
-	}
-	if v, ok := setup["hybrid"].(string); ok && v != "" {
-		p.OpenDataLoaderHybrid = v
-	}
-	if v, ok := setup["image_output"].(string); ok && v != "" {
-		p.OpenDataLoaderImageOutput = v
-	}
-	if v, ok := setup["sanitize"].(bool); ok {
-		p.OpenDataLoaderSanitize = &v
 	}
 	if v, ok := setup["somark_base_url"].(string); ok && v != "" {
 		p.SoMarkBaseURL = v
@@ -243,18 +175,6 @@ func (p *PDFParser) ConfigureFromSetup(setup map[string]any) {
 	if v, ok := setup["somark_keep_header_footer"].(bool); ok {
 		p.SoMarkKeepHeaderFooter = v
 	}
-	if v, ok := setup["tcadp_apiserver"].(string); ok && v != "" {
-		p.TCADPAPIServer = v
-	}
-	if v, ok := setup["tcadp_api_key"].(string); ok {
-		p.TCADPAPIKey = v
-	}
-	if v, ok := setup["table_result_type"].(string); ok && v != "" {
-		p.TCADPTableResultType = v
-	}
-	if v, ok := setup["markdown_image_response_type"].(string); ok && v != "" {
-		p.TCADPMarkdownImageResponseType = v
-	}
 	if raw, ok := setup["pages"]; ok {
 		// Request-layer validation (NormalizeParserConfigPages) already
 		// rejects invalid ranges at the API boundary. At parse time the input
@@ -272,20 +192,14 @@ func (p *PDFParser) ConfigureFromSetup(setup map[string]any) {
 func normalizePDFParseMethod(raw string) string {
 	method := strings.ToLower(strings.TrimSpace(raw))
 	switch {
-	case strings.HasSuffix(method, "@mineru"):
-		return "mineru"
 	case strings.HasSuffix(method, "@paddleocr"):
 		return "paddleocr"
 	case strings.HasSuffix(method, "@somark"):
 		return "somark"
-	case strings.HasSuffix(method, "@opendataloader"):
-		return "opendataloader"
 	}
 	switch method {
 	case "plaintext":
 		return "plain_text"
-	case "tcadp parser":
-		return "tcadp"
 	}
 	return method
 }
@@ -295,7 +209,7 @@ func (p *PDFParser) validateParseMethod() error {
 	if _, ok := supportedPDFParseMethods[method]; ok {
 		return nil
 	}
-	return fmt.Errorf("parser: unsupported PDF parse_method %q (Go currently supports: deepdoc, plain_text, mineru, paddleocr, docling, opendataloader, somark, tcadp; tenant-resolved custom IMAGE2TEXT/VLM model names are not supported in the Go parser layer)", p.ParseMethod)
+	return fmt.Errorf("parser: unsupported PDF parse_method %q (Go currently supports: deepdoc, plain_text, paddleocr, somark; tenant-resolved custom IMAGE2TEXT/VLM model names are not supported in the Go parser layer)", p.ParseMethod)
 }
 
 func emptyPDFResult(filename string) ParseResult {

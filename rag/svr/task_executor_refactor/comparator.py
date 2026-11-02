@@ -14,18 +14,19 @@
 #  limitations under the License.
 
 """
-Comparison Logic Module.
+比较逻辑模块。
 
-This module provides the [`ContextComparator`](rag/svr/task_executor_refactor/comparator.py:100) class, which compares
-intermediate results from two [`RecordingContext`](rag/svr/task_executor_refactor/recording_context.py:54) instances:
-one from production execution and one from dry-run execution.
+本模块提供 ContextComparator
+ 类，用于比较两个 RecordingContext
+ 实例的中间结果：一个来自生产执行，另一个来自空运行（dry-run）执行。
 
-The comparison supports various data types with appropriate strategies:
-- Basic types (int, str, bool): Direct equality comparison
-- Float numbers: Configurable tolerance range
-- Lists: Length comparison + ID set comparison + full content comparison (all chunks)
-- Dicts: Key set comparison + recursive value comparison
-- None: Equality comparison
+比较支持多种数据类型，并采用相应的策略：
+
+基本类型（int、str、bool）：直接相等比较
+浮点数：可配置的容差范围
+列表：长度比较 + ID 集合比较 + 完整内容比较（所有分块）
+字典：键集合比较 + 递归值比较
+None：相等比较
 """
 
 import logging

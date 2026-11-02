@@ -29,8 +29,6 @@ from api.db.services.file2document_service import File2DocumentService
 from api.db.services.file_service import FileService
 from api.db.services.llm_service import LLMBundle
 from api.db.joint_services.tenant_model_service import (
-    ensure_mineru_from_env,
-    ensure_opendataloader_from_env,
     ensure_paddleocr_from_env,
     get_first_provider_model_name,
     resolve_model_config,
@@ -43,9 +41,7 @@ from common import settings
 from common.constants import LLMType
 from common.misc_utils import get_uuid, thread_pool_exec
 from deepdoc.parser import ExcelParser, HtmlParser, TxtParser
-from deepdoc.parser.docling_parser import DoclingParser
 from deepdoc.parser.pdf_parser import PlainParser, RAGFlowPdfParser, VisionParser
-from deepdoc.parser.tcadp_parser import TCADPParser
 from rag.app.naive import Docx
 from rag.flow.base import ProcessBase, ProcessParamBase
 from rag.flow.parser.pdf_chunk_metadata import (
@@ -66,7 +62,8 @@ from rag.flow.parser.utils import (
 )
 from rag.llm.cv_model import Base as VLM
 from rag.utils.base64_image import image2id
-
+"""这个模块的主要作用就是：
+“把各种原始文档按不同解析引擎转成结构化文本/布局数据，并统一输出给后续知识编译和检索流程使用。”"""
 
 class ParserParam(ProcessParamBase):
     def __init__(self):
@@ -123,7 +120,7 @@ class ParserParam(ProcessParamBase):
 
         self.setups = {
             "pdf": {
-                "parse_method": "deepdoc",  # deepdoc/plain_text/tcadp_parser/vlm
+                "parse_method": "deepdoc",  # deepdoc/plain_text/paddleocr/somark
                 "lang": "Chinese",
                 "flatten_media_to_text": False,
                 "remove_toc": False,
@@ -134,7 +131,7 @@ class ParserParam(ProcessParamBase):
                 "output_format": "json",
             },
             "spreadsheet": {
-                "parse_method": "deepdoc",  # deepdoc/tcadp_parser
+                "parse_method": "deepdoc",
                 "flatten_media_to_text": False,
                 "output_format": "html",
                 "suffix": [
@@ -192,7 +189,7 @@ class ParserParam(ProcessParamBase):
                 "output_format": "json",
             },
             "slides": {
-                "parse_method": "deepdoc",  # deepdoc/tcadp_parser
+                "parse_method": "deepdoc",
                 "suffix": [
                     "pptx",
                     "ppt",
@@ -258,7 +255,7 @@ class ParserParam(ProcessParamBase):
             pdf_parse_method = pdf_config.get("parse_method", "")
             self.check_empty(pdf_parse_method, "Parse method abnormal.")
 
-            if pdf_parse_method.lower() not in ["deepdoc", "plain_text", "mineru", "docling", "opendataloader", "tcadp parser", "paddleocr", "somark", "mistral ocr"]:
+            if pdf_parse_method.lower() not in ["deepdoc", "plain_text", "paddleocr", "somark"]:
                 self.check_empty(pdf_config.get("lang", ""), "PDF VLM language")
 
             pdf_output_format = pdf_config.get("output_format", "")
@@ -357,10 +354,7 @@ class Parser(ProcessBase):
         parse_method = parse_method or ""
         if isinstance(raw_parse_method, str):
             lowered = raw_parse_method.lower()
-            if lowered.endswith("@mineru"):
-                parser_model_name = raw_parse_method
-                parse_method = "MinerU"
-            elif lowered.endswith("@paddleocr"):
+            if lowered.endswith("@paddleocr"):
                 parser_model_name = raw_parse_method
                 parse_method = "PaddleOCR"
             elif lowered.endswith("@somark"):
@@ -370,9 +364,6 @@ class Parser(ProcessBase):
                 # downstream requires all three segments.
                 parser_model_name = raw_parse_method
                 parse_method = "SoMark"
-            elif lowered.endswith("@mistral ocr"):
-                parser_model_name = raw_parse_method
-                parse_method = "Mistral OCR"
 
         # DeepDOC returns structured page boxes directly.
         if parse_method.lower() == "deepdoc":
@@ -387,141 +378,7 @@ class Parser(ProcessBase):
             lines, _ = pdf_parser(blob)
             bboxes = [{"text": t, "layout_type": "text"} for t, _ in lines]
 
-        # MinerU/PaddleOCR/Docling/TCADP all return line-like sections that need
-        # to be converted into the shared bbox-like structure used below.
-        elif parse_method.lower() == "mineru":
-
-            def resolve_mineru_llm_name():
-                configured = parser_model_name or conf.get("mineru_llm_name")
-                if configured:
-                    return configured
-
-                tenant_id = self._canvas._tenant_id
-                if not tenant_id:
-                    return None
-
-                return get_first_provider_model_name(tenant_id, "MinerU", LLMType.OCR) or ensure_mineru_from_env(tenant_id)
-
-            parser_model_name = resolve_mineru_llm_name()
-            if not parser_model_name:
-                raise RuntimeError("MinerU model not configured. Please add MinerU in Model Providers or set MINERU_* env.")
-
-            tenant_id = self._canvas._tenant_id
-            ocr_model_config = resolve_model_config(tenant_id, LLMType.OCR, parser_model_name)
-            ocr_model = LLMBundle(tenant_id, ocr_model_config, lang=conf.get("lang", "Chinese"))
-            pdf_parser = ocr_model.mdl
-
-            lines, _ = pdf_parser.parse_pdf(
-                filepath=name,
-                binary=blob,
-                callback=self.callback,
-                parse_method="pipeline",
-                lang=conf.get("lang", "Chinese"),
-            )
-            bboxes = []
-            for line in lines or []:
-                if not isinstance(line, tuple) or len(line) < 3:
-                    continue
-
-                t, layout_type, poss = line[0], line[1], line[2]
-                box = {
-                    "text": t,
-                    "layout_type": layout_type or "text",
-                }
-                positions = [[pos[0][-1] + 1, *pos[1:]] for pos in pdf_parser.extract_positions(poss)]
-                if positions:
-                    box["positions"] = positions
-                image = pdf_parser.crop(poss, 1)
-                if image is not None:
-                    box["image"] = image
-                bboxes.append(box)
-
-        elif parse_method.lower() == "docling":
-            pdf_parser = DoclingParser(docling_server_url=os.environ.get("DOCLING_SERVER_URL", ""))
-            lines, _ = pdf_parser.parse_pdf(
-                filepath=name,
-                binary=blob,
-                callback=self.callback,
-                parse_method="pipeline",
-                docling_server_url=os.environ.get("DOCLING_SERVER_URL", ""),
-            )
-            bboxes = []
-            for item in lines or []:
-                if not isinstance(item, tuple) or len(item) < 3:
-                    continue
-                text, layout_type, poss = item[0], item[1], item[2]
-                box = {
-                    "text": text,
-                    "layout_type": layout_type or "text",
-                }
-                if isinstance(poss, str) and poss:
-                    positions = [[pos[0][-1] + 1, *pos[1:]] for pos in pdf_parser.extract_positions(poss)]
-                    if positions:
-                        box["positions"] = positions
-                    image = pdf_parser.crop(poss, 1)
-                    if image is not None:
-                        box["image"] = image
-                bboxes.append(box)
-
-        elif parse_method.lower() == "opendataloader":
-
-            def resolve_opendataloader_llm_name():
-                configured = parser_model_name or conf.get("opendataloader_llm_name")
-                if configured:
-                    return configured
-                tenant_id = self._canvas._tenant_id
-                if not tenant_id:
-                    return None
-
-                return get_first_provider_model_name(tenant_id, "OpenDataLoader", LLMType.OCR) or ensure_opendataloader_from_env(tenant_id)
-
-            parser_model_name = resolve_opendataloader_llm_name()
-            if not parser_model_name:
-                raise RuntimeError("OpenDataLoader model not configured. Please add OpenDataLoader in Model Providers.")
-
-            tenant_id = self._canvas._tenant_id
-            ocr_model_config = resolve_model_config(tenant_id, LLMType.OCR, parser_model_name)
-            ocr_model = LLMBundle(tenant_id, ocr_model_config)
-            pdf_parser = ocr_model.mdl
-
-            lines, odl_tables = pdf_parser.parse_pdf(
-                filepath=name,
-                binary=blob,
-                callback=self.callback,
-                parse_method="pipeline",
-            )
-            bboxes = []
-            for item in lines or []:
-                if not isinstance(item, tuple) or len(item) < 3:
-                    continue
-                text, layout_type, poss = item[0], item[1], item[2]
-                box = {
-                    "text": text,
-                    "layout_type": layout_type or "text",
-                }
-                if isinstance(poss, str) and poss:
-                    positions = [[pos[0][-1] + 1, *pos[1:]] for pos in pdf_parser.extract_positions(poss)]
-                    if positions:
-                        box["positions"] = positions
-                    image = pdf_parser.crop(poss, 1)
-                    if image is not None:
-                        box["image"] = image
-                bboxes.append(box)
-            # Merge tables and images from the second return value.
-            for (img, html_or_caption), positions in odl_tables or []:
-                box = {"layout_type": "table" if not isinstance(html_or_caption, list) else "figure"}
-                if isinstance(html_or_caption, str):
-                    box["text"] = html_or_caption
-                elif isinstance(html_or_caption, list):
-                    box["text"] = html_or_caption[0] if html_or_caption else ""
-                if img is not None:
-                    box["image"] = img
-                if positions:
-                    try:
-                        box["positions"] = [[p[0] + 1, p[1], p[2], p[3], p[4]] for p in positions]
-                    except Exception:
-                        pass
-                bboxes.append(box)
+        # OCR backends return line-like sections that need conversion to bbox-like data.
 
         elif parse_method.lower() == "somark":
 
@@ -569,89 +426,6 @@ class Parser(ProcessBase):
                         box["image"] = image
                 bboxes.append(box)
 
-        elif parse_method.lower() == "mistral ocr":
-
-            def resolve_mistral_ocr_llm_name():
-                configured = parser_model_name or conf.get("mistral_ocr_llm_name")
-                if configured:
-                    return configured
-                tenant_id = self._canvas._tenant_id
-                if not tenant_id:
-                    return None
-                from api.db.joint_services.tenant_model_service import ensure_mistral_ocr_from_env
-
-                return ensure_mistral_ocr_from_env(tenant_id)
-
-            parser_model_name = resolve_mistral_ocr_llm_name()
-            if not parser_model_name:
-                raise RuntimeError("Mistral OCR model not configured. Please add Mistral OCR in Model Providers or set MISTRAL_OCR_* env.")
-
-            tenant_id = self._canvas._tenant_id
-            ocr_model_config = resolve_model_config(tenant_id, LLMType.OCR, parser_model_name)
-            ocr_model = LLMBundle(tenant_id, ocr_model_config)
-            pdf_parser = ocr_model.mdl
-
-            lines, _ = pdf_parser.parse_pdf(
-                filepath=name,
-                binary=blob,
-                callback=self.callback,
-                parse_method="pipeline",
-            )
-            bboxes = []
-            for item in lines or []:
-                if not isinstance(item, tuple) or len(item) < 3:
-                    continue
-                text, layout_type, poss = item[0], item[1], item[2]
-                box = {
-                    "text": text,
-                    "layout_type": layout_type or "text",
-                }
-                if isinstance(poss, str) and poss:
-                    positions = [[pos[0][-1] + 1, *pos[1:]] for pos in pdf_parser.extract_positions(poss)]
-                    if positions:
-                        box["positions"] = positions
-                    image = pdf_parser.crop(poss, 1)
-                    if image is not None:
-                        box["image"] = image
-                bboxes.append(box)
-
-        elif parse_method.lower() == "tcadp parser":
-            # ADP is a document parsing tool using Tencent Cloud API
-            table_result_type = conf.get("table_result_type", "1")
-            markdown_image_response_type = conf.get("markdown_image_response_type", "1")
-            pdf_parser = TCADPParser(
-                table_result_type=table_result_type,
-                markdown_image_response_type=markdown_image_response_type,
-            )
-            sections, _ = pdf_parser.parse_pdf(
-                filepath=name,
-                binary=blob,
-                callback=self.callback,
-                file_type="PDF",
-                file_start_page=1,
-                file_end_page=1000,
-            )
-            bboxes = []
-            for section, position_tag in sections:
-                if position_tag:
-                    match = re.match(r"@@([0-9-]+)\t([0-9.]+)\t([0-9.]+)\t([0-9.]+)\t([0-9.]+)##", position_tag)
-                    if match:
-                        pn, x0, x1, top, bott = match.groups()
-                        bboxes.append(
-                            {
-                                "page_number": int(pn.split("-")[0]),
-                                "x0": float(x0),
-                                "x1": float(x1),
-                                "top": float(top),
-                                "bottom": float(bott),
-                                "text": section,
-                                "layout_type": "text",
-                            }
-                        )
-                    else:
-                        bboxes.append({"text": section, "layout_type": "text"})
-                else:
-                    bboxes.append({"text": section, "layout_type": "text"})
 
         elif parse_method.lower() == "paddleocr":
 
@@ -797,92 +571,14 @@ class Parser(ProcessBase):
         self.callback(random.randint(1, 5) / 100.0, "Start to work on a Spreadsheet.")
         conf = self._param.setups["spreadsheet"]
         self.set_output("output_format", conf["output_format"])
-        flatten_media_to_text = conf.get("flatten_media_to_text")
-
-        parse_method = conf.get("parse_method", "deepdoc")
-
-        # Handle TCADP parser
-        if parse_method.lower() == "tcadp parser":
-            table_result_type = conf.get("table_result_type", "1")
-            markdown_image_response_type = conf.get("markdown_image_response_type", "1")
-            tcadp_parser = TCADPParser(
-                table_result_type=table_result_type,
-                markdown_image_response_type=markdown_image_response_type,
-            )
-            if not tcadp_parser.check_installation():
-                raise RuntimeError("TCADP parser not available. Please check Tencent Cloud API configuration.")
-
-            # Determine file type based on extension
-            if re.search(r"\.xlsx?$", name, re.IGNORECASE):
-                file_type = "XLSX"
-            else:
-                file_type = "CSV"
-
-            self.callback(0.2, f"Using TCADP parser for {file_type} file.")
-            sections, tables = tcadp_parser.parse_pdf(
-                filepath=name,
-                binary=blob,
-                callback=self.callback,
-                file_type=file_type,
-                file_start_page=1,
-                file_end_page=1000,
-            )
-
-            # Process TCADP parser output based on configured output_format
-            output_format = conf.get("output_format", "html")
-
-            if output_format == "html":
-                # For HTML output, combine sections and tables into HTML
-                html_content = ""
-                for section, position_tag in sections:
-                    if section:
-                        html_content += section + "\n"
-                for table in tables:
-                    if table:
-                        html_content += table + "\n"
-
-                self.set_output("html", html_content)
-
-            elif output_format == "json":
-                # For JSON output, create a list of text items
-                result = []
-                # Add sections as text
-                for section, position_tag in sections:
-                    if section:
-                        result.append({"text": section, "doc_type_kwd": "text"})
-                # Add tables as text
-                for table in tables:
-                    if table:
-                        result.append(
-                            {
-                                "text": table,
-                                "doc_type_kwd": "text" if flatten_media_to_text else "table",
-                            }
-                        )
-
-                self.set_output("json", result)
-
-            elif output_format == "markdown":
-                # For markdown output, combine into markdown
-                md_content = ""
-                for section, position_tag in sections:
-                    if section:
-                        md_content += section + "\n\n"
-                for table in tables:
-                    if table:
-                        md_content += table + "\n\n"
-
-                self.set_output("markdown", md_content)
-        else:
-            # Default DeepDOC parser
-            spreadsheet_parser = ExcelParser()
-            if conf.get("output_format") == "html":
-                htmls = spreadsheet_parser.html(blob, 1000000000)
-                self.set_output("html", htmls[0])
-            elif conf.get("output_format") == "json":
-                self.set_output("json", [{"text": txt, "doc_type_kwd": "text"} for txt in spreadsheet_parser(blob) if txt])
-            elif conf.get("output_format") == "markdown":
-                self.set_output("markdown", spreadsheet_parser.markdown(blob))
+        spreadsheet_parser = ExcelParser()
+        if conf.get("output_format") == "html":
+            htmls = spreadsheet_parser.html(blob, 1000000000)
+            self.set_output("html", htmls[0])
+        elif conf.get("output_format") == "json":
+            self.set_output("json", [{"text": txt, "doc_type_kwd": "text"} for txt in spreadsheet_parser(blob) if txt])
+        elif conf.get("output_format") == "markdown":
+            self.set_output("markdown", spreadsheet_parser.markdown(blob))
 
     def _doc(self, name, blob, **kwargs):
         """Parse DOC files into text/json sections."""
@@ -1002,64 +698,14 @@ class Parser(ProcessBase):
         conf = self._param.setups["slides"]
         self.set_output("output_format", conf["output_format"])
 
-        parse_method = conf.get("parse_method", "deepdoc")
+        from deepdoc.parser.ppt_parser import RAGFlowPptParser
 
-        # Handle TCADP parser
-        if parse_method.lower() == "tcadp parser":
-            table_result_type = conf.get("table_result_type", "1")
-            markdown_image_response_type = conf.get("markdown_image_response_type", "1")
-            tcadp_parser = TCADPParser(
-                table_result_type=table_result_type,
-                markdown_image_response_type=markdown_image_response_type,
-            )
-            if not tcadp_parser.check_installation():
-                raise RuntimeError("TCADP parser not available. Please check Tencent Cloud API configuration.")
+        ppt_parser = RAGFlowPptParser()
+        txts = ppt_parser(blob, 0, 100000, None)
+        sections = [{"text": section, "doc_type_kwd": "text"} for section in txts if section.strip()]
 
-            # Determine file type based on extension
-            if re.search(r"\.pptx?$", name, re.IGNORECASE):
-                file_type = "PPTX"
-            else:
-                file_type = "PPT"
-
-            self.callback(0.2, f"Using TCADP parser for {file_type} file.")
-
-            sections, tables = tcadp_parser.parse_pdf(
-                filepath=name,
-                binary=blob,
-                callback=self.callback,
-                file_type=file_type,
-                file_start_page=1,
-                file_end_page=1000,
-            )
-
-            # Process TCADP parser output - PPT only supports json format
-            output_format = conf.get("output_format", "json")
-            if output_format == "json":
-                # For JSON output, create a list of text items
-                result = []
-                # Add sections as text
-                for section, position_tag in sections:
-                    if section:
-                        result.append({"text": section, "doc_type_kwd": "text"})
-                # Add tables as text
-                for table in tables:
-                    if table:
-                        result.append({"text": table, "doc_type_kwd": "table"})
-
-                self.set_output("json", result)
-        else:
-            # Default DeepDOC parser (supports .pptx format)
-            from deepdoc.parser.ppt_parser import RAGFlowPptParser as ppt_parser
-
-            ppt_parser = ppt_parser()
-            txts = ppt_parser(blob, 0, 100000, None)
-
-            sections = [{"text": section, "doc_type_kwd": "text"} for section in txts if section.strip()]
-
-            # json
-            assert conf.get("output_format") == "json", "have to be json for ppt"
-            if conf.get("output_format") == "json":
-                self.set_output("json", sections)
+        assert conf.get("output_format") == "json", "have to be json for ppt"
+        self.set_output("json", sections)
 
     def _markdown(self, name, blob, **kwargs):
         """Parse markdown files into text/json sections."""

@@ -23,7 +23,12 @@ from api.db.services.llm_service import LLMBundle
 from api.db.joint_services.tenant_model_service import get_tenant_default_model_by_type
 from rag.nlp import rag_tokenizer, tokenize
 
+"""
+音频文件转文本并构造检索 chunk 的解析器。
 
+它检查音频格式，将文件临时写入磁盘，调用租户默认的 ASR 模型转写语音，再把转写文本分词并写入文档 chunk。
+处理结束后会删除临时文件；若格式不支持或转写失败，则通过回调报告错误并返回空列表。
+"""
 def chunk(filename, binary, tenant_id, lang, callback=None, **kwargs):
     doc = {"docnm_kwd": filename, "title_tks": rag_tokenizer.tokenize(re.sub(r"\.[a-zA-Z]+$", "", filename))}
     doc["title_sm_tks"] = rag_tokenizer.fine_grained_tokenize(doc["title_tks"])

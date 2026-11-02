@@ -152,7 +152,7 @@ class ESConnectionBase(DocStoreConnection):
         Refresh an index so that recently inserted documents become searchable.
 
         Service layers should call this dispatch method instead of reaching
-        into ``self.es`` directly, so the OpenSearch and Elasticsearch
+        into ``self.es`` directly, so the Elasticsearch
         connections present a uniform abstract API.
         """
         try:

@@ -28,7 +28,11 @@ from typing import Any, Dict, List, Optional
 
 from agent.sandbox.result_protocol import build_javascript_wrapper, build_python_wrapper, extract_structured_result
 from .base import ExecutionResult, SandboxInstance, SandboxProvider, SandboxProviderConfigError
+"""
+在当前机器上启动一个本地子进程来执行用户代码，而不是通过 Docker、SSH 或云端 sandbox。
 
+它属于 sandbox providers 里的一个具体实现，适用于“本机直接执行代码”的场景。
+"""
 
 ALLOWED_ARTIFACT_EXTENSIONS = {
     ".csv",

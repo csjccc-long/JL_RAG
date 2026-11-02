@@ -37,7 +37,63 @@ from rag.advanced_rag.knowlege_compile.runner import (
     split_tree_templates,
 )
 from rag.flow.base import ProcessBase, ProcessParamBase
+"""1) 负责接收上游“原始 chunk”
+在 _invoke() 里，它会读取前一个步骤的输出：
 
+output_format 可能是 chunks、json、markdown、text、html
+然后调用 _normalize_upstream_chunks() 统一转换成标准 chunk 列表
+也就是说，这一层把各种输入格式统一成同一种内部结构，后续编译逻辑就不需要关心来源了。
+
+2) 负责“重分块/再切分”
+它有一套非常关键的逻辑：
+
+_slumber_candidates()
+_split_slumber_level()
+_split_markdown_blocks()
+_merge_small_text_chunks()
+这些方法会：
+
+按段落、句子、标点等边界切分
+将 Markdown 表格和 fenced code block 视为原子块，避免被错误拆散
+在 token 预算超限时做递归 fallback
+合并过小的短块，避免碎片化严重
+这一步的目标，是把“长文本”重排成更适合后续 LLM 语义理解和索引的 chunk。
+
+3) 负责“按模板做知识编译”
+CompilerParam 接收 compilation_template_group_id，并兼容旧字段 compilation_template_group_ids。
+Compiler 会把这个模板组解析成实际可用的编译模板，然后：
+
+解析每个模板对应的 chat model
+选择默认模型
+读取结构编译配置
+生成 active_templates
+之后它会区分两类模板：
+
+tree_templates: 用于树状结构构建（RAPTOR 之类）
+non_tree_templates: 用于常规结构化编译
+这说明它不是单纯分句，而是“结构化知识编译器”。
+
+4) 支持语义重组（rechunk）
+如果某个模板要求 rechunk，那么它会：
+
+先进行一次语义分组
+生成 rechunked_chunks
+再把这些结果重新 formalize 成正式 chunk
+后续模板使用这些新的语义边界
+所以它在这里承担的是“语义重构 chunk 边界”的职责，而不是只做机械切分。
+
+5) 连接 LLM + embedding + 数据存储
+在处理过程中，它还会：
+
+解析 tenant / doc / kb 的上下文
+选定 embedding model
+调用 _compile_tree_templates() 进行树图构建
+调用 run_structure_compile_over_batches() 执行结构编译
+把结果写回知识库相关数据结构
+从功能上看，这个组件其实是知识库“编译阶段”的入口和总控器。
+
+"""
+# 该模块用于知识库的编译
 
 class CompilerParam(ProcessParamBase, LLMParam):
     """Parameters for the knowledge-Compiler flow component.
@@ -106,7 +162,11 @@ class Compiler(ProcessBase, LLM):
 
     @classmethod
     def _slumber_candidates(cls, text: str, level: int = 0, target_token_size: int | None = None) -> list[str]:
-        """Apply paragraph→sentence splitting with token fallback."""
+        """按段落→句子逐级切分，并在超出 token 上限时回退到更细粒度的拆分。
+
+        先按段落边界拆分，若仍然过长，则继续按句号/问号/感叹号等句子边界拆分，
+        直到片段长度落入目标 token 范围；最后仍无法满足时退回到 naive_merge 的保守合并策略。
+        """
         target_token_size = target_token_size or cls._PARSER_TEXT_CHUNK_TOKEN_SIZE
         levels = [
             ["\n\n", "\r\n", "\n", "\r"],
@@ -115,14 +175,17 @@ class Compiler(ProcessBase, LLM):
         if not text.strip():
             return []
         if level >= len(levels):
+            # 最后兜底：使用通用的“按 token 与字符边界做合并/切分”的策略，避免死循环。
             return [part for part in naive_merge(text, target_token_size, "", 0) if part.strip()]
 
+        # 先按当前层级的分隔符将文本切成候选片段；若当前层级无明显切分，则升级到下一层。
         splits = cls._split_slumber_level(text, levels[level])
         if len(splits) <= 1 and level < len(levels) - 1:
             return cls._slumber_candidates(text, level + 1, target_token_size)
 
         candidates = []
         for split in splits:
+            # 若当前片段仍超出目标 token 上限，则继续向更细粒度层级递归拆分；否则保留该片段。
             if num_tokens_from_string(split) > target_token_size:
                 candidates.extend(cls._slumber_candidates(split, level + 1, target_token_size))
             else:

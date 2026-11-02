@@ -8,10 +8,7 @@
     "models": "v1/models",
     "embedding": "jina/v1/embeddings",
     "rerank": "jina/v1/rerank",
-    "asr": "v1/audio/transcriptions",
-    "doc_parse": "mineru/api/v4/extract/task",
-    "task": "mineru/api/v4/extract/task",
-    "ocr": "mistral/v1/ocr"
+    "asr": "v1/audio/transcriptions"
   },
   "class": "302.ai",
   "models": [
@@ -273,19 +270,6 @@
       "max_tokens": 8192,
       "model_types": [
         "asr"
-      ]
-    },
-    {
-      "name": "mistral-ocr-latest",
-      "max_tokens": 8192,
-      "model_types": [
-        "ocr"
-      ]
-    },
-    {
-      "name": "vlm",
-      "model_types": [
-        "doc_parse"
       ]
     },
     {

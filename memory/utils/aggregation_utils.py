@@ -16,7 +16,7 @@
 
 """Pure aggregation helpers for search results (no heavy dependencies)."""
 
-
+"""一个“按字段聚合计数的小工具”，用于把一组记录中的某个字段汇总成“值 + 出现次数”的形式，方便后续展示或分析。"""
 def aggregate_by_field(messages: list | None, field_name: str) -> list[tuple[str, int]]:
     """Aggregate message documents by a field; returns [(value, count), ...].
 

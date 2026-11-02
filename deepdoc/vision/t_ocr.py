@@ -29,6 +29,18 @@ from deepdoc.vision import OCR, init_in_out
 import argparse
 import numpy as np
 
+
+"""
+个OCR 批量测试脚本，用于对图片或 PDF 页面执行 OCR，并保存识别结果。它调用已有的 OCR 模型，不负责训练模型，也不是 RAGFlow 的核心解析器。
+
+执行流程
+init_in_out(args) 根据输入路径准备待处理图片和输出路径。
+OCR() 加载 OCR 引擎。
+对每张图片执行 OCR，得到文字、文字框坐标等结果。
+将文字框画到图片上，保存标注图；同时把识别文本写入对应的 .txt 文件。
+有多张图片时，使用异步任务和线程池执行；检测到多张 GPU 时，按设备轮流分配任务，并限制同一 GPU 同时处理的任务数。
+可通过命令行传入 --inputs 指定图片、PDF 或目录，使用 --output_dir 指定结果输出目录。
+"""
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0,2' #2 gpus, uncontinuous
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # 1 gpu
 # os.environ['CUDA_VISIBLE_DEVICES'] = '' #cpu

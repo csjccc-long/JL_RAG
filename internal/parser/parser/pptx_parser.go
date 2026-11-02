@@ -21,7 +21,6 @@ package parser
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	officeOxide "github.com/yfedoseev/office_oxide/go"
 )
@@ -33,14 +32,6 @@ import (
 // OLE format.
 type PPTXParser struct {
 	format string
-
-	// TCADP cloud-parsing configuration
-	ParseMethod                    string
-	TCADPAPIServer                 string
-	TCADPAPIKey                    string
-	TCADPTableResultType           string
-	TCADPMarkdownImageResponseType string
-	OutputFormat                   string
 }
 
 func NewPPTXParser() *PPTXParser {
@@ -51,38 +42,14 @@ func (p *PPTXParser) String() string {
 	return "PPTXParser"
 }
 
-// ConfigureFromSetup reads the slides-family setup map. Mirrors the
-// XLSXParser ConfigureFromSetup pattern
 func (p *PPTXParser) ConfigureFromSetup(setup map[string]any) {
 	if p == nil || setup == nil {
 		return
 	}
-	if v, ok := setup["parse_method"].(string); ok {
-		p.ParseMethod = v
-	}
-	if v, ok := setup["tcadp_apiserver"].(string); ok {
-		p.TCADPAPIServer = v
-	}
-	if v, ok := setup["tcadp_api_key"].(string); ok {
-		p.TCADPAPIKey = v
-	}
-	if v, ok := setup["table_result_type"].(string); ok {
-		p.TCADPTableResultType = v
-	}
-	if v, ok := setup["markdown_image_response_type"].(string); ok {
-		p.TCADPMarkdownImageResponseType = v
-	}
-	if v, ok := setup["output_format"].(string); ok {
-		p.OutputFormat = v
-	}
-	if p.OutputFormat == "" {
-		p.OutputFormat = "json"
-	}
 }
 
 // ParseWithResult emits one JSON item per slide with the slide's
-// plain text. Mirrors the python parser.py:slides branch which
-// forces output_format="json" for the slide family.
+// plain text. Mirrors the python parser.py:slides branch.
 func (p *PPTXParser) ParseWithResult(ctx context.Context, filename string, data []byte) ParseResult {
 	// p == nil guard: the struct is embedded by value in PPTParser and
 	// always created via NewPPTXParser or the "ppt"-format constructor in
@@ -91,21 +58,6 @@ func (p *PPTXParser) ParseWithResult(ctx context.Context, filename string, data 
 	// root cause behind a nil-pointer panic.
 	if p == nil {
 		return ParseResult{Err: fmt.Errorf("PPTXParser is nil")}
-	}
-	method := strings.ToLower(strings.TrimSpace(p.ParseMethod))
-	switch method {
-	case "tcadp":
-		return parsePresentationWithTCADP(ctx,
-			filename, data, strings.ToUpper(p.format),
-			p.TCADPAPIServer, p.TCADPAPIKey,
-			p.TCADPTableResultType, p.TCADPMarkdownImageResponseType,
-			p.OutputFormat,
-		)
-	case "", "deepdoc":
-		// Continue with the local office_oxide parser.
-	default:
-		// PDF-specific methods like "paddleocr" / "mineru" are
-		// meaningless for PPTX; treat as default path.
 	}
 	doc, err := officeOxide.OpenFromBytes(data, p.format)
 	if err != nil {

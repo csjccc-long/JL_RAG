@@ -27,7 +27,25 @@ from rag.prompts.generator import vision_llm_figure_describe_prompt, vision_llm_
 from rag.nlp import append_context2table_image4pdf
 from rag.utils.lazy_image import ensure_pil_image, open_image_for_processing, is_image_like
 
+"""
+负责调用租户配置的视觉模型，为文档中的图片、图表等生成文字描述，并把描述放回 RAGFlow 的图片数据结构中。
+这样图片内容也能作为文本参与后续检索。
 
+它本身不负责从 PDF、DOCX 或 Excel 中识别图片，而是接收其他解析器提取出的图片，再进行“图片理解和描述增强”。
+
+
+初始化时整理图片、已有描述和位置信息。
+根据是否提供上下文，选择普通描述提示词或带上下文的提示词。
+并发调用视觉模型生成图片描述。
+将新描述与原有描述合并，并保留图片位置。
+返回增强后的图片数据。
+
+vision_figure_parser_pdf_wrapper()：处理 PDF 解析器返回的图片项；可按配置附加周边文本作为上下文。生成描述后，用增强结果替换原图片项，其他表格等内容保留。
+vision_figure_parser_docx_wrapper()：将 DOCX 提取出的图片转换成统一格式，再交给核心类处理。
+vision_figure_parser_figure_xlsx_wrapper()：处理 Excel 工作表中提取的图片。
+vision_figure_parser_docx_wrapper_naive()：面向已有的 chunks，生成描述后直接把描述追加到对应 chunk 的 text 中；它是原地修改，不返回新的图片列表。
+vision_figure_parser_figure_data_wrapper()：把一组图片和描述整理成核心类接受的数据结构，并使用占位位置。
+"""
 def vision_figure_parser_figure_data_wrapper(figures_data_without_positions):
     if not figures_data_without_positions:
         return []

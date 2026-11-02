@@ -28,9 +28,7 @@ _validate_template_payload = validate_template_payload
 @manager.route("/compilation-templates/builtins", methods=["GET"])  # noqa: F821
 @login_required
 def list_builtin_templates() -> Response:
-    """Built-in template palette — used as the per-child pre-fill in the
-    "Add template group" panel. Groups themselves are always user-created;
-    no builtin groups exist.
+    """内置模板面板 —— 用作“添加模板组”面板中每个子项的预填充内容。模板组本身始终由用户创建；不存在内置模板组。
     """
     try:
         templates = CompilationTemplateService.list_builtins()

@@ -585,7 +585,6 @@ func TestExeSQL_DSN_MySQL(t *testing.T) {
 		// unchanged `h:port` form.
 		{"mysql", "mysql", `u:p@tcp(h:3306)/d?parseTime=true&charset=utf8mb4`},
 		{"mariadb", "mysql", `u:p@tcp(h:3306)/d?parseTime=true&charset=utf8mb4`},
-		{"oceanbase", "mysql", `u:p@tcp(h:3306)/d?parseTime=true&charset=utf8mb4`},
 		// Postgres / mssql: keyword DSN — host (or server) and port
 		// are DISTINCT fields. Combining them in a single key is
 		// rejected by the driver; the test pins the corrected
@@ -645,7 +644,6 @@ func TestExeSQL_DSN_IPv6(t *testing.T) {
 		want   string
 	}{
 		{"mysql", `u:p@tcp([2606:4700:4700::1111]:3306)/d?parseTime=true&charset=utf8mb4`},
-		{"oceanbase", `u:p@tcp([2606:4700:4700::1111]:3306)/d?parseTime=true&charset=utf8mb4`},
 		// Postgres: `host=[ipv6]` (bracketed) `port=` separate.
 		{"postgres", `host=[2606:4700:4700::1111] port=3306 user=u password=p dbname=d sslmode=disable`},
 		// MSSQL: `server=[ipv6]` (bracketed) `port=` separate.

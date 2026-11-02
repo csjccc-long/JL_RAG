@@ -26,7 +26,7 @@ import { ProviderConfigMap } from './provider-config-map';
 export function getProviderConfig(llmFactory: string): ProviderConfig {
   // Check whether it is a special factory (11 in ModalMap)
   // Among which AzureOpenAI/VolcEngine/GoogleCloud/TencentCloud/XunFeiSpark/BaiduYiYan/FishAudio are in ProviderConfigMap
-  // Bedrock/MinerU/PaddleOCR/OpenDataLoader are out of the merge scope and use the original modal
+  // Bedrock/PaddleOCR/SoMark use their provider-specific modal flow.
 
   if (ProviderConfigMap[llmFactory]) {
     return ProviderConfigMap[llmFactory];

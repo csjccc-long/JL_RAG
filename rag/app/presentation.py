@@ -32,7 +32,13 @@ from rag.nlp import rag_tokenizer
 from rag.nlp import tokenize
 from rag.utils.lazy_image import ensure_pil_image, is_image_like
 
+"""
+PDF 和 PowerPoint 的页面级解析器。它把每一页或每张幻灯片整理成一个 chunk，并保留页码、位置及页面缩略图，方便检索结果定位和展示。
 
+PDF：根据解析配置选择版面识别方式；DeepDOC 路径会进行 OCR、版面和表格识别，再按页面位置合并文本、表格等内容。
+PPT/PPTX：优先用 RAGFlowPptParser 提取幻灯片内容，失败时回退到 Tika。
+解析出的文本统一经过 tokenize()，并补充文档名、页码和位置等字段。
+"""
 class Pdf(PdfParser):
     def __init__(self):
         super().__init__()
@@ -221,16 +227,15 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             callback=callback,
             pdf_cls=Pdf,
             layout_recognizer=layout_recognizer,
-            mineru_llm_name=parser_model_name,
-            mistral_ocr_llm_name=parser_model_name,
             paddleocr_llm_name=parser_model_name,
+            somark_llm_name=parser_model_name,
             **kwargs,
         )
 
         if not sections:
             return []
 
-        if name in ["tcadp", "docling", "mineru", "paddleocr"]:
+        if name in ["paddleocr", "somark"]:
             parser_config["chunk_token_num"] = 0
 
         callback(0.8, "Finish parsing.")

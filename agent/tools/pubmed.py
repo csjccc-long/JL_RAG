@@ -23,7 +23,9 @@ import xml.etree.ElementTree as ET
 from agent.tools.base import ToolParamBase, ToolMeta, ToolBase
 from common.connection_utils import timeout
 
-
+"""
+“让 Agent 能访问 PubMed 数据库，检索生物医学论文，并提取标题、作者、摘要、期刊和 DOI 等结构化信息，供后续分析和证据判断使用。”
+"""
 class PubMedParam(ToolParamBase):
     """
     Define the PubMed component parameters.

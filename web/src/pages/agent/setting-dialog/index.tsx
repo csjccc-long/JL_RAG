@@ -22,7 +22,11 @@ export function SettingDialog({ hideModal }: IModalProps<any>) {
 
   const submit = useCallback(
     async (values: SettingFormSchemaType) => {
-      const ret = await setAgent(values);
+      const ret = await setAgent({
+        ...values,
+        avatar: values.avatar ?? undefined,
+        description: values.description ?? undefined,
+      });
       if (ret?.code === 0) {
         hideModal?.();
       }

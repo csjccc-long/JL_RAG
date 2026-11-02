@@ -139,9 +139,7 @@ def _load_module(monkeypatch, *, tenant_model_records, factory_llm_infos=None):
     _stub(
         monkeypatch,
         "api.db.joint_services.tenant_model_service",
-        ensure_mineru_from_env=lambda *a, **kw: None,
         ensure_paddleocr_from_env=lambda *a, **kw: None,
-        ensure_opendataloader_from_env=lambda *a, **kw: None,
         resolve_model_id=MagicMock(),
     )
     _stub(

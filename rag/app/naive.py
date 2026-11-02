@@ -16,7 +16,6 @@
 
 import logging
 import re
-import os
 from functools import reduce
 from io import BytesIO
 from timeit import default_timer as timer
@@ -32,8 +31,6 @@ from common.token_utils import num_tokens_from_string
 from common.constants import LLMType, MAXIMUM_PAGE_NUMBER
 from api.db.services.llm_service import LLMBundle
 from api.db.joint_services.tenant_model_service import (
-    ensure_mineru_from_env,
-    ensure_opendataloader_from_env,
     ensure_paddleocr_from_env,
     get_composite_model_name_by_id,
     get_first_provider_model_name,
@@ -44,8 +41,6 @@ from rag.utils.file_utils import extract_embed_file, extract_links_from_pdf, ext
 from deepdoc.parser import DocxParser, EpubParser, ExcelParser, HtmlParser, JsonParser, MarkdownElementExtractor, MarkdownParser, PdfParser, TxtParser
 from deepdoc.parser.figure_parser import VisionFigureParser, vision_figure_parser_docx_wrapper_naive, vision_figure_parser_pdf_wrapper
 from deepdoc.parser.pdf_parser import PlainParser, VisionParser
-from deepdoc.parser.docling_parser import DoclingParser
-from deepdoc.parser.tcadp_parser import TCADPParser
 from common.float_utils import normalize_overlapped_percent
 from common.parser_config_utils import normalize_layout_recognizer
 from common.text_utils import normalize_arabic_presentation_forms
@@ -63,7 +58,17 @@ from rag.nlp import (
     tokenize_chunks_with_images,
 )  # noqa: F401
 
+"""
+RAGFlow 的通用文档解析与分块入口，主要负责把多种常见文件转成可检索的 chunks。
+这里的 “naive” 指通用的文本分块策略，不代表只支持纯文本。
 
+chunk() 根据文件扩展名分派处理方式，
+例如 PDF、DOCX、Excel/CSV、TXT/代码、Markdown、HTML、EPUB 和 JSON。
+PDF 可按配置选择 DeepDOC、PaddleOCR 或 SoMark 解析后端；
+提取出正文、表格、图片等内容后，再按 token 数、分隔符和重叠比例切块、分词。
+
+此外，它还可以递归解析文档中嵌入的文件或符合配置的超链接内容，并将解析结果合并返回。
+"""
 def _is_short_header(text, max_tokens=50):
     """
     Check if text is a short markdown header.
@@ -128,137 +133,6 @@ def by_deepdoc(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, 
     )
     return sections, tables, pdf_parser
 
-
-def by_mineru(
-    filename,
-    binary=None,
-    from_page=0,
-    to_page=MAXIMUM_PAGE_NUMBER,
-    lang="Chinese",
-    callback=None,
-    pdf_cls=None,
-    parse_method: str = "raw",
-    mineru_llm_name: str | None = None,
-    tenant_id: str | None = None,
-    **kwargs,
-):
-    pdf_parser = None
-    if tenant_id:
-        if not mineru_llm_name:
-            try:
-                mineru_llm_name = get_first_provider_model_name(tenant_id, "MinerU", LLMType.OCR) or ensure_mineru_from_env(tenant_id)
-            except Exception as e:  # best-effort fallback
-                logging.warning(f"fallback to env mineru: {e}")
-
-        if mineru_llm_name:
-            try:
-                ocr_model_config = resolve_model_config(tenant_id, LLMType.OCR, mineru_llm_name)
-                ocr_model = LLMBundle(tenant_id=tenant_id, model_config=ocr_model_config, lang=lang)
-                pdf_parser = ocr_model.mdl
-
-                # Closes #14869: when the tenant has a VISION model
-                # configured, let the MinerU parser enrich image chunks with
-                # VLM-generated semantic descriptions (parity with deepdoc's
-                # VisionFigureParser). Best-effort — fall back silently if
-                # no vision model is available.
-                if "vision_model" not in kwargs:
-                    try:
-                        vision_model_config = get_tenant_default_model_by_type(tenant_id, LLMType.VISION)
-                        kwargs["vision_model"] = LLMBundle(tenant_id=tenant_id, model_config=vision_model_config, lang=lang)
-                    except Exception as vlm_err:
-                        logging.info(f"[MinerU] no VISION model for tenant; skipping image VLM enhancement: {vlm_err}")
-
-                sections, tables = pdf_parser.parse_pdf(
-                    filepath=filename,
-                    binary=binary,
-                    callback=callback,
-                    parse_method=parse_method,
-                    lang=lang,
-                    page_from=from_page,
-                    page_to=min(to_page, MAXIMUM_PAGE_NUMBER),
-                    **kwargs,
-                )
-                return sections, tables, pdf_parser
-            except Exception as e:
-                logging.error(f"Failed to parse pdf via LLMBundle MinerU ({mineru_llm_name}): {e}")
-
-    if callback:
-        callback(-1, "MinerU not found.")
-    return None, None, None
-
-
-def by_docling(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang="Chinese", callback=None, pdf_cls=None, **kwargs):
-    pdf_parser = DoclingParser()
-    parse_method = kwargs.get("parse_method", "raw")
-
-    if not pdf_parser.check_installation():
-        if callback:
-            callback(-1, "Docling not found.")
-        return None, None, pdf_parser
-
-    sections, tables = pdf_parser.parse_pdf(
-        filepath=filename,
-        binary=binary,
-        callback=callback,
-        output_dir=os.environ.get("DOCLING_OUTPUT_DIR", ""),
-        delete_output=bool(int(os.environ.get("DOCLING_DELETE_OUTPUT", 1))),
-        docling_server_url=os.environ.get("DOCLING_SERVER_URL", ""),
-        parse_method=parse_method,
-    )
-    return sections, tables, pdf_parser
-
-
-def by_opendataloader(
-    filename,
-    binary=None,
-    from_page=0,
-    to_page=MAXIMUM_PAGE_NUMBER,
-    lang="Chinese",
-    callback=None,
-    pdf_cls=None,
-    parse_method: str = "raw",
-    opendataloader_llm_name: str | None = None,
-    tenant_id: str | None = None,
-    **kwargs,
-):
-    if tenant_id:
-        if not opendataloader_llm_name:
-            try:
-                opendataloader_llm_name = get_first_provider_model_name(tenant_id, "OpenDataLoader", LLMType.OCR) or ensure_opendataloader_from_env(tenant_id)
-            except Exception as e:  # best-effort fallback
-                logging.warning(f"fallback to env opendataloader: {e}")
-
-        if opendataloader_llm_name:
-            try:
-                ocr_model_config = resolve_model_config(tenant_id, LLMType.OCR, opendataloader_llm_name)
-                ocr_model = LLMBundle(tenant_id=tenant_id, model_config=ocr_model_config, lang=lang)
-                pdf_parser = ocr_model.mdl
-                parse_options = {k: kwargs[k] for k in ("hybrid", "image_output", "sanitize") if k in kwargs}
-                sections, tables = pdf_parser.parse_pdf(
-                    filepath=filename,
-                    binary=binary,
-                    callback=callback,
-                    parse_method=parse_method,
-                    **parse_options,
-                )
-                return sections, tables, pdf_parser
-            except Exception as e:
-                logging.error(f"Failed to parse pdf via LLMBundle OpenDataLoader ({opendataloader_llm_name}): {e}")
-
-    if callback:
-        callback(-1, "OpenDataLoader not found.")
-    return None, None, None
-
-
-def by_tcadp(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang="Chinese", callback=None, pdf_cls=None, **kwargs):
-    tcadp_parser = TCADPParser()
-
-    if not tcadp_parser.check_installation():
-        callback(-1, "TCADP parser not available. Please check Tencent Cloud API configuration.")
-        return None, None, tcadp_parser
-
-    sections, tables = tcadp_parser.parse_pdf(filepath=filename, binary=binary, callback=callback, output_dir=os.environ.get("TCADP_OUTPUT_DIR", ""), file_type="PDF")
-    return sections, tables, tcadp_parser
 
 
 def by_paddleocr(
@@ -352,64 +226,6 @@ def by_somark(
     return None, None, None
 
 
-def by_mistral_ocr(
-    filename,
-    binary=None,
-    from_page=0,
-    to_page=MAXIMUM_PAGE_NUMBER,
-    lang="Chinese",
-    callback=None,
-    pdf_cls=None,
-    parse_method: str = "raw",
-    mistral_ocr_llm_name: str | None = None,
-    tenant_id: str | None = None,
-    **kwargs,
-):
-    pdf_parser = None
-    if tenant_id:
-        if not mistral_ocr_llm_name:
-            try:
-                from api.db.joint_services.tenant_model_service import ensure_mistral_ocr_from_env
-
-                mistral_ocr_llm_name = ensure_mistral_ocr_from_env(tenant_id)
-            except Exception as e:
-                logging.warning(f"fallback to env mistral ocr: {e}")
-
-        if mistral_ocr_llm_name:
-            try:
-                ocr_model_config = resolve_model_config(tenant_id, LLMType.OCR, mistral_ocr_llm_name)
-                ocr_model = LLMBundle(tenant_id=tenant_id, model_config=ocr_model_config, lang=lang)
-                pdf_parser = ocr_model.mdl
-                # Best-effort figure description: hand the parser the tenant's
-                # vision model so Mistral OCR's extracted images get VLM captions
-                # (parity with MinerU/deepdoc). Skip silently if none is configured.
-                if "vision_model" not in kwargs:
-                    try:
-                        vision_model_config = get_tenant_default_model_by_type(tenant_id, LLMType.VISION)
-                        kwargs["vision_model"] = LLMBundle(tenant_id=tenant_id, model_config=vision_model_config, lang=lang)
-                    except Exception as vlm_err:
-                        logging.info(f"[Mistral OCR] no vision model for tenant; skipping figure description: {vlm_err}")
-                sections, tables = pdf_parser.parse_pdf(
-                    filepath=filename,
-                    binary=binary,
-                    callback=callback,
-                    parse_method=parse_method,
-                    from_page=from_page,
-                    to_page=to_page,
-                    lang=lang,
-                    **kwargs,
-                )
-                return sections, tables, pdf_parser
-            except Exception as e:
-                logging.error(f"Failed to parse pdf via LLMBundle Mistral OCR ({mistral_ocr_llm_name}): {e}")
-                if callback:
-                    callback(-1, f"Failed to parse pdf via Mistral OCR ({mistral_ocr_llm_name}): {e}")
-                return None, None, None
-
-    if callback:
-        callback(-1, "Mistral OCR not found.")
-    return None, None, None
-
 
 def by_plaintext(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, callback=None, **kwargs):
     layout_recognizer = (kwargs.get("layout_recognizer") or "").strip()
@@ -433,13 +249,8 @@ def by_plaintext(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER
 
 PARSERS = {
     "deepdoc": by_deepdoc,
-    "mineru": by_mineru,
-    "docling": by_docling,
-    "opendataloader": by_opendataloader,
-    "tcadp parser": by_tcadp,
     "paddleocr": by_paddleocr,
     "somark": by_somark,
-    "mistral ocr": by_mistral_ocr,
     "plaintext": by_plaintext,  # default
 }
 
@@ -1055,9 +866,6 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             except LookupError:
                 pass
         layout_recognizer, parser_model_name = normalize_layout_recognizer(layout_recognize_raw)
-        opendataloader_llm_name = kwargs.pop("opendataloader_llm_name", None)
-        if layout_recognizer == "OpenDataLoader" and parser_model_name:
-            opendataloader_llm_name = parser_model_name
 
         if parser_config.get("analyze_hyperlink", False) and is_root:
             urls = extract_links_from_pdf(binary)
@@ -1077,11 +885,8 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             lang=lang,
             callback=callback,
             layout_recognizer=layout_recognizer,
-            mineru_llm_name=parser_model_name,
             paddleocr_llm_name=parser_model_name,
-            opendataloader_llm_name=opendataloader_llm_name,
             somark_llm_name=parser_model_name,
-            mistral_ocr_llm_name=parser_model_name,
             **kwargs,
         )
         sections = _normalize_section_text_for_rtl_presentation_forms(sections)
@@ -1092,7 +897,7 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
         if table_context_size or image_context_size:
             tables = append_context2table_image4pdf(sections, tables, image_context_size)
 
-        if name in ["tcadp", "docling", "mineru", "paddleocr", "opendataloader", "somark", "mistral ocr"]:
+        if name in ["paddleocr", "somark"]:
             if int(parser_config.get("chunk_token_num", 0)) <= 0:
                 parser_config["chunk_token_num"] = 0
 
@@ -1102,33 +907,13 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
     elif re.search(r"\.(csv|xlsx?)$", filename, re.IGNORECASE):
         callback(0.1, "Start to parse.")
 
-        # Check if tcadp_parser is selected for spreadsheet files
-        layout_recognizer = parser_config.get("layout_recognize", "DeepDOC")
-        if layout_recognizer == "TCADP Parser":
-            table_result_type = parser_config.get("table_result_type", "1")
-            markdown_image_response_type = parser_config.get("markdown_image_response_type", "1")
-            tcadp_parser = TCADPParser(table_result_type=table_result_type, markdown_image_response_type=markdown_image_response_type)
-            if not tcadp_parser.check_installation():
-                callback(-1, "TCADP parser not available. Please check Tencent Cloud API configuration.")
-                return res
-
-            # Determine file type based on extension
-            file_type = "XLSX" if re.search(r"\.xlsx?$", filename, re.IGNORECASE) else "CSV"
-
-            sections, tables = tcadp_parser.parse_pdf(filepath=filename, binary=binary, callback=callback, output_dir=os.environ.get("TCADP_OUTPUT_DIR", ""), file_type=file_type)
-            sections = _normalize_section_text_for_rtl_presentation_forms(sections)
+        excel_parser = ExcelParser()
+        if parser_config.get("html4excel"):
+            sections = [(_, "") for _ in excel_parser.html(binary, 12) if _]
             parser_config["chunk_token_num"] = 0
-            res = tokenize_table(tables, doc, is_english, language=lang)
-            callback(0.8, "Finish parsing.")
         else:
-            # Default DeepDOC parser
-            excel_parser = ExcelParser()
-            if parser_config.get("html4excel"):
-                sections = [(_, "") for _ in excel_parser.html(binary, 12) if _]
-                parser_config["chunk_token_num"] = 0
-            else:
-                sections = [(_, "") for _ in excel_parser(binary) if _]
-            sections = _normalize_section_text_for_rtl_presentation_forms(sections)
+            sections = [(_, "") for _ in excel_parser(binary) if _]
+        sections = _normalize_section_text_for_rtl_presentation_forms(sections)
 
     elif re.search(r"\.(txt|py|js|java|c|cpp|h|php|go|ts|sh|cs|kt|sql)$", filename, re.IGNORECASE):
         callback(0.1, "Start to parse.")

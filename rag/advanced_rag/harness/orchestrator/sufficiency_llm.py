@@ -23,6 +23,15 @@ import re
 
 from rag.advanced_rag.harness.types import SufficiencyVerdict
 
+"""
+主要流程是：
+
+从检索结果中挑选相关证据块，并按问题关键词安全裁剪，同时限制证据数量和长度。
+只对 USEFUL_BUT_INCOMPLETE、INSUFFICIENT、CONFLICTING 等不明确状态调用 tools.judge_sufficiency。
+整理 LLM 返回的充分性判断、置信度、缺失信息、矛盾和覆盖情况；如果有缺失信息，再调用 gen_followups 生成后续查询。
+返回这些判断信号，交给 sufficiency_ladder.py 决定最终动作。
+"""
+
 _LOG = logging.getLogger(__name__)
 
 

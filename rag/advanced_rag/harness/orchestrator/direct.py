@@ -6,6 +6,7 @@ from rag.advanced_rag.harness.tools.search import hybrid_search
 
 _LOG = logging.getLogger(__name__)
 
+# low 模式 轻量的检索策略：负责搜一次并整理结果，不负责拆解问题、多轮追问或判断证据是否充分。
 
 async def direct_search(state: dict, tools) -> dict:
     """Single hybrid search → merge into kbinfos."""

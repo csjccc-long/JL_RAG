@@ -27,7 +27,16 @@ from api.db.joint_services.tenant_model_service import get_composite_model_name_
 from rag.app.naive import by_plaintext, PARSERS
 from common.parser_config_utils import normalize_layout_recognizer
 
-
+"""
+这是一个学术论文（Paper）专用 PDF 解析与切分模块，核心特点是面向论文结构进行解析和 chunk 切分。
+它通过 OCR、布局分析、表格识别和文本合并提取论文内容，并专门识别论文的标题、作者、摘要等元信息：
+从文档开头 32 个文本块中查找标题和作者（遇到引言、摘要等关键词即停止），
+从摘要关键词（abstract/摘要）处提取摘要文本。
+在 chunk 切分时，摘要被作为一个完整的独立 chunk 处理（标记 important_kwd 为 abstract/summary 等），
+正文则通过 bullets_category 和 title_frequency 检测标题层级，
+按 section ID 分组合并成 chunk，表格经视觉解析后单独 tokenize，最终输出带标题、作者、摘要、位置信息的结构化检索块，
+适用于学术论文的精确检索和引用场景。
+"""
 class Pdf(PdfParser):
     def __init__(self):
         self.model_species = ParserType.PAPER.value
@@ -161,7 +170,6 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             sections = paper.get("sections", [])
         else:
             kwargs.pop("parse_method", None)
-            kwargs.pop("mineru_llm_name", None)
             sections, tables, pdf_parser = pdf_parser(
                 filename=filename,
                 binary=binary,
@@ -171,8 +179,8 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
                 callback=callback,
                 pdf_cls=Pdf,
                 layout_recognizer=layout_recognizer,
-                mineru_llm_name=parser_model_name,
-                mistral_ocr_llm_name=parser_model_name,
+                paddleocr_llm_name=parser_model_name,
+                somark_llm_name=parser_model_name,
                 parse_method="paper",
                 **kwargs,
             )

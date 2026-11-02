@@ -129,7 +129,7 @@ func setupMemoryMessageTestDB(t *testing.T) {
 	})
 }
 
-func TestForgetMessageKeepsCompanionFieldForNonOceanBaseEngines(t *testing.T) {
+func TestForgetMessageAddsCompanionField(t *testing.T) {
 	setupMemoryMessageTestDB(t)
 
 	if err := dao.DB.Create(&entity.Memory{
@@ -152,8 +152,6 @@ func TestForgetMessageKeepsCompanionFieldForNonOceanBaseEngines(t *testing.T) {
 	}{
 		{engineType: "elasticsearch", wantForgetAtCompanion: true},
 		{engineType: "infinity", wantForgetAtCompanion: true},
-		{engineType: "oceanbase", wantForgetAtCompanion: false},
-		{engineType: "seekdb", wantForgetAtCompanion: false},
 	} {
 		t.Run(test.engineType, func(t *testing.T) {
 			docEngine := &memoryMessageDocEngine{engineType: test.engineType}

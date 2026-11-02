@@ -81,7 +81,7 @@ from rag.nlp import search
 
 
 def _normalize_legacy_raptor_config(req: dict) -> None:
-    """Drop RAPTOR fields removed from the current parser-config schema."""
+    """从当前解析器配置模式中移除的Drop RAPTOR字段。"""
     parser_config = req.get("parser_config")
     if not isinstance(parser_config, dict):
         return

@@ -24,7 +24,91 @@ Storage: one ES/Infinity row per nav_cluster or nav_doc node.
 Tree structure encoded via ``parent_kwd`` on each row — no full-tree JSON blob.
 """
 
+
+
+
 from __future__ import annotations
+
+"""
+这和 RAPTOR / mind map 的区别
+RAPTOR 更偏“单文档长文档摘要层级”
+Mind Map 更偏“单文档知识关系图”
+dataset_nav 更偏“整个知识库的主题导航树”
+
+读取文档摘要
+
+如果传入的是普通字符串，直接用它
+    ES 的 content_ltks 使用 "whitespace" 分析器（无词干化）
+    Python tokenizer 应用词干化（如 "Christie" → "christi"）
+    必须预分词查询，否则无法匹配索引中的词干化 token
+如果传入的是 RAPTOR tree 或带 graph_text 的结构，就提取根 summary 和图谱文本
+生成 embedding
+
+用 _embed 对 summary 或 graph_content 做向量化
+这样后面就能做相似度比较
+获取 KB 级别锁
+
+通过 RedisDistributedLock 保证并发更新时不会出现两次同时插入、父子关系乱掉的问题
+找到最合适的 cluster
+
+_find_best_cluster 会从根 cluster 开始
+逐层比较当前文档 embedding 和 cluster embedding
+只要相似度高于阈值，就继续往子 cluster 深入
+最终找到“最佳匹配 cluster”
+决定“并入已有 cluster”还是“新建 cluster”
+
+如果相似度大于 _MERGE_THRESHOLD，就合并进 cluster
+如果相似度介于 _MIN_SIM 和 _MERGE_THRESHOLD 之间，可能作为新 cluster 的兄弟/子 cluster
+如果相似度太低，就创建一个新的根级 cluster
+生成描述和名字
+
+_llm_merge 和 _llm_create_summary 会用 LLM 把新文档与 cluster 描述融合成更自然的主题描述
+这是一个“语义组织”的关键步骤
+分裂 cluster（rebalance）
+
+如果某个 cluster 节点过大或子节点过多，就调用 _maybe_split_cluster
+这保证导航树不会退化成一个超大的“杂项桶”
+
+
+数据集导航树
+├── nav_cluster (内部节点，表示主题/类别)
+│   ├── nav_cluster (子主题)
+│   │   ├── nav_doc (文档叶子节点)
+│   │   └── nav_doc
+│   └── nav_doc | name 包含父节点名 + summary 哈希，保证唯一且可读，graph_content 可选，用于更丰富的关键词/实体提取 分词用于全文搜索
+└── nav_cluster |doc_id = kb_id 用于区分 cluster 和 doc 行
+    └── nav_doc
+
+
+输入: (tenant_id, kb_id, doc_id, summary_or_tree, embd_mdl, chat_mdl)
+    ↓
+Step 1: 提取摘要和图内容
+    ↓
+Step 2: 嵌入文档
+    ↓
+Step 3: 获取分布式锁
+    ↓
+Step 4: 检查现有文档，如有则先删除
+    ↓
+Step 5: KNN 查找最佳聚类
+    ↓
+分支:
+├── sim >= 0.80 → 合并到现有聚类
+├── sim >= 0.50 → 创建兄弟聚类
+└── sim < 0.50 → 创建根级聚类
+    ↓
+Step 6: 释放锁
+
+
+当聚类子节点过多时，使用 K-means 将子节点分成两组，创建子聚类。
+
+K-means​ 是一种无监督聚类算法
+Step 1: 初始化 K 个质心
+Step 2: 迭代：
+    a. 分配：每个数据点分配到最近的质心
+    b. 更新：重新计算每个簇的质心
+Step 3: 直到收敛（质心不再变化）或达到最大迭代次数
+"""
 
 import asyncio
 import json

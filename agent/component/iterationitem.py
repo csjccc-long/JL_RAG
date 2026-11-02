@@ -17,6 +17,15 @@ from abc import ABC
 
 from agent.component.base import ComponentBase, ComponentParamBase
 
+"""
+从父级 Iteration 组件拿到整个列表
+每次取出一个元素
+把这个元素暴露为 item / result / index
+让后续子节点在这个元素上执行逻辑
+在遍历结束时收集各个子节点的输出
+
+每次拿到一条数据去执行任务,而iteration是控制循环逻辑的
+"""
 
 class IterationItemParam(ComponentParamBase):
     """

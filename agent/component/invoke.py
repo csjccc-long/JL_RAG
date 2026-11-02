@@ -28,7 +28,65 @@ from agent.component.base import ComponentBase, ComponentParamBase
 from common.connection_utils import timeout
 from common.ssrf_guard import assert_url_is_safe, pin_dns
 from deepdoc.parser import HtmlParser
+"""
+它的职责是：把工作流中的变量组装成 HTTP 请求，发给指定 URL，并把返回结果写回到当前组件输出，供后续步骤继续处理。
 
+它本质上是 Agent 工作流中的“外部接口调用节点”。
+
+具体功能
+1. 定义调用参数
+InvokeParam 里定义了请求相关的配置：
+
+proxy：代理
+headers：请求头
+method：get / post / put
+variables：请求参数列表
+url：目标地址
+timeout：超时时间
+clean_html：是否提取纯文本
+datatype：json 或 formdata
+这些参数决定了“怎么调用远程接口”。
+
+2. 解析输入变量
+_resolve_arg_value() 和 _resolve_variable_value() 会把流程中的变量值解析出来，支持：
+
+直接变量引用
+模板变量替换
+字符串模板渲染
+这样请求参数可以动态依赖上游组件输出。
+
+3. 构造请求
+_build_request_args() 会根据 variables 把参数组织成请求体。
+
+JSON 模式：自动尝试把字符串值转成 JSON
+非 JSON 模式：按表单/普通参数形式发出
+_build_url() 会把模板中的变量替换到真实 URL 里。
+
+4. 处理安全校验
+这里加入了 SSRF 防护：
+
+assert_url_is_safe(url)
+pin_dns(...)
+它会校验目标 URL 是否安全，防止请求到非法地址，避免服务器端请求伪造漏洞。
+
+还会校验 proxy 地址是否安全。
+
+5. 发起 HTTP 请求
+_send_request() 会使用 requests 发起请求：
+
+GET：传 params
+POST / PUT：传 json 或 data
+并设置超时和重定向限制。
+
+6. 处理响应
+_format_response() 会返回原始文本，或者在 clean_html=True 时对 HTML 做文本提取。
+也就是它能把网页返回内容转成更适合后续 LLM/流程处理的文本。
+
+7. 输出执行结果
+最终 _invoke() 会把返回内容写入：
+
+self.set_output("result", result)
+这样后续节点可以直接读取这个结果。"""
 
 class InvokeParam(ComponentParamBase):
     """

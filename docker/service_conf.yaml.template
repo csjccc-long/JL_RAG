@@ -29,40 +29,10 @@ es:
   hosts: 'http://${ES_HOST:-es01}:9200'
   username: '${ES_USER:-elastic}'
   password: '${ELASTIC_PASSWORD:-infini_rag_flow}'
-os:
-  hosts: 'http://${OS_HOST:-opensearch01}:9201'
-  username: '${OS_USER:-admin}'
-  password: '${OPENSEARCH_PASSWORD:-infini_rag_flow_OS_01}'
-  # Optional hybrid (BM25 + KNN) search tuning. The connector self-provisions the
-  # normalization search pipeline on start-up (requires OpenSearch >= 2.10).
-  # hybrid_search_pipeline: 'ragflow_hybrid_pipeline'
-  # hybrid_search_weights: [0.5, 0.5]   # [text/BM25 leg, vector/KNN leg]
 infinity:
   uri: '${INFINITY_HOST:-infinity}:23817'
   postgres_port: 5432
   db_name: 'default_db'
-serenedb:
-  host: '${SERENEDB_HOST:-serenedb}'
-  port: 7890
-  user: '${SERENEDB_USER:-postgres}'
-  password: '${SERENEDB_PASSWORD:-infini_rag_flow}'
-  db_name: '${SERENEDB_DBNAME:-postgres}'
-oceanbase:
-  scheme: 'oceanbase' # set 'mysql' to create connection using mysql config
-  config:
-    db_name: '${OCEANBASE_DOC_DBNAME:-test}'
-    user: '${OCEANBASE_USER:-root@ragflow}'
-    password: '${OCEANBASE_PASSWORD:-infini_rag_flow}'
-    host: '${OCEANBASE_HOST:-oceanbase}'
-    port: ${OCEANBASE_PORT:-2881}
-seekdb:
-  scheme: 'oceanbase' # SeekDB is the lite version of OceanBase
-  config:
-    db_name: '${SEEKDB_DOC_DBNAME:-ragflow_doc}'
-    user: '${SEEKDB_USER:-root}'
-    password: '${SEEKDB_PASSWORD:-infini_rag_flow}'
-    host: '${SEEKDB_HOST:-seekdb}'
-    port: ${SEEKDB_PORT:-2881}
 redis:
   db: 1
   username: '${REDIS_USERNAME:-}'
@@ -112,36 +82,6 @@ user_default_llm:
 #   prefix_path: 'prefix_path'
 #   signature_version: 'v4'
 #   addressing_style: 'path'
-# oss:
-#   access_key: '${ACCESS_KEY}'
-#   secret_key: '${SECRET_KEY}'
-#   endpoint_url: '${ENDPOINT}'
-#   region: '${REGION}'
-#   bucket: '${BUCKET}'
-#   prefix_path: '${OSS_PREFIX_PATH}'
-#   signature_version: 's3'
-#   addressing_style: 'virtual'
-# azure:
-#   auth_type: 'sas'
-#   container_url: 'container_url'
-#   sas_token: 'sas_token'
-# azure:
-#   auth_type: 'spn'
-#   account_url: 'account_url'
-#   client_id: 'client_id'
-#   secret: 'secret'
-#   tenant_id: 'tenant_id'
-#   container_name: 'container_name'
-#   cloud: 'public'  # Azure cloud: 'public', 'china', 'government', or 'germany'
-# gcs:
-#   bucket: '${GCS_BUCKET:-ragflow}'
-#   prefix_path: '${GCS_PREFIX_PATH:-}'
-#   endpoint_url: '${GCS_ENDPOINT:-}'
-# The OSS object storage uses the MySQL configuration above by default. If you need to switch to another object storage service, please uncomment and configure the following parameters.
-# opendal:
-#   scheme: 'mysql'  # Storage type, such as s3, oss, azure, etc.
-#   config:
-#     oss_table: 'opendal_storage'
 # user_default_llm:
 #   factory: 'BAAI'
 #   api_key: 'backup'
@@ -204,10 +144,6 @@ user_default_llm:
 #     - "RAGFlow" # display name
 #     - "" # sender email address
 #   mail_frontend_url: "https://your-frontend.example.com"
-# tcadp_config:
-#   secret_id: '${TENCENT_SECRET_ID}'
-#   secret_key: '${TENCENT_SECRET_KEY}'
-#   region: '${TENCENT_REGION}'
 # log:
 #   level: info              # debug | info | warn | error
 #   format: text             # text | json (reserved; text only today)

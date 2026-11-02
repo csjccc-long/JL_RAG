@@ -64,7 +64,11 @@ export function FileIcon({
   return (
     <span className={cn('size-4', className)}>
       <IconFont
-        name={isFolder ? 'file-sub' : FileIconMap[getExtension(name)]}
+        name={
+          isFolder
+            ? 'file-sub'
+            : FileIconMap[getExtension(name) as keyof typeof FileIconMap]
+        }
       ></IconFont>
     </span>
   );

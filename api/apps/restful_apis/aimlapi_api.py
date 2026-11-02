@@ -13,22 +13,25 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-"""AIMLAPI agent-authorization endpoints (OAuth 2.0 Device Authorization Grant).
+"""AIMLAPI 代理授权端点（OAuth 2.(0) 设备授权授予）。
 
-Lets a signed-in RAGFlow user obtain an AIMLAPI key without leaving the provider
-dialog. The user's AIMLAPI login credentials never touch RAGFlow: it creates a
-device-authorization request, the user approves it on the AIMLAPI consent page
-(opened by the browser in a popup), and RAGFlow polls the token endpoint until
-the key is issued. The device code is held server-side (Redis); only the issued
-API key is returned to the browser, to be filled into the provider form.
+允许已登录的 RAGFlow 用户在不离开提供商对话框的情况下获取 AIMLAPI 密钥。用户的 AIMLAPI 登录凭据永远不会触及 RAGFlow：它创建一个设备授权请求，用户在 AIMLAPI 同意页面（由浏览器在弹出窗口中打开）上批准该请求，RAGFlow 轮询令牌端点直到密钥颁发。设备代码保存在服务器端（Redis）；仅将颁发的 API 密钥返回给浏览器，以填入提供商表单。
 
-Configuration (all via environment):
-  AIMLAPI_APP_URL                  agent-auth host (default https://app.aimlapi.com)
-  AIMLAPI_PARTNER_ID               partner id (defaults to RAGFlow's; override to change)
-  AIMLAPI_SOURCE                   client identifier sent on every request (default agent/ragflow)
-  AIMLAPI_PARTNER_NAME             display name shown on the consent page
-  AIMLAPI_VERIFICATION_BASE_URL    base of the consent page (default https://aimlapi.com)
-  AIMLAPI_REQUESTED_USD_LIMIT_MINOR requested spend cap in USD minor units (default 1000)
+配置（全部通过环境变量）：
+
+AIMLAPI_APP_URL                  代理授权主机（默认 https://app.aimlapi.com
+）
+
+AIMLAPI_PARTNER_ID               合作伙伴 ID（默认为 RAGFlow 的；可覆盖更改）
+
+AIMLAPI_SOURCE                   每个请求发送的客户端标识符（默认 agent/ragflow）
+
+AIMLAPI_PARTNER_NAME             同意页面上显示的合作伙伴名称
+
+AIMLAPI_VERIFICATION_BASE_URL    同意页面的基础 URL（默认 https://aimlapi.com
+）
+
+AIMLAPI_REQUESTED_USD_LIMIT_MINOR 请求的美元支出上限（以美元最小单位计，默认 1000）
 """
 
 import asyncio
@@ -46,7 +49,7 @@ from rag.utils.redis_conn import REDIS_CONN
 
 LOGGER = logging.getLogger(__name__)
 
-# OAuth 2.0 Device Authorization Grant (RFC 8628)
+# OAuth 2.0 设备授权授予（RFC 8628）
 _DEVICE_CODE_GRANT = "urn:ietf:params:oauth:grant-type:device_code"
 _REDIS_KEY_PREFIX = "aimlapi_authz:"
 _HTTP_TIMEOUT = 15
@@ -74,15 +77,14 @@ def _requested_usd_limit_minor() -> int:
 @manager.route("/llm/aimlapi/authorize/start", methods=["POST"])  # noqa: F821
 @login_required
 async def aimlapi_authorize_start():
-    """Create an AIMLAPI device-authorization request and return the consent URL."""
+    """创建 AIMLAPI 设备授权请求并返回同意 URL"""
     partner_id = _partner_id()
     if not partner_id:
         return get_data_error_result(message="AIMLAPI partner id is not configured. Set AIMLAPI_PARTNER_ID.")
 
-    # returnUrl only controls where AIMLAPI sends the browser after consent. This
-    # flow never depends on it — the key arrives via authenticated polling and the
-    # popup is closed on success — so we always use the trusted verification host
-    # rather than a client-supplied value, leaving no open-redirect surface.
+    # returnUrl 仅控制 AIMLAPI 在用户同意后将浏览器发送到的位置。
+    # 此流程从不依赖它——密钥是通过经过身份验证的轮询到达的，并且成功后会关闭弹出窗口——因此，
+    # 我们始终使用受信任的验证主机，而不是客户端提供的值，从而不留下开放重定向的攻击面。
     return_url = _verification_base_url()
 
     payload = {
@@ -122,7 +124,7 @@ async def aimlapi_authorize_start():
     except (TypeError, ValueError):
         expires_in = 900
 
-    # Hold the device code server-side, scoped to this user; it never reaches the browser.
+    # 在服务器端保存设备代码，并将其范围限定为该用户；该代码永远不会到达浏览器。
     REDIS_CONN.set_obj(
         f"{_REDIS_KEY_PREFIX}{request_id}",
         {"device_code": device_code, "user_id": current_user.id},
@@ -130,9 +132,10 @@ async def aimlapi_authorize_start():
     )
     LOGGER.info("AIMLAPI authorize start ok: request_id=%s", request_id)
 
-    # Rebuild the consent URL from AIMLAPI_VERIFICATION_BASE_URL so an env override applies; the create response returns an absolute URL.
-    # `source` carries the same client identifier as the request headers: if the user signs up while consenting, that happens in a browser
-    # flow on AIMLAPI's side, where a request header cannot reach — the query parameter is the only way to attribute the new account.
+    # 从 AIMLAPI_VERIFICATION_BASE_URL 重新构建同意 URL，以便应用环境变量覆盖；create 响应返回一个绝对 URL。
+
+    # source 携带与请求头相同的客户端标识符：如果用户在同意过程中注册，
+    # 该操作发生在 AIMLAPI 侧的浏览器流程中，请求头无法到达——查询参数是识别新账户的唯一方式。
     query = urlencode({"request": request_id, "source": _source()})
     verification_uri = f"{_verification_base_url()}/agent/authorize?{query}"
     return get_json_result(
@@ -149,7 +152,7 @@ async def aimlapi_authorize_start():
 @login_required
 @validate_request("request_id")
 async def aimlapi_authorize_poll():
-    """Poll the AIMLAPI token endpoint; return the issued key once the user approves."""
+    """轮询 AIMLAPI 令牌端点；一旦用户批准，即返回已颁发的密钥。"""
     req = await get_request_json()
     request_id = req["request_id"]
 
@@ -185,7 +188,7 @@ async def aimlapi_authorize_poll():
 
     data = resp.json()
     status = str(data.get("status", "")).lower()
-    # The success field name is not contractually fixed yet; accept the common variants.
+    # success 字段名尚未在约定中固定；接受常见的变体。
     api_key = data.get("apiKey") or data.get("api_key") or data.get("access_token") or data.get("key")
 
     if api_key:

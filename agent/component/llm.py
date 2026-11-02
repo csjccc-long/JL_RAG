@@ -27,8 +27,78 @@ from api.db.services.dialog_service import _stream_with_think_delta
 from api.db.services.llm_service import LLMBundle
 from api.db.joint_services.tenant_model_service import resolve_model_config, resolve_model_type
 from agent.component.base import ComponentBase, ComponentParamBase
+from agent.component.context_compaction import CompactionPolicy, ContextCompactor
 from common.connection_utils import timeout
 from rag.prompts.generator import tool_call_summary, message_fit_in, citation_prompt, structured_output_prompt
+
+"""
+1. 定义 LLM 参数
+LLMParam 里定义了大模型调用需要的参数，例如：
+
+llm_id：使用哪个模型
+sys_prompt：系统提示词
+prompts：用户提示词/消息
+temperature / top_p / max_tokens
+output_structure：结构化 JSON 输出配置
+cite：是否启用引用
+visual_files_var：视觉输入文件变量
+它负责统一声明“这个模型节点怎么调模型”。
+
+2. 初始化模型实例
+在 __init__() 中，它会：
+
+根据当前租户和模型 ID 找到真实模型配置
+通过 LLMBundle 创建对应的聊天模型客户端
+把模型对象挂到 self.chat_mdl
+也就是说，这个组件本身就是“模型连接层”。
+
+3. 处理输入变量和提示词模板
+get_input_elements() 会扫描 prompt 文案中的模板变量，例如：
+
+{sys.query}
+{某个组件输出}
+_prepare_prompt_variables() 会做更进一步的处理：
+
+把变量值转成字符串
+把图片等视觉输入提取出来
+处理 sys.files 等系统级输入
+合并历史消息
+拼装最终的 sys_prompt + msg
+这一步非常关键，因为真正发给模型的内容不是直接写死的，而是动态拼出来的。
+
+4. 调用模型生成答案
+关键方法包括：
+
+_generate_async()
+_generate_streamly()
+_invoke_async()
+它会：
+
+把消息组织成标准 chat 格式
+调用 self.chat_mdl.async_chat(...)
+处理结构化输出
+处理流式输出
+若需要，返回 content 或 structured
+所以它负责“真正发起 LLM 请求”。
+
+5. 处理结构化输出和流式输出
+如果组件配置了 output_structure，它会要求模型按 JSON schema 输出。
+如果流程里存在 Message 节点，它还支持流式返回内容，适合聊天式输出场景。
+
+这说明它既能：
+
+做普通问答
+也能做结构化数据输出
+还能做流式 UX
+6. 连接记忆和引用
+它还支持：
+
+add_memory()
+引用内容拼装
+citation_prompt()
+视觉输入处理
+说明它不只是单轮生成，而是覆盖了 Agent 的上下文、记忆和引用能力。
+"""
 
 
 class LLMParam(ComponentParamBase):
@@ -161,6 +231,27 @@ class LLM(ComponentBase):
             cls.context_fit_budget(max_length),
         )
         return msg_fit, cls.validate_fitted_messages(msg_fit)
+
+    async def _compact_messages(
+        self,
+        system_prompt: str,
+        msg: list[dict],
+        gen_conf: dict,
+    ) -> list[dict]:
+        if self.chat_mdl is None or len(msg) < 2:
+            return msg
+        policy = CompactionPolicy.from_context_window(
+            context_window=self.chat_mdl.max_length,
+            output_reserve=int(gen_conf.get("max_tokens", 0) or 0),
+            context_fit_budget=self.context_fit_budget(self.chat_mdl.max_length),
+        )
+        result = await ContextCompactor(self.chat_mdl).compact(
+            system_prompt,
+            msg,
+            policy,
+            cancel_check=lambda: self.check_if_canceled("LLM context compaction"),
+        )
+        return result.messages
 
     @staticmethod
     def _extract_data_images(value) -> list[str]:
@@ -375,10 +466,11 @@ class LLM(ComponentBase):
             sys_prompt = re.sub(rf"<{tag}>(.*?)</{tag}>", "", sys_prompt, flags=re.DOTALL | re.IGNORECASE)
         return pts, sys_prompt
 
-    async def _generate_async(self, msg: list[dict], **kwargs) -> str:
+    async def _generate_async(self, msg: list[dict], gen_conf: dict | None = None, **kwargs) -> str:
+        gen_conf = self._param.gen_conf() if gen_conf is None else gen_conf
         if not self.imgs:
-            return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], self._param.gen_conf(), **kwargs)
-        return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], self._param.gen_conf(), images=self.imgs, **kwargs)
+            return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], gen_conf, **kwargs)
+        return await self.chat_mdl.async_chat(msg[0]["content"], msg[1:], gen_conf, images=self.imgs, **kwargs)
 
     async def _generate_streamly(self, msg: list[dict], **kwargs) -> AsyncGenerator[str, None]:
         stream_kwargs = {"images": self.imgs} if self.imgs else {}
@@ -388,6 +480,10 @@ class LLM(ComponentBase):
             yield value
 
     async def _stream_output_async(self, prompt, msg):
+        gen_conf = self._param.gen_conf()
+        msg = await self._compact_messages(prompt, msg, gen_conf)
+        if self.check_if_canceled("LLM streaming"):
+            return
         msg_fit, fit_error = self.fit_messages(prompt, msg, self.chat_mdl.max_length)
         if fit_error:
             logging.error("LLM streaming prompt fit error: %s", fit_error)
@@ -403,7 +499,7 @@ class LLM(ComponentBase):
         stream_kwargs = {"images": self.imgs} if self.imgs else {}
         extra_chat_kwargs = self._get_chat_template_kwargs()
         stream_kwargs.update(extra_chat_kwargs)
-        stream = self.chat_mdl.async_chat_streamly_delta(msg_fit[0]["content"], msg_fit[1:], self._param.gen_conf(), **stream_kwargs)
+        stream = self.chat_mdl.async_chat_streamly_delta(msg_fit[0]["content"], msg_fit[1:], gen_conf, **stream_kwargs)
         async for _, ans, _ in _stream_with_think_delta(stream, min_tokens=0):
             if self.check_if_canceled("LLM streaming"):
                 return
@@ -433,6 +529,7 @@ class LLM(ComponentBase):
 
         prompt, msg, _ = self._prepare_prompt_variables()
         extra_chat_kwargs = self._get_chat_template_kwargs()
+        gen_conf = self._param.gen_conf()
         error: str = ""
         output_structure = None
         try:
@@ -442,17 +539,31 @@ class LLM(ComponentBase):
         if output_structure and isinstance(output_structure, dict) and output_structure.get("properties") and len(output_structure["properties"]) > 0:
             schema = json.dumps(output_structure, ensure_ascii=False, indent=2)
             prompt_with_schema = prompt + structured_output_prompt(schema)
+            msg_compacted = await self._compact_messages(
+                prompt_with_schema,
+                msg,
+                gen_conf,
+            )
             for _ in range(self._param.max_retries + 1):
                 if self.check_if_canceled("LLM processing"):
                     return
 
-                msg_fit, fit_error = self.fit_messages(prompt_with_schema, msg, self.chat_mdl.max_length)
+                retry_msg = deepcopy(msg_compacted)
+                msg_fit, fit_error = self.fit_messages(
+                    prompt_with_schema,
+                    retry_msg,
+                    self.chat_mdl.max_length,
+                )
                 if fit_error:
                     logging.error("LLM structured prompt fit error: %s", fit_error)
                     self.set_output("_ERROR", fit_error)
                     return
                 error = ""
-                ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+                ans = await self._generate_async(
+                    msg_fit,
+                    gen_conf=gen_conf,
+                    **extra_chat_kwargs,
+                )
                 msg_fit.pop(0)
                 if ans.find("**ERROR**") >= 0:
                     logging.error(f"LLM response error: {ans}")
@@ -475,17 +586,27 @@ class LLM(ComponentBase):
             return
 
         error = ""
+        msg_compacted = await self._compact_messages(prompt, msg, gen_conf)
         for _ in range(self._param.max_retries + 1):
             if self.check_if_canceled("LLM processing"):
                 return
 
-            msg_fit, fit_error = self.fit_messages(prompt, msg, self.chat_mdl.max_length)
+            retry_msg = deepcopy(msg_compacted)
+            msg_fit, fit_error = self.fit_messages(
+                prompt,
+                retry_msg,
+                self.chat_mdl.max_length,
+            )
             if fit_error:
                 logging.error("LLM prompt fit error: %s", fit_error)
                 error = fit_error
                 break
             error = ""
-            ans = await self._generate_async(msg_fit, **extra_chat_kwargs)
+            ans = await self._generate_async(
+                msg_fit,
+                gen_conf=gen_conf,
+                **extra_chat_kwargs,
+            )
             msg_fit.pop(0)
             if ans.find("**ERROR**") >= 0:
                 logging.error(f"LLM response error: {ans}")

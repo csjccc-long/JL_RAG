@@ -29,7 +29,7 @@ const FormatPreserveEditor = ({
 
   return (
     <div className="editor-container">
-      {['json', 'chunks'].includes(initialValue.key) && (
+      {(initialValue.key === 'json' || initialValue.key === 'chunks') && (
         <ArrayContainer
           isReadonly={isReadonly}
           className={className}
@@ -46,13 +46,14 @@ const FormatPreserveEditor = ({
         />
       )}
 
-      {['text', 'html', 'markdown'].includes(initialValue.key) && (
+      {(initialValue.key === 'text' ||
+        initialValue.key === 'html' ||
+        initialValue.key === 'markdown') && (
         <ObjectContainer
           isReadonly={isReadonly}
           className={className}
           initialValue={initialValue}
           handleCheck={handleCheck}
-          selectedChunkIds={selectedChunkIds}
           onSave={onSave}
           escapeNewlines={escapeNewlines}
           unescapeNewlines={unescapeNewlines}

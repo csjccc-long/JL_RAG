@@ -56,7 +56,6 @@ def _noop_callback(*_a, **_k):
 @pytest.fixture(autouse=True)
 def _es_doc_engine(monkeypatch):
     monkeypatch.setattr(settings, "DOC_ENGINE_INFINITY", False)
-    monkeypatch.setattr(settings, "DOC_ENGINE_OCEANBASE", False)
 
 
 @pytest.fixture(autouse=True)

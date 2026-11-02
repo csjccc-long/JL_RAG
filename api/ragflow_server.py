@@ -57,6 +57,7 @@ def update_progress():
     lock_value = str(uuid.uuid4())
     redis_lock = RedisDistributedLock("update_progress", lock_value=lock_value, timeout=60)
     logging.info(f"update_progress lock_value: {lock_value}")
+    # 只要没收到停止信号，就一直跑
     while not stop_event.is_set():
         acquired = False
         try:
@@ -75,6 +76,7 @@ def update_progress():
 
 
 def stop_background_services():
+    # 把所有的线程都停止
     stop_event.set()
     if chat_channel_thread and chat_channel_thread.is_alive() and chat_channel_thread is not threading.current_thread():
         chat_channel_thread.join(timeout=5)
@@ -135,7 +137,7 @@ if __name__ == "__main__":
     RuntimeConfig.init_config(JOB_SERVER_HOST=settings.HOST_IP, HTTP_PORT=settings.HOST_PORT)
 
     GlobalPluginManager.load_plugins()
-
+    #处理退出信号
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 

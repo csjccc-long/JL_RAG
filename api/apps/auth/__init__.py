@@ -1,27 +1,28 @@
 #
-#  Copyright 2025 The InfiniFlow Authors. All Rights Reserved.
+#  版权所有 2025 The InfiniFlow Authors。保留所有权利.
 #
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
+#  根据 Apache 许可证 2.0 版（“本许可证”）获得许可;
+#  除非遵守本许可证，否则您不得使用此文件.
+#  您可以在以下位置获取本许可证的副本：
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
+#  除非适用法律要求或书面同意，否则根据
+#  本许可证分发的软件均按“原样”分发，
+#  不附带任何明示或暗示的担保或条件。
+#  请参阅本许可证以了解管理权限和
+#  本许可证下的限制的具体语言.
 #
 
 from .oauth import OAuthClient
 from .oidc import OIDCClient
 from .github import GithubOAuthClient
 
-
+#  允许的授权类型
 CLIENT_TYPES = {"oauth2": OAuthClient, "oidc": OIDCClient, "github": GithubOAuthClient}
 
 
+# 获取授权客户端
 def get_auth_client(config) -> OAuthClient:
     channel_type = str(config.get("type", "")).lower()
     if channel_type == "":

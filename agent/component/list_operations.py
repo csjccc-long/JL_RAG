@@ -3,7 +3,50 @@ import os
 from agent.component.base import ComponentBase, ComponentParamBase
 from api.utils.api_utils import timeout
 
+"""
+表处理组件”。
+它的职责是：对一个数组/列表做常见的数据操作，比如取第 N 个元素、取头部/尾部、过滤、排序、去重，然后把结果写回输出字段。
 
+它属于“集合/列表处理型组件”，适合对批量数据做清洗和提取。
+
+它支持哪些操作
+1. nth
+取第 N 个元素。
+
+例如：
+
+n = 1 → 取第 1 个
+n = -1 → 取最后一个
+严格模式下会检查越界
+2. head
+取前 N 个元素。
+
+3. tail
+取后 N 个元素。
+
+4. filter
+根据条件过滤列表。
+
+支持的比较运算有：
+
+=
+≠
+contains
+start with
+end with
+例如：过滤出所有 name contains "A" 的项。
+
+5. sort
+对列表排序。
+
+支持 asc / desc
+如果元素是 dict，可以按某些字段去排序
+sort_by 支持多个字段排序，例如按 score, time
+6. drop_duplicates
+去除重复项。
+
+它会用一个 hash 结构来判断是否重复，然后去重并输出。
+"""
 class ListOperationsParam(ComponentParamBase):
     """
     Define the List Operations component parameters.

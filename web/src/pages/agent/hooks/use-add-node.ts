@@ -10,6 +10,7 @@ import {
   NodeMap,
   Operator,
   initialAgentValues,
+  initialAgentTeamValues,
   initialArXivValues,
   initialBeginValues,
   initialBingValues,
@@ -167,6 +168,15 @@ export const useInitializeOperatorParams = () => {
       [Operator.Code]: initialCodeValues,
       [Operator.WaitingDialogue]: initialWaitingDialogueValues,
       [Operator.Agent]: { ...initialAgentValues, llm_id: llmId },
+      [Operator.AgentTeam]: {
+        ...initialAgentTeamValues,
+        manager: {
+          params: {
+            ...initialAgentTeamValues.manager.params,
+            llm_id: llmId,
+          },
+        },
+      },
       [Operator.Tool]: {},
       [Operator.TavilySearch]: initialTavilyValues,
       [Operator.QueritContents]: initialQueritContentsValues,
@@ -224,7 +234,11 @@ export const useGetNodeName = () => {
   const { t } = useTranslation();
 
   return (type: string) => {
-    const name = t(`flow.${lowerFirst(type)}`);
+    const nameKey =
+      type === Operator.AgentTeam
+        ? 'flow.agentTeamLabel'
+        : `flow.${lowerFirst(type)}`;
+    const name = t(nameKey);
     return name;
   };
 };

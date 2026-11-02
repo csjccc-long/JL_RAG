@@ -437,15 +437,6 @@ Beispiel: Eine 1 KB Nachricht mit 1024-dim Einbettung verwendet ~9 KB. Das Stand
       autoMetadataTip:
         'Automatische Generierung von Metadaten. Gilt für neue Dateien während der Analyse. Vorhandene Dateien müssen neu analysiert werden, um aktualisiert zu werden (Chunks bleiben erhalten). Beachten Sie, dass zusätzliche Tokens vom in der "Konfiguration" angegebenen Indizierungsmodell verbraucht werden.',
       autoMetadata: 'Auto-Metadaten',
-      mineruOptions: 'MinerU Optionen',
-      mineruParseMethod: 'Analysemethode',
-      mineruParseMethodTip:
-        'Methode zum Parsen von PDF: auto (automatische Erkennung), txt (Textextraktion), ocr (optische Zeichenerkennung)',
-      mineruFormulaEnable: 'Formelerkennung',
-      mineruFormulaEnableTip:
-        'Formelerkennung aktivieren. Hinweis: Dies funktioniert möglicherweise nicht korrekt bei kyrillischen Dokumenten.',
-      mineruTableEnable: 'Tabellenerkennung',
-      mineruTableEnableTip: 'Tabellenerkennung und -extraktion aktivieren.',
       paddleocrOptions: 'PaddleOCR-Optionen',
       paddleocrApiUrl: 'PaddleOCR API-URL',
       paddleocrApiUrlTip: 'API-Endpunkt-URL des PaddleOCR-Dienstes',
@@ -1362,29 +1353,6 @@ Beispiel: Virtual Hosted Style`,
       modelsToBeAddedTooltip:
         'Wenn Ihr Modellanbieter nicht aufgeführt ist, aber behauptet, „OpenAI-kompatibel“ zu sein, wählen Sie die Karte OpenAI-API-compatible, um das/die entsprechende(n) Modell(e) hinzuzufügen.',
       mcp: 'MCP',
-      mineru: {
-        modelNameRequired: 'Modellname ist erforderlich',
-        apiServerRequired: 'MinerU API-Server-Konfiguration ist erforderlich',
-        serverUrlBackendLimit:
-          'MinerU Server-URL-Adresse ist nur für das HTTP-Client-Backend verfügbar',
-        apiserver: 'MinerU API-Server-Konfiguration',
-        outputDir: 'MinerU Ausgabeverzeichnispfad',
-        backend: 'MinerU Verarbeitungs-Backend-Typ',
-        serverUrl: 'MinerU Server-URL-Adresse',
-        deleteOutput: 'Ausgabedateien nach Verarbeitung löschen',
-        selectBackend: 'Verarbeitungs-Backend auswählen',
-        backendOptions: {
-          pipeline: 'Standard-Pipeline-Verarbeitung',
-          vlmTransformers: 'Vision Language Model mit Transformers',
-          vlmVllmEngine: 'Vision Language Model mit vLLM Engine',
-          vlmHttpClient: 'Vision Language Model über HTTP-Client',
-          vlmMlxEngine: 'Vision Language Model mit MLX Engine',
-          vlmVllmAsyncEngine:
-            'Vision Language Model mit vLLM Async Engine (Experimentell)',
-          vlmLmdeployEngine:
-            'Vision Language Model mit LMDeploy Engine (Experimentell)',
-        },
-      },
       modelTypes: {
         chat: 'Chat',
         embedding: 'Embedding',

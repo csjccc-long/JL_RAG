@@ -434,15 +434,6 @@ export default {
       imageTableContextWindowTip:
         'Заснема N токена текст над и под изображението и таблицата, за да предостави по-богат фонов контекст.',
       autoMetadata: 'Авто метаданни',
-      mineruOptions: 'MinerU опции',
-      mineruParseMethod: 'Метод на обработка',
-      mineruParseMethodTip:
-        'Метод за обработка на PDF: auto (автоматично разпознаване), txt (извличане на текст), ocr (оптично разпознаване на символи)',
-      mineruFormulaEnable: 'Разпознаване на формули',
-      mineruFormulaEnableTip:
-        'Активирай разпознаване на формули. Забележка: Това може да не работи правилно за документи на кирилица.',
-      mineruTableEnable: 'Разпознаване на таблици',
-      mineruTableEnableTip: 'Активирай разпознаване и извличане на таблици.',
       paddleocrOptions: 'PaddleOCR опции',
       paddleocrApiUrl: 'PaddleOCR API URL',
       paddleocrApiUrlTip:
@@ -1318,29 +1309,6 @@ The above is the content you need to summarize.`,
       modelsToBeAddedTooltip:
         'Ако вашият доставчик на модели не е в списъка, но твърди, че е "OpenAI-съвместим", изберете картата OpenAI-API-compatible, за да добавите съответния(те) модел(и).',
       mcp: 'MCP',
-      mineru: {
-        modelNameRequired: 'Името на модела е задължително',
-        apiServerRequired: 'MinerU API Server конфигурацията е задължителна',
-        serverUrlBackendLimit:
-          'MinerU Server URL адресът е наличен само за HTTP client backend',
-        apiserver: 'MinerU API Server конфигурация',
-        outputDir: 'MinerU път на изходна директория',
-        backend: 'MinerU тип на обработващ backend',
-        serverUrl: 'MinerU Server URL адрес',
-        deleteOutput: 'Изтрий изходните файлове след обработка',
-        selectBackend: 'Изберете обработващ backend',
-        backendOptions: {
-          pipeline: 'Стандартна конвейерна обработка',
-          vlmTransformers: 'Vision Language Model с Transformers',
-          vlmVllmEngine: 'Vision Language Model с vLLM Engine',
-          vlmHttpClient: 'Vision Language Model чрез HTTP Client',
-          vlmMlxEngine: 'Vision Language Model с MLX Engine',
-          vlmVllmAsyncEngine:
-            'Vision Language Model с vLLM Async Engine (Експериментален)',
-          vlmLmdeployEngine:
-            'Vision Language Model с LMDeploy Engine (Експериментален)',
-        },
-      },
       modelTypes: {
         chat: 'Чат',
         embedding: 'Embedding',

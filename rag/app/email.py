@@ -25,7 +25,12 @@ from deepdoc.parser import HtmlParser, TxtParser
 from timeit import default_timer as timer
 import io
 
+"""
+EML 邮件解析器，将邮件正文和附件转换成可检索的 chunks。
 
+它会提取邮件头信息（如发件人、主题等）以及纯文本或 HTML 正文；
+HTML 会先转成文本，再按配置合并、分块并分词。邮件附件则交给通用解析器 naive_chunk，按附件自身的格式处理。
+最后把邮件正文 chunks 和附件 chunks 合并返回。"""
 def chunk(
     filename,
     binary=None,

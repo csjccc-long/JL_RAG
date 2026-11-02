@@ -92,7 +92,7 @@ export const ImageCarousel = ({
 
   const handleImageClick = useCallback(
     (
-      imageId: string,
+      _imageId: string,
       chunkItem: IReferenceChunk,
       documentId: string,
       fileExtension: string,

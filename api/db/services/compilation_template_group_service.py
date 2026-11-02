@@ -21,7 +21,8 @@ from api.db.services.common_service import CommonService
 from common.constants import StatusEnum
 from common.misc_utils import get_uuid
 
-
+# 该模块存放与 文档模板组（解析器）相关的逻辑 相关的逻辑
+# 主要涉及模版wiki和模版tree的组合逻辑，主要是为了保证同一组内的模板不会出现冲突
 SCOPE_FILE = "file"
 SCOPE_DATASET = "dataset"
 

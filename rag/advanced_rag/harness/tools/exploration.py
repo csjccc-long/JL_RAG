@@ -18,6 +18,21 @@ import logging
 # reuses their outline-answering + evidence-pulling helpers.
 from rag.advanced_rag.harness.tools.navigation import graph_explore  # noqa: F401
 
+
+"""
+这个模块最核心的用途就是：
+
+访问已编译的 wiki / 图谱数据
+用混合检索找出最相关 wiki 页面
+把页面内容转成 chunk
+再按关键词范围裁剪
+供上层 agent/LLM 做后续生成和判断
+可以把它看作是：
+
+“wiki 版搜索工具”
+“图谱探索入口的补充模块”
+“面向结构化知识库的扩展检索层”
+"""
 _LOG = logging.getLogger(__name__)
 
 # compile_kwd of the searchable wiki draft rows (see _wiki_persist_draft).

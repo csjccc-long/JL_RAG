@@ -32,6 +32,7 @@ import {
   LucideFileStack,
   LucideHeading,
   LucideListPlus,
+  UsersRound,
 } from 'lucide-react';
 import { Component } from 'react';
 import { Operator } from '../constants/agent';
@@ -82,6 +83,7 @@ export const SVGIconMap = {
   [Operator.Crawler]: 'crawler',
 };
 export const LucideIconMap = {
+  [Operator.AgentTeam]: UsersRound,
   [Operator.DataOperations]: FileCode,
   [Operator.Loop]: InfinityIcon,
   [Operator.ExitLoop]: LogOut,

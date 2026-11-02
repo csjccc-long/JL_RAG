@@ -24,7 +24,22 @@ import math
 from PIL import Image
 from rag.utils.lazy_image import ensure_pil_image
 
+"""
+图像处理算子集合。它不负责 OCR 模型推理，而是提供模型前后的通用操作，例如解码图片、缩放、归一化、调整通道顺序和整理检测框。
 
+在前面看的 ocr.py 中，TextDetector 就会从这里动态创建预处理算子。
+
+两个通用调度函数
+create_operators()：根据配置里的算子名称和参数，创建对应的处理对象。
+transform()：依次执行算子，把前一个算子的结果传给下一个；如果某一步返回 None，就停止处理。
+常见图像算子
+DecodeImage：将图片字节解码成数组，并处理 RGB/BGR、灰度图和通道顺序。
+DetResizeForTest、Resize、LinearResize：调整图片尺寸，同时记录缩放比例，供后续还原坐标。
+NormalizeImage、StandardizeImage：把像素值缩放、标准化成模型需要的数值范围。
+ToCHWImage、Permute：转换图片维度排列，例如从 (高, 宽, 通道) 转成 (通道, 高, 宽)。
+KeepKeys：从处理结果中只保留模型需要的字段。
+文件里还有面向其他视觉任务的处理类，例如文本检测、关键字段识别（KIE）和超分辨率（SR）使用的尺寸调整算子，以及 nms() 这样的检测框后处理工具。
+"""
 class DecodeImage:
     """decode image"""
 

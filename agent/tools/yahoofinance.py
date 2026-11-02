@@ -22,7 +22,9 @@ import yfinance as yf
 from agent.tools.base import ToolMeta, ToolParamBase, ToolBase
 from common.connection_utils import timeout
 
-
+"""
+“让 Agent 能直接查询 Yahoo Finance 上的股票信息、历史行情、财务报表和新闻，并把这些信息整理成可阅读的文本供后续分析使用。”
+"""
 class YahooFinanceParam(ToolParamBase):
     """
     Define the YahooFinance component parameters.

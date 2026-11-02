@@ -41,6 +41,12 @@ from .base import (
     SandboxProviderConfigError,
 )
 
+"""
+不在本机直接运行代码，而是通过 SSH 连接到远程主机，在远程机器上创建工作目录、写入代码、执行脚本，并把结果返回回来。
+
+也就是说，它把“代码执行”从本地搬到了远程 Linux 主机上，供 Agent 或工作流安全地执行 Python / JavaScript。
+"""
+
 if TYPE_CHECKING:
     import paramiko
 

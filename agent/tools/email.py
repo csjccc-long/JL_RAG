@@ -28,7 +28,9 @@ from email.utils import formataddr
 from agent.tools.base import ToolParamBase, ToolBase, ToolMeta
 from common.connection_utils import timeout
 
-
+"""
+“把 SMTP 邮件发送封装成一个 Agent 工具，使系统能够自动发通知、发送结果、分发报告给指定收件人。”
+"""
 class EmailParam(ToolParamBase):
     """
     Define the Email component parameters.

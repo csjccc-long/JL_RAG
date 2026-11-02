@@ -26,7 +26,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _chat_channel_auth_error(channel_id: str, user_id: str):
-    """Return the chat channel authorization failure response and log the denial."""
+    """返回聊天频道授权失败响应并记录拒绝"""
     LOGGER.warning("chat channel access denied: channel_id=%s user_id=%s", channel_id, user_id)
     return get_json_result(data=False, message="no authorization", code=RetCode.AUTHENTICATION_ERROR)
 
@@ -35,7 +35,7 @@ def _chat_channel_auth_error(channel_id: str, user_id: str):
 @login_required
 @validate_request("name", "channel")
 async def create_chat_channel():
-    """Create a chat channel bot owned by the current tenant."""
+    """创建聊天频道"""
     req = await get_request_json()
     channel = {"id": get_uuid(), "tenant_id": current_user.id, "name": req["name"], "channel": req["channel"], "config": req.get("config") or {}, "chat_id": req.get("chat_id") or None}
     ChatChannelService.insert(**channel)
@@ -49,14 +49,14 @@ async def create_chat_channel():
 @manager.route("/chat-channels", methods=["GET"])  # noqa: F821
 @login_required
 def list_chat_channel():
-    """List chat channel bots owned by the current tenant."""
+    """获取聊天频道列表"""
     return get_json_result(data=ChatChannelService.list(current_user.id))
 
 
 @manager.route("/chat-channels/<channel_id>", methods=["GET"])  # noqa: F821
 @login_required
 def get_chat_channel(channel_id):
-    """Return a chat channel bot's details when the current user can access it."""
+    """获取聊天频道详情"""
     if not ChatChannelService.accessible(channel_id, current_user.id):
         return _chat_channel_auth_error(channel_id, current_user.id)
 
@@ -69,7 +69,7 @@ def get_chat_channel(channel_id):
 @manager.route("/chat-channels/<channel_id>", methods=["PATCH"])  # noqa: F821
 @login_required
 async def update_chat_channel(channel_id):
-    """Update an accessible chat channel bot's name/config/status."""
+    """更新可访问的聊天频道的名称/配置/状态."""
     if not ChatChannelService.accessible(channel_id, current_user.id):
         return _chat_channel_auth_error(channel_id, current_user.id)
 
@@ -102,7 +102,7 @@ async def update_chat_channel(channel_id):
 @manager.route("/chat-channels/<channel_id>", methods=["DELETE"])  # noqa: F821
 @login_required
 def rm_chat_channel(channel_id):
-    """Delete an accessible chat channel bot."""
+    """删除可访问的聊天频道."""
     if not ChatChannelService.accessible(channel_id, current_user.id):
         return _chat_channel_auth_error(channel_id, current_user.id)
 
@@ -113,7 +113,7 @@ def rm_chat_channel(channel_id):
 @manager.route("/chat-channels/<channel_id>/runtime", methods=["GET"])  # noqa: F821
 @login_required
 def get_chat_channel_runtime(channel_id):
-    """Return live runtime metadata for a running chat channel."""
+    """返回运行中聊天频道的实时元数据."""
     if not ChatChannelService.accessible(channel_id, current_user.id):
         return _chat_channel_auth_error(channel_id, current_user.id)
 

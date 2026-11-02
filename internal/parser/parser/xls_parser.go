@@ -26,13 +26,9 @@ import (
 )
 
 type XLSParser struct {
-	libType                        string
-	ParseMethod                    string
-	OutputFormat                   string
-	TCADPAPIServer                 string
-	TCADPAPIKey                    string
-	TCADPTableResultType           string
-	TCADPMarkdownImageResponseType string
+	libType      string
+	ParseMethod  string
+	OutputFormat string
 }
 
 func NewXLSParser(libType string) (*XLSParser, error) {
@@ -40,9 +36,7 @@ func NewXLSParser(libType string) (*XLSParser, error) {
 		libType = "excelize"
 	}
 	return &XLSParser{
-		libType:                        libType,
-		TCADPTableResultType:           "1",
-		TCADPMarkdownImageResponseType: "1",
+		libType: libType,
 	}, nil
 }
 
@@ -60,38 +54,9 @@ func (p *XLSParser) ConfigureFromSetup(setup map[string]any) {
 	if v, ok := setup["output_format"].(string); ok && v != "" {
 		p.OutputFormat = v
 	}
-	if v, ok := setup["tcadp_apiserver"].(string); ok && v != "" {
-		p.TCADPAPIServer = v
-	}
-	if v, ok := setup["tcadp_api_key"].(string); ok {
-		p.TCADPAPIKey = v
-	}
-	if v, ok := setup["table_result_type"].(string); ok && v != "" {
-		p.TCADPTableResultType = v
-	}
-	if v, ok := setup["markdown_image_response_type"].(string); ok && v != "" {
-		p.TCADPMarkdownImageResponseType = v
-	}
 }
 
 func (p *XLSParser) ParseWithResult(ctx context.Context, filename string, data []byte) ParseResult {
-	method := normalizeXLSXParseMethod(p.ParseMethod)
-	switch method {
-	case "tcadp":
-		return parseSpreadsheetWithTCADP(
-			filename, data, "XLS",
-			p.TCADPAPIServer, p.TCADPAPIKey,
-			p.TCADPTableResultType, p.TCADPMarkdownImageResponseType,
-			p.OutputFormat,
-		)
-	case "", "excelize":
-		// Continue with the local Excelize parser.
-	default:
-		return ParseResult{
-			Err: fmt.Errorf("unsupported XLS parse method: %q", p.ParseMethod),
-		}
-	}
-
 	f, err := excelize.OpenReader(bytes.NewReader(data))
 	if err != nil {
 		return ParseResult{Err: fmt.Errorf("xls open: %w", err)}

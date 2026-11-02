@@ -53,13 +53,14 @@ requests.models.complexjson.dumps = functools.partial(json.dumps, cls=CustomJSON
 
 
 def _safe_jsonify(payload: dict):
+    """安全转换json"""
     if has_app_context():
         return jsonify(payload)
     return payload
 
 
 async def _coerce_request_data() -> dict:
-    """Fetch JSON body with sane defaults; fallback to form data."""
+    """获取JSON请求体，采用合理的默认值；若失败则回退到表单数据。"""
     if hasattr(request, "_cached_payload"):
         return request._cached_payload
     payload: Any = None
@@ -95,8 +96,9 @@ async def get_request_json():
 
 def serialize_for_json(obj):
     """
-    Recursively serialize objects to make them JSON serializable.
-    Handles ModelMetaclass and other non-serializable objects.
+    递归序列化对象以使其可被 JSON 序列化。
+
+    处理 ModelMetaclass 及其他不可序列化的对象。
     """
     if hasattr(obj, "__dict__"):
         # For objects with __dict__, try to serialize their attributes
@@ -153,7 +155,7 @@ def server_error_response(e):
 
     return get_json_result(code=RetCode.EXCEPTION_ERROR, message=repr(e))
 
-
+# 验证请求参数
 def validate_request(*args, **kwargs):
     def process_args(input_arguments):
         no_arguments = []
@@ -202,8 +204,7 @@ def validate_request(*args, **kwargs):
         return decorated_function
 
     return wrapper
-
-
+# 禁止指定参数
 def not_allowed_parameters(*params):
     def decorator(func):
         async def wrapper(*args, **kwargs):
@@ -219,7 +220,7 @@ def not_allowed_parameters(*params):
 
     return decorator
 
-
+# 激活用户
 def active_required(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
@@ -237,7 +238,7 @@ def active_required(func):
 
     return wrapper
 
-
+# 添加租户id
 def add_tenant_id_to_kwargs(func):
     @wraps(func)
     async def wrapper(**kwargs):
@@ -250,7 +251,7 @@ def add_tenant_id_to_kwargs(func):
 
     return wrapper
 
-
+# 获取json结果
 def get_json_result(code: RetCode = RetCode.SUCCESS, message="success", data=None):
     response = {"code": code, "message": message, "data": data}
     return _safe_jsonify(response)
@@ -347,6 +348,7 @@ def get_error_operating_result(message="Operating error"):
     return get_result(code=RetCode.OPERATING_ERROR, message=message)
 
 
+#  生成token令牌
 def generate_confirmation_token():
     import secrets
 
@@ -452,7 +454,7 @@ def get_parser_config(chunk_method, parser_config):
 
     return merged_config
 
-
+# 获取结果(分流式和批量式，流式没有param)
 def get_data_openai(id=None, created=None, model=None, prompt_tokens=0, completion_tokens=0, content=None, finish_reason=None, object="chat.completion", param=None, stream=False):
     total_tokens = prompt_tokens + completion_tokens
 
@@ -517,7 +519,7 @@ def get_data_openai(id=None, created=None, model=None, prompt_tokens=0, completi
         ],
     }
 
-
+# 检测重复
 def check_duplicate_ids(ids, id_type="item"):
     """
     Check for duplicate IDs in a list and return unique IDs and error messages.
@@ -546,7 +548,7 @@ def check_duplicate_ids(ids, id_type="item"):
     # Return unique IDs and error messages
     return list(set(ids)), duplicate_messages
 
-
+# 获取模型
 def verify_embedding_availability(embd_id: str, tenant_id: str) -> tuple[bool, str | None]:
     from api.db.joint_services.tenant_model_service import resolve_model_config
 
@@ -643,7 +645,7 @@ def deep_merge(default: dict, custom: dict) -> dict:
 
     return merged
 
-
+# 映射
 def remap_dictionary_keys(source_data: dict, key_aliases: dict = None) -> dict:
     """
     Transform dictionary keys using a configurable mapping schema.
@@ -688,7 +690,7 @@ def group_by(list_of_dict, key):
             res[item[key]] = [item]
     return res
 
-
+# mcp_server 建立mcp_tools
 def get_mcp_tools(mcp_servers: list, timeout: float | int = 10) -> tuple[dict, str]:
     results = {}
     tool_call_sessions = []
@@ -721,7 +723,7 @@ def get_mcp_tools(mcp_servers: list, timeout: float | int = 10) -> tuple[dict, s
         # PERF: blocking call to close sessions — consider moving to background thread or task queue
         close_multiple_mcp_toolcall_sessions(tool_call_sessions)
 
-
+# 测试和压力测试
 async def is_strong_enough(chat_model, embedding_model):
     count = settings.STRONG_TEST_COUNT
     if not chat_model or not embedding_model:

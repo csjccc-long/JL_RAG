@@ -24,7 +24,9 @@ from agent.tools.base import ToolMeta, ToolParamBase, ToolBase
 from common.connection_utils import timeout
 from common.http_client import DEFAULT_TIMEOUT
 
-
+"""
+“让 Agent 能根据地点查询和风天气的数据，包括实时天气、多日预报、生活指数和空气质量，并把结果整理成可直接使用的文本。”
+"""
 class QWeatherParam(ToolParamBase):
     """
     Define the QWeather component parameters.

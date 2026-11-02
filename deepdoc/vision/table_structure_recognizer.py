@@ -25,7 +25,17 @@ from common.file_utils import get_project_base_directory
 from rag.nlp import rag_tokenizer
 
 from .recognizer import Recognizer
+"""
+用于检测表格结构并重建表格内容。它识别表格中的行、列、表头和跨行/跨列单元格等区域，再将结构整理成 HTML 表格或文本描述。
 
+主要流程
+TableStructureRecognizer 继承通用的 Recognizer，加载 tsr 表格结构识别模型。
+__call__() 根据 TABLE_STRUCTURE_RECOGNIZER_TYPE 选择 ONNX 或 Ascend 后端，对图片检测表格组件，并调整行列边界使结构更规整。
+construct_table() 将表格组件和 OCR 文字框组合起来，推断行列关系、表头和合并单元格。
+默认生成 HTML 表格。
+html=False 时，生成带列名的文本描述，便于后续检索。
+is_caption() 和 blockType() 分别辅助识别表格标题、判断单元格文本类型。
+"""
 
 class TableStructureRecognizer(Recognizer):
     labels = [

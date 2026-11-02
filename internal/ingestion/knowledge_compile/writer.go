@@ -136,7 +136,7 @@ type engineWriter struct {
 // datasetStructureSupported reports whether the running doc engine can filter
 // the dataset-structure fields (knowledge_graph_kwd + scope_kwd + raw
 // compile_kwd) this feature writes/deletes. Only infinity and elasticsearch
-// support them today; OceanBase/SeekDB/SereneDB have explicit schemas that lack
+// support them today.
 // these filter keys and would reject the query or silently drop unknown fields.
 // The guard is checked at every dataset-structure write/delete/rebuild entry so
 // those engines never leave partial state or hit an unknown-filter error (plan §5).

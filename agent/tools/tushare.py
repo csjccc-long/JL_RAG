@@ -22,7 +22,9 @@ import requests
 from agent.component.base import ComponentBase, ComponentParamBase
 from common.http_client import DEFAULT_TIMEOUT
 
-
+"""
+“接入 TuShare 的财经新闻接口，抓取指定来源的新闻，并按关键词筛选出符合主题的资讯，供 Agent 进行进一步分析和决策。”
+"""
 class TuShareParam(ComponentParamBase):
     """
     Define the TuShare component parameters.

@@ -19,13 +19,11 @@ package models
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"ragflow/internal/common"
@@ -60,15 +58,6 @@ func validateAI302ModelName(modelName *string) (string, error) {
 		return "", fmt.Errorf("model name is required")
 	}
 	return strings.TrimSpace(*modelName), nil
-}
-
-func validateAI302DocumentURL(rawURL string) (string, error) {
-	documentURL := strings.TrimSpace(rawURL)
-	parsedURL, err := url.Parse(documentURL)
-	if err != nil || parsedURL.Host == "" || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
-		return "", fmt.Errorf("invalid document URL")
-	}
-	return documentURL, nil
 }
 
 func (a *AI302Model) ChatWithMessages(ctx context.Context, modelName string, messages []Message, apiConfig *APIConfig, chatModelConfig *ChatConfig, modelUsage *common.ModelUsage) (*ChatResponse, error) {
@@ -482,171 +471,12 @@ func (a *AI302Model) AudioSpeechWithSender(ctx context.Context, modelName *strin
 	return fmt.Errorf("%s no such method", a.Name())
 }
 
-func (a *AI302Model) OCRFile(ctx context.Context, modelName *string, content []byte, urls *string, apiConfig *APIConfig, ocrConfig *OCRConfig, modelUsage *common.ModelUsage) (*OCRFileResponse, error) {
-	if err := a.baseModel.APIConfigCheck(apiConfig); err != nil {
-		return nil, err
-	}
-
-	if (urls == nil || strings.TrimSpace(*urls) == "") && (content == nil || len(content) == 0) {
-		return nil, fmt.Errorf("file url or content is required")
-	}
-	model, err := validateAI302ModelName(modelName)
-	if err != nil {
-		return nil, err
-	}
-	apiKey := strings.TrimSpace(*apiConfig.ApiKey)
-
-	resolvedBaseURL, err := a.baseModel.GetBaseURL(apiConfig)
-	if err != nil {
-		return nil, err
-	}
-	baseURL := fmt.Sprintf("%s/%s", resolvedBaseURL, a.baseModel.URLSuffix.OCR)
-
-	var docURL string
-	if urls != nil && strings.TrimSpace(*urls) != "" {
-		docURL, err = validateAI302DocumentURL(*urls)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		mimeType := http.DetectContentType(content)
-		base64Str := base64.StdEncoding.EncodeToString(content)
-		docURL = fmt.Sprintf("data:%s;base64,%s", mimeType, base64Str)
-	}
-
-	reqData := map[string]interface{}{
-		"model": model,
-		"document": map[string]interface{}{
-			"type":         "document_url",
-			"document_url": docURL,
-		},
-	}
-
-	jsonData, err := json.Marshal(reqData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal json payload: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, longOpCallTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "POST", baseURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-
-	resp, err := a.baseModel.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("MISTRAL OCR API error: %s, body: %s", resp.Status, string(body))
-	}
-
-	var mistralResp struct {
-		Pages []struct {
-			Index    int    `json:"index"`
-			Markdown string `json:"markdown"`
-		} `json:"pages"`
-	}
-
-	if err = json.Unmarshal(body, &mistralResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response json: %w", err)
-	}
-
-	var fullMarkdown strings.Builder
-	for _, page := range mistralResp.Pages {
-		fullMarkdown.WriteString(page.Markdown)
-		fullMarkdown.WriteString("\n\n")
-	}
-
-	resultText := strings.TrimSpace(fullMarkdown.String())
-
-	return &OCRFileResponse{
-		Text: &resultText,
-	}, nil
+func (a *AI302Model) OCRFile(context.Context, *string, []byte, *string, *APIConfig, *OCRConfig, *common.ModelUsage) (*OCRFileResponse, error) {
+	return nil, fmt.Errorf("%s, no such method", a.Name())
 }
 
-func (a *AI302Model) ParseFile(ctx context.Context, modelName *string, content []byte, documentURL *string, apiConfig *APIConfig, parseFileConfig *ParseFileConfig, modelUsage *common.ModelUsage) (*ParseFileResponse, error) {
-	if err := a.baseModel.APIConfigCheck(apiConfig); err != nil {
-		return nil, err
-	}
-
-	if documentURL == nil || strings.TrimSpace(*documentURL) == "" {
-		return nil, fmt.Errorf("302.ai API requires a valid public document URL; direct file upload is not supported")
-	}
-	docURL, err := validateAI302DocumentURL(*documentURL)
-	if err != nil {
-		return nil, err
-	}
-
-	resolvedBaseURL, err := a.baseModel.GetBaseURL(apiConfig)
-	if err != nil {
-		return nil, err
-	}
-	apiURL := fmt.Sprintf("%s/%s", resolvedBaseURL, a.baseModel.URLSuffix.DocumentParse)
-
-	reqBody := map[string]interface{}{
-		"url": docURL,
-	}
-
-	if modelName != nil && strings.TrimSpace(*modelName) != "" {
-		reqBody["model_version"] = strings.TrimSpace(*modelName)
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, longOpCallTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", strings.TrimSpace(*apiConfig.ApiKey)))
-
-	resp, err := a.baseModel.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("302.ai API failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var taskResp mineruTaskSubmitResponse
-	if err := json.Unmarshal(body, &taskResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	if taskResp.Code != 0 {
-		return nil, fmt.Errorf("MinerU task creation failed (code %d): %s", taskResp.Code, taskResp.Msg)
-	}
-
-	return &ParseFileResponse{
-		TaskID: taskResp.Data.TaskID,
-	}, nil
+func (a *AI302Model) ParseFile(context.Context, *string, []byte, *string, *APIConfig, *ParseFileConfig, *common.ModelUsage) (*ParseFileResponse, error) {
+	return nil, fmt.Errorf("%s, no such method", a.Name())
 }
 
 func (a *AI302Model) ListModels(ctx context.Context, apiConfig *APIConfig) ([]ListModelResponse, error) {
@@ -714,79 +544,6 @@ func (a *AI302Model) ListTasks(ctx context.Context, apiConfig *APIConfig) ([]Lis
 	return nil, fmt.Errorf("%s no such method", a.Name())
 }
 
-func (a *AI302Model) ShowTask(ctx context.Context, taskID string, apiConfig *APIConfig) (*TaskResponse, error) {
-	if err := a.baseModel.APIConfigCheck(apiConfig); err != nil {
-		return nil, err
-	}
-
-	if strings.TrimSpace(taskID) == "" {
-		return nil, fmt.Errorf("task id is required")
-	}
-
-	// URL: https://mineru.net/api/v4/extract/task/{task_id}
-	resolvedBaseURL, err := a.baseModel.GetBaseURL(apiConfig)
-	if err != nil {
-		return nil, err
-	}
-	apiURL := fmt.Sprintf("%s/%s/%s", resolvedBaseURL, a.baseModel.URLSuffix.DocumentParse, url.PathEscape(strings.TrimSpace(taskID)))
-
-	ctx, cancel := context.WithTimeout(ctx, nonStreamCallTimeout)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", strings.TrimSpace(*apiConfig.ApiKey)))
-
-	resp, err := a.baseModel.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("MinerU query API failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var queryResp mineruTaskQueryResponse
-	if err := json.Unmarshal(body, &queryResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	if queryResp.Code != 0 {
-		return nil, fmt.Errorf("MinerU task query failed: %s", queryResp.Msg)
-	}
-
-	// failed state
-	if queryResp.Data.State == "failed" {
-		return nil, fmt.Errorf("MinerU task failed: %s", queryResp.Data.ErrMsg)
-	}
-
-	content := ""
-	if queryResp.Data.State == "done" {
-		content = queryResp.Data.FullZipURL
-	} else if queryResp.Data.State == "running" {
-		content = fmt.Sprintf("Task is running... Progress: %d / %d pages",
-			queryResp.Data.ExtractProgress.ExtractedPages,
-			queryResp.Data.ExtractProgress.TotalPages)
-	} else {
-		// queue or formating
-		content = fmt.Sprintf("Task state: %s", queryResp.Data.State)
-	}
-
-	return &TaskResponse{
-		Segments: []TaskSegment{
-			{
-				Index:   0,
-				Content: content,
-			},
-		},
-	}, nil
+func (a *AI302Model) ShowTask(context.Context, string, *APIConfig) (*TaskResponse, error) {
+	return nil, fmt.Errorf("%s, no such method", a.Name())
 }

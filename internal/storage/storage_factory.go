@@ -74,10 +74,6 @@ func (f *Factory) initStorage(ctx context.Context) error {
 		return f.initMinio()
 	case "s3":
 		return f.initS3(ctx)
-	case "oss":
-		return f.initOSS(ctx)
-	case "gcs":
-		return f.initGCS(ctx)
 	default:
 		return fmt.Errorf("unsupported storage type: %s", globalConfig.StorageEngineType())
 	}
@@ -102,34 +98,6 @@ func (f *Factory) initS3(ctx context.Context) error {
 	storage, err := NewS3Storage(ctx, globalConfig.GetS3Config())
 	if err != nil {
 		return fmt.Errorf("failed to create S3 storage: %w", err)
-	}
-
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.storage = storage
-
-	return nil
-}
-
-func (f *Factory) initOSS(ctx context.Context) error {
-	globalConfig := server.GetConfig()
-	storage, err := NewOSSStorage(ctx, globalConfig.GetOSSConfig())
-	if err != nil {
-		return fmt.Errorf("failed to create OSS storage: %w", err)
-	}
-
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.storage = storage
-
-	return nil
-}
-
-func (f *Factory) initGCS(ctx context.Context) error {
-	globalConfig := server.GetConfig()
-	storage, err := NewGCSStorage(ctx, globalConfig.GetGCSConfig())
-	if err != nil {
-		return fmt.Errorf("failed to create GCS storage: %w", err)
 	}
 
 	f.mu.Lock()

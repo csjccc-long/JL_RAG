@@ -14,10 +14,10 @@
 #  limitations under the License.
 
 """
-Dataflow Service Module.
+数据流服务模块。
 
-Provides [`DataflowService`](rag/svr/task_executor_refactor/dataflow_service.py:42) for dataflow
-pipeline execution.
+提供 DataflowService
+ 用于数据流管道执行。
 """
 
 import abc

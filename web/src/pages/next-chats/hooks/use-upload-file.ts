@@ -3,14 +3,15 @@ import {
   useGetChatSearchParams,
   useUploadAndParseFile,
 } from '@/hooks/use-chat-request';
+import { UploadResponseDataType } from '@/interfaces/database/chat';
 import { useCallback, useState } from 'react';
 import { useChatUrlParams } from './use-chat-url';
 import { useSetConversation } from './use-set-conversation';
 
 export function useUploadFile() {
   const { uploadAndParseFile, loading, cancel } = useUploadAndParseFile();
-  const [currentFiles, setCurrentFiles] = useState<Record<string, any>[]>([]);
-  const [fileMap, setFileMap] = useState<Map<File, Record<string, any>>>(
+  const [currentFiles, setCurrentFiles] = useState<UploadResponseDataType[]>([]);
+  const [fileMap, setFileMap] = useState<Map<File, UploadResponseDataType>>(
     new Map(),
   );
   const { setConversation } = useSetConversation();
@@ -35,7 +36,7 @@ export function useUploadFile() {
             conversationId,
           });
           if (ret?.code === 0) {
-            const data = ret.data;
+            const data = ret.data as UploadResponseDataType;
             setCurrentFiles((list) => [...list, data]);
             setFileMap((map) => {
               map.set(file, data);
@@ -89,7 +90,7 @@ export function useUploadFile() {
       }
       const id = fileMap.get(file);
       if (id) {
-        setCurrentFiles((list) => list.filter((item) => item !== id));
+        setCurrentFiles((list) => list.filter((item) => item.id !== id.id));
       }
     },
     [cancel, fileMap, loading],

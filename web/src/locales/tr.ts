@@ -622,15 +622,6 @@ Prosedürel Bellek: Öğrenilen beceriler, alışkanlıklar ve otomatik prosedü
       imageTableContextWindowTip:
         'Daha zengin arka plan bağlamı sağlamak için görüntü ve tablonun üstünde ve altında N token metin yakalar.',
       autoMetadata: 'Otomatik meta veri',
-      mineruOptions: 'MinerU seçenekleri',
-      mineruParseMethod: 'Ayrıştırma yöntemi',
-      mineruParseMethodTip:
-        'PDF ayrıştırma yöntemi: auto (otomatik algılama), txt (metin çıkarma), ocr (optik karakter tanıma)',
-      mineruFormulaEnable: 'Formül tanıma',
-      mineruFormulaEnableTip:
-        'Formül tanımayı etkinleştir. Not: Kiril alfabesi kullanan belgeler için doğru çalışmayabilir.',
-      mineruTableEnable: 'Tablo tanıma',
-      mineruTableEnableTip: 'Tablo tanıma ve çıkarmayı etkinleştir.',
       paddleocrOptions: 'PaddleOCR Seçenekleri',
       paddleocrApiUrl: 'PaddleOCR API URL',
       paddleocrApiUrlTip: "PaddleOCR servisi için API uç nokta URL'si",
@@ -1549,28 +1540,6 @@ Bu otomatik etiketleme özelliği, mevcut datasete alanına özgü bilgi katman�
       modelsToBeAddedTooltip:
         'Model sağlayıcınız listede yoksa ancak "OpenAI uyumlu" olduğunu iddia ediyorsa, ilgili modelleri eklemek için OpenAI-API-uyumlu kartı seçin.',
       mcp: 'MCP',
-      mineru: {
-        modelNameRequired: 'Model adı gereklidir',
-        apiServerRequired: 'MinerU API Sunucusu Yapılandırması gereklidir',
-        serverUrlBackendLimit:
-          'MinerU Sunucu URL Adresi yalnızca HTTP istemci arka ucu için kullanılabilir',
-        apiserver: 'MinerU API Sunucusu Yapılandırması',
-        outputDir: 'MinerU Çıktı Dizin Yolu',
-        backend: 'MinerU İşleme Arka Uç Türü',
-        serverUrl: 'MinerU Sunucu URL Adresi',
-        deleteOutput: 'İşlemden Sonra Çıktı Dosyalarını Sil',
-        selectBackend: 'İşleme arka ucunu seçin',
-        backendOptions: {
-          pipeline: 'Standart Hat İşleme',
-          vlmTransformers: 'Transformers ile Görsel Dil Modeli',
-          vlmVllmEngine: 'vLLM Motoru ile Görsel Dil Modeli',
-          vlmHttpClient: 'HTTP İstemci üzerinden Görsel Dil Modeli',
-          vlmMlxEngine: 'MLX Motoru ile Görsel Dil Modeli',
-          vlmVllmAsyncEngine:
-            'vLLM Async Motoru ile Görsel Dil Modeli (Deneysel)',
-          vlmLmdeployEngine: 'LMDeploy Motoru ile Görsel Dil Modeli (Deneysel)',
-        },
-      },
       modelTypes: {
         chat: 'Sohbet',
         embedding: 'Embedding',

@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { CircleStop, Globe, Paperclip, Send, Upload, X } from 'lucide-react';
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import storage from '@/utils/authorization-util';

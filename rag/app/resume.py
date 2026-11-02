@@ -15,18 +15,20 @@
 #
 
 """
-Resume parsing module (aligned with SmartResume Pipeline architecture optimization)
+简历解析模块（与 SmartResume Pipeline 架构优化保持一致）
 
-Key optimizations (ref: arXiv:2510.09722):
-    1. PDF text fusion: metadata + OCR dual-path extraction and fusion
-    2. Layout-aware reconstruction: YOLOv10 layout segmentation + hierarchical sorting + line indexing
-    3. Parallel task decomposition: basic info / work experience / education - 3-way parallel LLM extraction
-    4. Index pointer mechanism: LLM returns line number ranges instead of generating full text, reducing hallucination
-    5. Four-stage post-processing: source text re-extraction, domain normalization, context deduplication, source text validation
+主要优化（参考：arXiv:2510.09722）：
 
-Compatibility:
-    - chunk(filename, binary, callback, **kwargs) signature remains unchanged
-    - Compatible with FACTORY[ParserType.RESUME.value] in task_executor.py
+PDF 文本融合：元数据 + OCR 双路径提取与融合
+布局感知重建：YOLOv10 布局分割 + 层级排序 + 行索引
+并行任务分解：基本信息 / 工作经历 / 教育背景 - 三路并行 LLM 提取
+索引指针机制：LLM 返回行号范围而非生成完整文本，减少幻觉
+四阶段后处理：源文本重新提取、领域归一化、上下文去重、源文本验证
+
+兼容性：
+
+chunk(filename, binary, callback, **kwargs) 签名保持不变
+兼容 task_executor.py 中的 FACTORY[ParserType.RESUME.value]
 """
 
 import json
@@ -41,6 +43,18 @@ import numpy as np
 
 from common import settings
 from common.constants import MAXIMUM_PAGE_NUMBER
+
+
+"""
+简历专用解析器。它不只是把文件转成文本，而是从简历中提取结构化候选人信息，并生成便于检索的简历 chunks。
+
+主要流程：
+
+提取文本并恢复阅读顺序：PDF 尝试融合文本提取与 OCR，再结合页面布局排序；其他格式则走文本提取。
+结构化抽取：并行让 LLM 提取基本信息、工作经历、教育经历和项目经历；失败时用正则表达式兜底。
+清理校验结果：校验姓名、公司、学校等是否确实出现在原文，统一日期、电话、性别格式，并去重和补齐字段。
+构建检索 chunks：按基本信息、教育背景、技能、工作经历等语义分组；较长的工作或项目描述单独拆分。每个 chunk 都附带候选人身份信息和对应的检索字段。
+"""
 
 # tiktoken for long random string filtering (ref: SmartResume should_remove strategy)
 try:

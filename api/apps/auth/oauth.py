@@ -32,7 +32,7 @@ class UserInfo:
 class OAuthClient:
     def __init__(self, config):
         """
-        Initialize the OAuthClient with the provider's configuration.
+        使用提供商的配置初始化 OAuthClient
         """
         self.client_id = config["client_id"]
         self.client_secret = config["client_secret"]
@@ -46,7 +46,7 @@ class OAuthClient:
 
     def get_authorization_url(self, state=None):
         """
-        Generate the authorization URL for user login.
+        生成用户登录的授权 URL.
         """
         params = {
             "client_id": self.client_id,
@@ -57,12 +57,13 @@ class OAuthClient:
             params["scope"] = self.scope
         if state:
             params["state"] = state
+        # 生成授权 URL
         authorization_url = f"{self.authorization_url}?{urllib.parse.urlencode(params)}"
         return authorization_url
 
     def exchange_code_for_token(self, code):
         """
-        Exchange authorization code for access token.
+        用授权码交换访问令牌.
         """
         try:
             payload = {"client_id": self.client_id, "client_secret": self.client_secret, "code": code, "redirect_uri": self.redirect_uri, "grant_type": "authorization_code"}
@@ -80,7 +81,7 @@ class OAuthClient:
 
     async def async_exchange_code_for_token(self, code):
         """
-        Async variant of exchange_code_for_token using httpx.
+        使用 httpx 的 exchange_code_for_token 的异步变体.
         """
         payload = {
             "client_id": self.client_id,
@@ -104,7 +105,7 @@ class OAuthClient:
 
     def fetch_user_info(self, access_token, **kwargs):
         """
-        Fetch user information using access token.
+        使用访问令牌获取用户信息.
         """
         try:
             headers = {"Authorization": f"Bearer {access_token}"}
@@ -116,7 +117,7 @@ class OAuthClient:
             raise ValueError(f"Failed to fetch user info: {e}")
 
     async def async_fetch_user_info(self, access_token, **kwargs):
-        """Async variant of fetch_user_info using httpx."""
+        """使用 httpx 的 fetch_user_info 的异步变体"""
         headers = {"Authorization": f"Bearer {access_token}"}
         try:
             response = await async_request(

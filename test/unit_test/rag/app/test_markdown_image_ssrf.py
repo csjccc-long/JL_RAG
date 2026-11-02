@@ -43,8 +43,6 @@ def naive_module():
     stub_names = [
         "deepdoc.vision.ocr",
         "deepdoc.parser.figure_parser",
-        "deepdoc.parser.docling_parser",
-        "deepdoc.parser.tcadp_parser",
         "rag.app.picture",
     ]
     original_modules = {name: sys.modules.get(name) for name in stub_names}

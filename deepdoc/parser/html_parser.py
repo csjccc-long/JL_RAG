@@ -23,7 +23,18 @@ import chardet
 from bs4 import BeautifulSoup, NavigableString, Tag, Comment
 import html
 
-
+"""
+读取 HTML：RAGFlowHtmlParser.__call__() 从文件或二进制内容读取文本，并检测编码。
+清理无关内容：parser_txt() 使用 BeautifulSoup 删除 <script>、<style>、HTML 注释和标签上的内联样式。
+遍历并提取内容：read_text_recursively() 递归遍历 HTML：
+标题会转换成 Markdown 风格前缀，例如 <h2> 变成 ## 标题。
+<br> 会保留为硬换行。
+<pre>、<textarea> 中的文本会尽量保留原始空白。
+<table> 会单独保留为 HTML，不混进普通文本块。
+整理文本：merge_block_text() 按 HTML 块边界合并文字，折叠普通空白，同时保留显式换行。
+按 token 数分块：chunk_block() 尽量把相邻内容合并到 chunk_token_num 限制内。超长块由 _split_oversized_block() 拆分，并针对中文、日文、韩文等无空格分词的文字按字符边界处理。
+汇总结果：parser_txt() 返回文本块和 HTML 表格组成的列表。
+"""
 def get_encoding(file):
     with open(file, "rb") as f:
         tmp = chardet.detect(f.read())

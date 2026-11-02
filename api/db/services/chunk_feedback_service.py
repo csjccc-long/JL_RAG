@@ -62,6 +62,7 @@ DOWNVOTE_WEIGHT_DECREMENT = 1
 MIN_PAGERANK_WEIGHT = 0
 MAX_PAGERANK_WEIGHT = 100
 
+# 分别代表综合相似度，向量相似度，词项相似度
 _SCORE_KEYS = ("similarity", "vector_similarity", "term_similarity")
 
 
@@ -140,7 +141,7 @@ def _allocate_deltas_relevance(
         out.append((cid, kb, sign * p))
     return out
 
-
+# row_id只有在Infinity中才有意义，其他的docstore不需要row_id
 class ChunkFeedbackService:
     """Service to update chunk weights based on user feedback."""
 
@@ -171,8 +172,8 @@ class ChunkFeedbackService:
         """
         Update the pagerank weight of a single chunk.
 
-        Elasticsearch, OpenSearch, OceanBase/SeekDB, and Infinity use an
-        atomic adjust on the doc store when supported. Infinity passes
+        Elasticsearch and Infinity use an
+        atomic adjust on the doc store. Infinity passes
         row_id (from retrieval results) for targeted single-row updates.
 
         Args:
@@ -222,7 +223,7 @@ class ChunkFeedbackService:
 
             condition = {"id": chunk_id}
             doc_engine = settings.DOC_ENGINE.lower()
-            if new_weight <= 0.0 and doc_engine in ("elasticsearch", "opensearch"):
+            if new_weight <= 0.0 and doc_engine == "elasticsearch":
                 new_value = {"remove": PAGERANK_FLD}
             else:
                 new_value = {PAGERANK_FLD: new_weight}

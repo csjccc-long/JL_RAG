@@ -26,13 +26,9 @@ import (
 )
 
 type XLSXParser struct {
-	libType                        string
-	ParseMethod                    string
-	OutputFormat                   string
-	TCADPAPIServer                 string
-	TCADPAPIKey                    string
-	TCADPTableResultType           string
-	TCADPMarkdownImageResponseType string
+	libType      string
+	ParseMethod  string
+	OutputFormat string
 }
 
 func NewXLSXParser(libType string) (*XLSXParser, error) {
@@ -40,9 +36,7 @@ func NewXLSXParser(libType string) (*XLSXParser, error) {
 		libType = "excelize"
 	}
 	return &XLSXParser{
-		libType:                        libType,
-		TCADPTableResultType:           "1",
-		TCADPMarkdownImageResponseType: "1",
+		libType: libType,
 	}, nil
 }
 
@@ -60,31 +54,15 @@ func (p *XLSXParser) ConfigureFromSetup(setup map[string]any) {
 	if v, ok := setup["output_format"].(string); ok && v != "" {
 		p.OutputFormat = v
 	}
-	if v, ok := setup["tcadp_apiserver"].(string); ok && v != "" {
-		p.TCADPAPIServer = v
-	}
-	if v, ok := setup["tcadp_api_key"].(string); ok {
-		p.TCADPAPIKey = v
-	}
-	if v, ok := setup["table_result_type"].(string); ok && v != "" {
-		p.TCADPTableResultType = v
-	}
-	if v, ok := setup["markdown_image_response_type"].(string); ok && v != "" {
-		p.TCADPMarkdownImageResponseType = v
-	}
 }
 
 func normalizeXLSXParseMethod(raw string) string {
 	method := strings.ToLower(strings.TrimSpace(raw))
-	if method == "tcadp parser" {
-		return "tcadp"
-	}
 	// "deepdoc" / "deepdoc parser" is the default spreadsheet parse_method
 	// (see schema.ParserParam.Defaults and the matching Python ParserParam),
 	// and the DSL templates ship "DeepDOC". Normalize to "" so the default
 	// Excelize/CSV path is taken by all three spreadsheet parsers, mirroring
-	// rag/flow/parser/parser.py:_spreadsheet which only special-cases
-	// "tcadp parser" and routes every other value to the default parser.
+	// rag/flow/parser/parser.py:_spreadsheet and keeps one local parsing path.
 	if method == "deepdoc" || method == "deepdoc parser" {
 		return ""
 	}
@@ -94,20 +72,10 @@ func normalizeXLSXParseMethod(raw string) string {
 func (p *XLSXParser) ParseWithResult(ctx context.Context, filename string, data []byte) ParseResult {
 	method := normalizeXLSXParseMethod(p.ParseMethod)
 	switch method {
-	case "tcadp":
-		return parseSpreadsheetWithTCADP(
-			filename, data, "XLSX",
-			p.TCADPAPIServer, p.TCADPAPIKey,
-			p.TCADPTableResultType, p.TCADPMarkdownImageResponseType,
-			p.OutputFormat,
-		)
 	case "", "excelize":
 		// Continue with the local Excelize parser.
 	default:
-		// PDF-specific methods like "DeepDOC" / "PaddleOCR" / "MinerU"
-		// are meaningless for XLSX; treat them as the default excelize path,
-		// matching Python's behaviour where parse_method is irrelevant
-		// for spreadsheet processing.
+		// Parse methods from other file families use the local parser.
 	}
 
 	f, err := excelize.OpenReader(bytes.NewReader(data))

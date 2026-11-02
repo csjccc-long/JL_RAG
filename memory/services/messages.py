@@ -21,7 +21,18 @@ from common import settings
 from common.constants import MemoryType
 from common.doc_store.doc_store_base import OrderByExpr, MatchExpr
 
+"""
+“消息存储与查询服务”，它负责管理记忆库里的消息数据。
 
+它属于 memory 目录下的 service 层，核心职责是：
+
+创建/删除消息索引
+插入消息
+更新消息状态
+查询历史消息
+按条件搜索消息
+计算消息大小和过期删除策略
+"""
 def _es_index_prefix() -> str:
     return os.environ.get("ES_INDEX_PREFIX", "").strip()
 

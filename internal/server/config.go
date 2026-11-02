@@ -175,7 +175,7 @@ func GetAllConfigs() ([]map[string]interface{}, error) {
 	// Database
 	databaseType := globalConfig.DatabaseType()
 	switch databaseType {
-	case "mysql", "oceanbase":
+	case "mysql":
 		mysqlConfig := globalConfig.GetMySQLConfig()
 		exportedMySQLConfigs := mysqlConfig.ExportConfigs()
 		allConfigs = append(allConfigs, exportedMySQLConfigs)
@@ -194,12 +194,6 @@ func GetAllConfigs() ([]map[string]interface{}, error) {
 		infinityConfig := globalConfig.GetInfinityConfig()
 		exportedInfinityConfigs := infinityConfig.ExportConfigs()
 		allConfigs = append(allConfigs, exportedInfinityConfigs)
-	case "oceanbase":
-		oceanBaseConfig := globalConfig.GetOceanBaseConfig()
-		allConfigs = append(allConfigs, oceanBaseConfig.ExportConfigs())
-	case "seekdb":
-		seekDBConfig := globalConfig.GetSeekDBConfig()
-		allConfigs = append(allConfigs, seekDBConfig.ExportConfigs())
 	default:
 		return nil, fmt.Errorf("not supported doc engine: %s", docEngineType)
 	}
@@ -215,14 +209,6 @@ func GetAllConfigs() ([]map[string]interface{}, error) {
 		s3Config := globalConfig.GetS3Config()
 		exportedS3Configs := s3Config.ExportConfigs()
 		allConfigs = append(allConfigs, exportedS3Configs)
-	case "oss":
-		ossConfig := globalConfig.GetOSSConfig()
-		exportedOSSConfigs := ossConfig.ExportConfigs()
-		allConfigs = append(allConfigs, exportedOSSConfigs)
-	case "gcs":
-		gcsConfig := globalConfig.GetGCSConfig()
-		exportedGCSConfigs := gcsConfig.ExportConfigs()
-		allConfigs = append(allConfigs, exportedGCSConfigs)
 	default:
 		return nil, fmt.Errorf("not supported storage engine: %s", storageType)
 	}

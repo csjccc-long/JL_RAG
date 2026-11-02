@@ -5,15 +5,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   LucideChevronDown,
-  LucideCloud,
-  LucideCloudLightning,
   LucideLink,
   LucideLoader2,
   LucideMonitor,
   LucideSave,
   LucideServer,
   LucideTerminal,
-  LucideZap,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -61,10 +58,6 @@ const PROVIDER_ICONS: Record<string, React.ElementType> = {
   local: LucideMonitor,
   self_managed: LucideServer,
   ssh: LucideTerminal,
-  aliyun_codeinterpreter: LucideCloud,
-  e2b: LucideZap,
-  tenki: LucideCloudLightning,
-  ucloud_agent_sandbox: LucideCloud,
 };
 
 function AdminSandboxSettings() {

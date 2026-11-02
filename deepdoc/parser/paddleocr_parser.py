@@ -42,7 +42,62 @@ except Exception:
 
 
 from deepdoc.parser.utils import extract_pdf_outlines
+"""
+是一个“PaddleOCR 文档解析适配器”。
+它的职责是：把 PDF 或图片交给 PaddleOCR 的在线/异步识别服务，拿到结构化识别结果，然后转换成 RAGFlow 后续可以继续处理的 section / table 数据。
+1. 配置管理
+PaddleOCRConfig 和 PaddleOCRVLConfig 定义了各种参数，例如：
 
+base_url
+access_token
+algorithm
+prettify_markdown
+show_formula_number
+visualize
+algorithm_config
+这说明它对不同 PaddleOCR 模型和参数做了抽象，支持多种算法版本。
+
+2. 提交解析任务
+_send_request() 负责完整流程：
+
+上传 PDF 文件
+组装请求参数
+调用 /api/v2/ocr/jobs
+获取 jobId
+轮询任务状态
+等待 done
+拉取最终 JSON 结果
+这是一种典型的异步任务模型。
+
+3. 转换为 RAGFlow 能用的结构
+_transfer_to_sections() 会把识别结果转成：
+
+(text, tag) 或
+(text, layout_type, tag)
+也就是最终的 section 数据。
+
+它会提取：
+
+文本内容
+位置坐标
+区域标签
+这保证后续 chunker / 检索 / crop 都能正常工作。
+
+4. 处理图片裁剪
+__images__() 和 crop() 负责把页面渲染成图像，并根据位置坐标裁剪出对应区域。
+这在图像、表格、公式识别场景下很重要。
+
+5. 支持多种 PaddleOCR 算法
+SUPPORTED_PADDLEOCR_ALGORITHMS 中包括：
+
+PaddleOCR-VL
+PaddleOCR-VL-1.6
+PP-OCRv5
+PP-OCRv6
+PP-StructureV3
+PaddleOCR-VL-1.5
+说明这个模块兼容多个 OCR/文档理解模型，不是只有一种固定版本。
+"""
 
 AlgorithmType = Literal["PaddleOCR-VL", "PaddleOCR-VL-1.6", "PP-OCRv5", "PP-OCRv6", "PP-StructureV3", "PaddleOCR-VL-1.5"]
 SectionTuple = tuple[str, ...]

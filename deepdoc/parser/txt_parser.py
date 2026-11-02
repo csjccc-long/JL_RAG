@@ -24,7 +24,45 @@ from rag.nlp.delim import (
     normalize_text_newlines,
     parse_delimiter_field,
 )
+"""
+一个“纯文本解析器”，它负责把文本文件切分成适合后续检索/向量化的 chunk。
 
+它属于 deepdoc 里的 parser 层，作用是：
+
+读取文本内容
+按指定分隔符切段
+合并相邻段落
+生成可检索的 chunk 列表
+它具体做了什么
+1. 读取文本
+__call__() 中会先调用：
+
+get_text(fnm, binary)
+把文本内容读成字符串。
+这说明它是基于文本文件输入的解析器。
+
+2. 按分隔符拆分
+parser_txt() 会做：
+
+normalize_text_newlines(txt)
+parse_delimiter_field(delimiter)
+compile_delimiter_pattern(parsed_dels)
+re.split(...)
+也就是说，它会按设定的分隔符（例如 \n!?;。；！？）把文本拆成多个段落/小节。
+
+3. 去掉无用分隔符
+在拆分后，它会过滤掉：
+
+空段
+仅分隔符的片段
+并在 keep_delimiters 为真时保留分隔符信息，保证语义连续性。
+
+4. 合并成 chunk
+关键一步：
+
+
+这表示它不只是简单拆分，而是根据 token 数量把段落合并成 chunk，保证每块内容在合理长度内。
+"""
 
 class RAGFlowTxtParser:
     def __call__(self, fnm, binary=None, chunk_token_num=128, delimiter="\n!?;。；！？", keep_delimiters=False):
