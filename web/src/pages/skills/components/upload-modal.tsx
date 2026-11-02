@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Modal } from '@/components/ui/modal/modal';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { APP_NAME } from '@/constants/common';
 import { CheckCircle, FolderOpen, Globe, Loader2, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -662,7 +663,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
       );
 
       // 4. Upload to RAGFlow
-      setGitProgress('Uploading to RAGFlow...');
+      setGitProgress(`Uploading to ${APP_NAME}...`);
       const skillName =
         validation.name || repo.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
 

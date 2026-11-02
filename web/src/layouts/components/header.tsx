@@ -1,5 +1,6 @@
 import { RAGFlowAvatar } from '@/components/ragflow-avatar';
 import { Button } from '@/components/ui/button';
+import { APP_NAME } from '@/constants/common';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,7 +71,7 @@ export function Header({
               aria-current={pathname === Routes.Root ? 'page' : undefined}
               className="flex size-10 shrink-0 items-center justify-center"
             >
-              <img src={'/logo.svg'} alt="RAGFlow logo" className="size-10" />
+              <img src={'/logo.svg'} alt={`${APP_NAME} logo`} className="size-10" />
             </Link>
           </div>
         </div>

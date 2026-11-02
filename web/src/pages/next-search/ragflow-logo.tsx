@@ -17,6 +17,7 @@
 import { useFetchTokenListBeforeOtherStep } from '@/components/embed-dialog/use-show-embed-dialog';
 import { Button } from '@/components/ui/button';
 import { SharedFrom } from '@/constants/chat';
+import { APP_NAME } from '@/constants/common';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
 import { Send } from 'lucide-react';
@@ -71,7 +72,7 @@ export function RAGFlowLogo({
           'text-4xl font-bold bg-gradient-to-l from-[#40EBE3] to-[#4A51FF] bg-clip-text',
         )}
       >
-        RAGFlow
+        {APP_NAME}
       </h1>
       {showEmbedIcon && <EmbedIcon></EmbedIcon>}
     </div>
