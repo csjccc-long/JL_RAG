@@ -83,6 +83,7 @@ export default {
       comingSoon: '即将推出',
       download: '下载',
       close: '关闭',
+      open: '打开',
       preview: '预览',
       move: '移动',
       warn: '提醒',
@@ -2185,6 +2186,8 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取 Entities 和 R
       hint: '提示',
     },
     fileManager: {
+      listView: '列表视图',
+      cardView: '卡片视图',
       uploadFolderTitle: '上传文件夹',
       folder: '文件夹',
       files: '文件',

@@ -29,6 +29,7 @@ export default {
       comingSoon: 'Próximamente',
       download: 'Descargar',
       close: 'Cerrar',
+      open: 'Abrir',
       preview: 'Vista previa',
       move: 'Mover',
       warn: 'Advertencia',
@@ -524,6 +525,8 @@ export default {
       hint: 'Pista',
     },
     fileManager: {
+      listView: 'Vista de lista',
+      cardView: 'Vista de tarjetas',
       name: 'Nombre',
       uploadDate: 'Fecha de carga',
       knowledgeBase: 'Base de conocimiento',

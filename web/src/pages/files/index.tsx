@@ -9,13 +9,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Segmented, SegmentedValue } from '@/components/ui/segmented';
 import { useRowSelection } from '@/hooks/logic-hooks/use-row-selection';
 import { useFetchFileList } from '@/hooks/use-file-request';
-import { LucidePlus } from 'lucide-react';
+import { LayoutGrid, List, LucidePlus } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CreateFolderDialog } from './create-folder-dialog';
 import { FileBreadcrumb } from './file-breadcrumb';
 import { FilesTable } from './files-table';
+import { FolderGrid } from './folder-grid';
 import {
   useHandleConnectToKnowledge,
   UseHandleConnectToKnowledgeReturnType,
@@ -27,8 +30,34 @@ import { useHandleMoveFile } from './use-move-file';
 import { useSelectBreadcrumbItems } from './use-navigate-to-folder';
 import { useHandleUploadFile } from './use-upload-file';
 
+type FileViewMode = 'list' | 'cards';
+
+const VIEW_MODE_STORAGE_KEY = 'ragflow.files.view-mode';
+
+const getStoredViewMode = (): FileViewMode => {
+  try {
+    return window.localStorage.getItem(VIEW_MODE_STORAGE_KEY) === 'cards'
+      ? 'cards'
+      : 'list';
+  } catch {
+    return 'list';
+  }
+};
+
 export default function Files() {
   const { t } = useTranslation();
+  const [viewMode, setViewMode] = useState<FileViewMode>(getStoredViewMode);
+
+  const handleViewModeChange = useCallback((value: SegmentedValue) => {
+    const next: FileViewMode = value === 'cards' ? 'cards' : 'list';
+    setViewMode(next);
+    try {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, next);
+    } catch {
+      // A blocked storage only costs the preference, never the view.
+    }
+  }, []);
+
   const {
     fileUploadVisible,
     hideFileUploadModal,
@@ -95,10 +124,30 @@ export default function Files() {
     </div>
   );
 
+  const viewModeSwitch = (
+    <Segmented
+      value={viewMode}
+      onChange={handleViewModeChange}
+      options={[
+        {
+          value: 'list',
+          label: <List className="size-4" />,
+          title: t('fileManager.listView'),
+        },
+        {
+          value: 'cards',
+          label: <LayoutGrid className="size-4" />,
+          title: t('fileManager.cardView'),
+        },
+      ]}
+    ></Segmented>
+  );
+
   return (
     <article
       className="size-full min-w-0 flex flex-col"
       data-testid="files-list"
+      data-view-mode={viewMode}
     >
       <header className="mb-4 min-w-0 px-5 pt-8">
         <ListFilterBar
@@ -107,6 +156,7 @@ export default function Files() {
           onSearchChange={handleInputChange}
           showFilter={false}
           icon={'file'}
+          preChildren={viewModeSwitch}
         >
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -127,23 +177,35 @@ export default function Files() {
           </DropdownMenu>
         </ListFilterBar>
 
-        {!rowSelectionIsEmpty && (
+        {viewMode === 'list' && !rowSelectionIsEmpty && (
           <BulkOperateBar className="mt-4" list={list} count={selectedCount} />
         )}
       </header>
 
       <div className="flex-1 px-5 flex flex-col overflow-hidden">
-        <FilesTable
-          files={files}
-          total={total}
-          pagination={pagination}
-          setPagination={setPagination}
-          loading={loading}
-          rowSelection={rowSelection}
-          setRowSelection={setRowSelection}
-          showMoveFileModal={showMoveFileModal}
-          connectKnowledgeModal={connectKnowledgeModal}
-        />
+        {viewMode === 'list' ? (
+          <FilesTable
+            files={files}
+            total={total}
+            pagination={pagination}
+            setPagination={setPagination}
+            loading={loading}
+            rowSelection={rowSelection}
+            setRowSelection={setRowSelection}
+            showMoveFileModal={showMoveFileModal}
+            connectKnowledgeModal={connectKnowledgeModal}
+          />
+        ) : (
+          <FolderGrid
+            files={files}
+            total={total}
+            pagination={pagination}
+            setPagination={setPagination}
+            loading={loading}
+            showMoveFileModal={showMoveFileModal}
+            connectKnowledgeModal={connectKnowledgeModal}
+          />
+        )}
       </div>
 
       {fileUploadVisible && (

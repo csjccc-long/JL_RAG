@@ -51,7 +51,7 @@ import { KnowledgeCell } from './knowledge-cell';
 import { LinkToDatasetDialog } from './link-to-dataset-dialog';
 import { UseMoveDocumentShowType } from './use-move-file';
 import { useNavigateToOtherFolder } from './use-navigate-to-folder';
-import { isFolderType, isKnowledgeBaseType } from './util';
+import { isFolderType, isKnowledgeBaseType, sortFileList } from './util';
 import { isGoDatasetBackend } from '../../utils/api-proxy-scheme';
 
 type FilesTableProps = Pick<
@@ -107,34 +107,10 @@ export function FilesTable({
 
   // Sort files with skills folder first, then by time
   // Filter out skills folder if not in hybrid/go mode
-  const { sortedFiles, hiddenCount } = useMemo(() => {
-    if (!files) return { sortedFiles: [] as IFile[], hiddenCount: 0 };
-
-    // Filter out skills folder if feature is disabled
-    const filteredFiles = isSkillsEnabled
-      ? files
-      : files.filter((file) => {
-          const isSkills =
-            isFolderType(file.type) && file.name.toLowerCase() === 'skills';
-          return !isSkills;
-        });
-
-    const sorted = [...filteredFiles].sort((a, b) => {
-      const aIsSkills =
-        isFolderType(a.type) && a.name.toLowerCase() === 'skills';
-      const bIsSkills =
-        isFolderType(b.type) && b.name.toLowerCase() === 'skills';
-
-      // Skills folder always comes first
-      if (aIsSkills && !bIsSkills) return -1;
-      if (!aIsSkills && bIsSkills) return 1;
-
-      // Then sort by create_time desc (newest first)
-      return (b.create_time || 0) - (a.create_time || 0);
-    });
-
-    return { sortedFiles: sorted, hiddenCount: files.length - filteredFiles.length };
-  }, [files, isSkillsEnabled]);
+  const { files: sortedFiles, hiddenCount } = useMemo(
+    () => sortFileList(files ?? [], isSkillsEnabled),
+    [files, isSkillsEnabled],
+  );
 
   // Keep the displayed total consistent with the rows actually shown:
   // client-side filtered rows (e.g. the skills folder when the feature is

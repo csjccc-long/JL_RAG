@@ -28,6 +28,7 @@ export default {
       comingSoon: 'Sắp ra mắt',
       download: 'Tải xuống',
       close: 'Đóng',
+      open: 'Mở',
       preview: 'Xem trước',
       move: 'Di chuyển',
       warn: 'Cảnh báo',
@@ -776,6 +777,8 @@ export default {
       hint: 'Gợi ý',
     },
     fileManager: {
+      listView: 'Dạng danh sách',
+      cardView: 'Dạng thẻ',
       name: 'Tên',
       uploadDate: 'Ngày tải lên',
       knowledgeBase: 'Cơ sở kiến thức',

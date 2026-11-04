@@ -28,6 +28,7 @@ export default {
       comingSoon: '即將推出',
       download: '下載',
       close: '關閉',
+      open: '開啟',
       preview: '預覽',
       move: '移動',
       warn: '提醒',
@@ -820,6 +821,8 @@ export default {
       hint: '提示',
     },
     fileManager: {
+      listView: '列表視圖',
+      cardView: '卡片視圖',
       name: '名稱',
       uploadDate: '上傳日期',
       knowledgeBase: '知識庫',
