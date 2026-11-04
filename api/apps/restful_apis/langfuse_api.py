@@ -17,10 +17,19 @@
 
 from api.apps import current_user, login_required
 from langfuse import Langfuse
+from langfuse.api.core.api_error import ApiError
 
 from api.db.db_models import DB
 from api.db.services.langfuse_service import TenantLangfuseService
 from api.utils.api_utils import get_error_data_result, get_json_result, get_request_json, server_error_response, validate_request
+
+
+def _api_error_message(api_err: ApiError) -> str:
+    """Return Langfuse's own error text without the SDK headers/status dump."""
+    body = getattr(api_err, "body", None)
+    if isinstance(body, dict) and body.get("message"):
+        return str(body["message"])
+    return str(api_err).splitlines()[0]
 
 
 @manager.route("/langfuse/api-key", methods=["POST", "PUT"])  # noqa: F821
@@ -43,8 +52,16 @@ async def set_api_key():
     )
 
     langfuse = Langfuse(public_key=langfuse_keys["public_key"], secret_key=langfuse_keys["secret_key"], host=langfuse_keys["host"])
-    if not langfuse.auth_check():
-        return get_error_data_result(message="Invalid Langfuse keys")
+    # A rejected Langfuse credential is a data error, not an app session error:
+    # the SDK raises ApiError with status 401, and server_error_response() maps any
+    # "401" to UNAUTHORIZED, which logs the user out instead of reporting the failure.
+    try:
+        if not langfuse.auth_check():
+            return get_error_data_result(message="Invalid Langfuse keys")
+    except ApiError as api_err:
+        return get_error_data_result(message=f"Invalid Langfuse keys: {_api_error_message(api_err)}")
+    except Exception as e:
+        return server_error_response(e)
 
     langfuse_entry = TenantLangfuseService.filter_by_tenant(tenant_id=current_user_id)
     with DB.atomic():
@@ -71,8 +88,8 @@ def get_api_key():
     try:
         if not langfuse.auth_check():
             return get_error_data_result(message="Invalid Langfuse keys loaded")
-    except langfuse.api.core.api_error.ApiError as api_err:
-        return get_json_result(message=f"Error from Langfuse: {api_err}")
+    except ApiError as api_err:
+        return get_json_result(message=f"Error from Langfuse: {_api_error_message(api_err)}")
     except Exception as e:
         return server_error_response(e)
 
