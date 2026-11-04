@@ -59,6 +59,22 @@ export function ChunkMethodItem(props: IProps) {
   const form = useFormContext();
   // const handleChunkMethodSelectChange = useHandleChunkMethodSelectChange(form);
   const parserList = useSelectChunkMethodList();
+  // 每种切片方法适用的文档类型，随选项一起展示，避免用户只凭名称猜测。
+  const chunkMethodHints = t('chunkMethodHints', {
+    returnObjects: true,
+  }) as Record<string, string>;
+
+  const getHint = (value?: string) => {
+    if (!value || typeof chunkMethodHints !== 'object' || !chunkMethodHints) {
+      return undefined;
+    }
+    return chunkMethodHints[value];
+  };
+
+  const parserOptions = parserList.map((x) => ({
+    ...x,
+    description: getHint(x.value),
+  }));
 
   return (
     <FormField
@@ -82,10 +98,16 @@ export function ChunkMethodItem(props: IProps) {
               <FormControl>
                 <SelectWithSearch
                   {...field}
-                  options={parserList}
+                  options={parserOptions}
                   placeholder={t('chunkMethodPlaceholder')}
                 />
               </FormControl>
+              {getHint(field.value) && (
+                <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                  {t('chunkMethodHintPrefix')}
+                  {getHint(field.value)}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex pt-1">

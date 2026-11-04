@@ -281,6 +281,13 @@ export function deleteKnowledgeGraph(knowledgeId: string) {
   return request.delete(api.knowledgeGraph(knowledgeId));
 }
 
+export function getChunkGraph(
+  datasetId: string,
+  params?: { granularity?: string; max_chunks?: number; doc_ids?: string },
+) {
+  return request.get(api.chunkGraph(datasetId), { params });
+}
+
 export const listDataset = (params?: IFetchKnowledgeListRequestParams) =>
   request.get(api.kbList, { params });
 

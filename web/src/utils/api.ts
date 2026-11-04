@@ -170,6 +170,10 @@ export default {
     `${restAPIv1}/datasets/${datasetId}/graph`,
   deleteKnowledgeGraph: (knowledgeId: string) =>
     `${restAPIv1}/datasets/${knowledgeId}/graph`,
+  chunkGraph: (datasetId: string) =>
+    `${restAPIv1}/datasets/${datasetId}/chunk-graph`,
+  documentChunkGraph: (datasetId: string, documentId: string) =>
+    `${restAPIv1}/datasets/${datasetId}/documents/${documentId}/chunk-graph`,
   getMeta: `${restAPIv1}/datasets/metadata/flattened`,
   getKnowledgeBasicInfo: (datasetId: string) =>
     `${restAPIv1}/datasets/${datasetId}/ingestions/summary`,

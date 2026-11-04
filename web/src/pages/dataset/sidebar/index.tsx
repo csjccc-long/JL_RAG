@@ -5,7 +5,9 @@ import {
   LucideBookText,
   LucideCog,
   LucideFolderOpen,
+  LucideListTree,
   LucideLogs,
+  LucideNetwork,
   LucideSettings,
   LucideTextSearch,
 } from 'lucide-react';
@@ -48,6 +50,16 @@ export function SideBar({ dataset: data }: PropType) {
         icon: <LucideLogs className="size-[1em]" />,
         label: t(`knowledgeDetails.overview`),
         key: Routes.DataSetOverview,
+      },
+      {
+        icon: <LucideNetwork className="size-[1em]" />,
+        label: t(`knowledgeDetails.knowledgeGraph`),
+        key: Routes.KnowledgeGraph,
+      },
+      {
+        icon: <LucideListTree className="size-[1em]" />,
+        label: t(`knowledgeDetails.structureGraph`),
+        key: Routes.DatasetStructure,
       },
       ...(getBackendLanguage() === 'python'
         ? [

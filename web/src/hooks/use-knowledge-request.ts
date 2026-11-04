@@ -37,6 +37,7 @@ import {
   IWikiCommitListResponse,
 } from '@/interfaces/database/dataset';
 import { type IStructureGraphResponse } from '@/interfaces/database/document-structure';
+import type { ChunkGraphData } from '@/pages/dataset/knowledge-graph/types';
 import {
   IFetchArtifactGraphRequestParams,
   ITestRetrievalRequestBody,
@@ -47,6 +48,7 @@ import kbService, {
   clearWiki,
   deleteArtifactsStructure,
   deleteKnowledgeGraph,
+  getChunkGraph,
   getArtifactsAlteration,
   getArtifactGraph,
   getArtifactPage,
@@ -100,6 +102,7 @@ export const enum KnowledgeApiAction {
   FetchKnowledgeDetail = 'fetchKnowledgeDetail',
   FetchDatasetPipelineConfiguration = 'fetchDatasetPipelineConfiguration',
   FetchKnowledgeGraph = 'fetchKnowledgeGraph',
+  FetchChunkGraph = 'fetchChunkGraph',
   FetchArtifactList = 'fetchArtifactList',
   FetchArtifactTopicList = 'fetchArtifactTopicList',
   FetchArtifactPage = 'fetchArtifactPage',
@@ -779,6 +782,31 @@ export function useFetchKnowledgeGraph() {
   });
 
   return { data, loading };
+}
+
+export const chunkGraphKeys = {
+  all: [KnowledgeApiAction.FetchChunkGraph] as const,
+  dataset: (datasetId: string, granularity: string) =>
+    [...chunkGraphKeys.all, datasetId, granularity] as const,
+};
+
+export function useFetchChunkGraph(granularity: 'sentence' | 'chunk') {
+  const knowledgeBaseId = useKnowledgeBaseId();
+
+  const { data, isFetching, refetch, isError } = useQuery<ChunkGraphData>({
+    queryKey: chunkGraphKeys.dataset(knowledgeBaseId, granularity),
+    enabled: !!knowledgeBaseId,
+    gcTime: 0,
+    queryFn: async () => {
+      const { data } = await getChunkGraph(knowledgeBaseId, {
+        granularity,
+        max_chunks: 400,
+      });
+      return data?.data as ChunkGraphData;
+    },
+  });
+
+  return { data, loading: isFetching, refetch, isError };
 }
 
 export const artifactGraphKeys = {
