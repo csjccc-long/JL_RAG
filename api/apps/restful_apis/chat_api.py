@@ -272,20 +272,65 @@ def _build_default_completion_dialog():
     )
 
 
-async def _create_session_for_completion(chat_id, dialog, user_id, save_session=True):
+_SESSION_NAME_MAX_LEN = 40
+_SESSION_NAME_SPLIT = re.compile(r"[。！？!?；;\n]")
+_SESSION_NAME_TRAILING_REF = re.compile(r"(?:\s*\[[A-Za-z]{0,2}\d+(?:-\d+)?\])+$")
+_SESSION_NAME_WORD = re.compile(r"[0-9A-Za-z\u4e00-\u9fff]")
+
+
+def _derive_session_name(content, default="New session"):
+    """从用户的第一句提问推断会话标题。
+
+    规则：剥离 ERP 拼接的「【历史对话】/【当前问题】」包装与文末的
+    「[r2-6]」这类引用标记，压缩空白后取第一句，超过 40 个字符时截断。
+
+    :param content: 首条用户消息内容
+    :param default: 无法提取时返回的兜底标题
+    :return: 会话标题
+    """
+    if not isinstance(content, str):
+        return default
+    text = content
+    if "【当前问题】" in text:
+        text = text.rsplit("【当前问题】", 1)[1]
+    text = re.sub(r"\s+", " ", text).strip()
+    text = _SESSION_NAME_TRAILING_REF.sub("", text).strip()
+    if not text:
+        return default
+    title = text
+    match = _SESSION_NAME_SPLIT.search(text)
+    if match:
+        # 问号/叹号保留，句号、分号、换行则截断。
+        end = match.end() if match.group() in "？?！!" else match.start()
+        title = text[:end].strip()
+    if not _SESSION_NAME_WORD.search(title):
+        # 首句只剩标点等无意义符号时，退回整段内容。
+        title = text
+    if not _SESSION_NAME_WORD.search(title):
+        return default
+    if len(title) > _SESSION_NAME_MAX_LEN:
+        cut = title[:_SESSION_NAME_MAX_LEN - 1]
+        if " " in cut[10:]:
+            cut = cut[: cut.rfind(" ")]
+        title = cut.rstrip(" ,，、") + "…"
+    return title
+
+
+async def _create_session_for_completion(chat_id, dialog, user_id, save_session=True, name=None):
     """为聊天补全对话创建会话。
 
     :param chat_id: 聊天 ID
     :param dialog: 聊天补全对话
     :param user_id: 用户 ID
     :param save_session: 是否保存会话
+    :param name: 会话标题，缺省时回退为 "New session"
     :return: 会话对象
     """
 
     conv = {
         "id": get_uuid(),
         "dialog_id": chat_id,
-        "name": "New session",
+        "name": name or "New session",
         "message": [{"role": "assistant", "content": dialog.prompt_config.get("prologue", "")}],
         "user_id": user_id,
         "reference": [],
@@ -1002,10 +1047,20 @@ async def create_session(chat_id):
         ok, dia = DialogService.get_by_id(chat_id)
         if not ok:
             return get_data_error_result(message="Chat not found!")
-        name = req.get("name", "New session")
+        name = req.get("name")
+        if not isinstance(name, str) or not name.strip():
+            # 兼容只传问题的调用方：用首条用户消息推断标题。
+            name = req.get("question")
+            if not isinstance(name, str):
+                name = ""
+            if not name.strip() and isinstance(req.get("messages"), list):
+                for m in req["messages"]:
+                    if isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str):
+                        name = m["content"]
+                        break
         if not isinstance(name, str) or not name.strip():
             return get_data_error_result(message="`name` can not be empty")
-        name = name.strip()[:255]
+        name = _derive_session_name(name, default="")[:255]
         conv = {
             "id": get_uuid(),
             "dialog_id": chat_id,
@@ -1520,7 +1575,13 @@ async def session_completion(chat_id_in_arg=""):
                 if conv.dialog_id != chat_id:
                     return get_data_error_result(message="Session does not belong to this chat!")
             else:
-                conv = await _create_session_for_completion(chat_id, dia, current_user.id, save_session=store_history_messages)
+                conv = await _create_session_for_completion(
+                    chat_id,
+                    dia,
+                    current_user.id,
+                    save_session=store_history_messages,
+                    name=_derive_session_name(request_msg[-1].get("content")),
+                )
                 session_id = conv.id
 
             if pass_all_history_messages:
