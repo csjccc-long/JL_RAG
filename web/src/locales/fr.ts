@@ -110,6 +110,8 @@ export default {
       seeAll: 'Voir tout',
     },
     header: {
+      quickAccess: 'Accès rapide',
+      quickLinks: 'Aller à',
       knowledgeBase: 'Base de connaissances',
       chat: 'Discussion',
       register: 'Inscription',

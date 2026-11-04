@@ -57,6 +57,8 @@ export default {
       review: 'Fiscalía General de la Nación',
     },
     header: {
+      quickAccess: 'Acceso rápido',
+      quickLinks: 'Ir a',
       knowledgeBase: 'Base de conocimiento',
       chat: 'Chat',
       register: 'Registro',

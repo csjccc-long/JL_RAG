@@ -2,7 +2,10 @@ import { CardSineLineContainer } from '@/components/card-singleline-container';
 import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
 import { HomeIcon } from '@/components/svg-icon';
-import { Segmented, SegmentedValue } from '@/components/ui/segmented';
+import {
+  default as StaggeredMenu,
+  type StaggeredMenuItem,
+} from '@/components/staggered-menu/staggered-menu';
 import { Routes } from '@/routes';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -55,14 +58,54 @@ export function Applications() {
     [t],
   );
 
-  const handleChange = (path: SegmentedValue) => {
-    setVal(path as Routes);
+  const menuItems = useMemo<StaggeredMenuItem[]>(
+    () =>
+      options.map((option) => ({
+        value: option.value,
+        label: option.label,
+        ariaLabel: option.label,
+        icon: (
+          <HomeIcon
+            name={IconMap[option.value as keyof typeof IconMap]}
+            width={26}
+          />
+        ),
+      })),
+    [options],
+  );
+
+  const quickLinks = useMemo(
+    () => [
+      { label: t('header.dataset'), to: Routes.Datasets },
+      { label: t('header.fileManager'), to: Routes.Files },
+    ],
+    [t],
+  );
+
+  const handleChange = useCallback((item: StaggeredMenuItem) => {
+    if (!item.value) return;
+    setVal(item.value as Routes);
     setListLength(0);
     setLoading(true);
-  };
+  }, []);
 
   return (
-    <section className="mt-12">
+    <>
+      <div className="fixed right-5 top-[76px] z-30">
+        <StaggeredMenu
+          items={menuItems}
+          value={val}
+          triggerLabel={options.find((x) => x.value === val)?.label ?? ''}
+          panelLabel={t('header.quickAccess')}
+          links={quickLinks}
+          linksTitle={t('header.quickLinks')}
+          displayNumbering
+          position="right"
+          onSelect={handleChange}
+        />
+      </div>
+
+      <section className="mt-12">
       <header className="flex justify-between items-center mb-2.5">
         <h2 className="text-2xl font-semibold">
           <HomeIcon
@@ -72,15 +115,6 @@ export function Applications() {
           />
           {options.find((x) => x.value === val)?.label}
         </h2>
-
-        <Segmented
-          buttonSize="sm"
-          options={options}
-          value={val}
-          onChange={handleChange}
-          // className="bg-bg-card border border-border-button rounded-lg"
-          // activeClassName="bg-text-primary border-none rounded-lg"
-        />
       </header>
 
       {/* <div className="flex flex-wrap gap-4"> */}
@@ -123,6 +157,7 @@ export function Applications() {
         </div>
       )}
       {/* </div> */}
-    </section>
+      </section>
+    </>
   );
 }

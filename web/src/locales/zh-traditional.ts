@@ -66,6 +66,8 @@ export default {
       review: '來自 500 多條評論',
     },
     header: {
+      quickAccess: '快捷欄',
+      quickLinks: '快捷入口',
       knowledgeBase: '知識庫',
       chat: '聊天',
       register: '註冊',

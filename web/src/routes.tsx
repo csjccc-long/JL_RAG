@@ -178,8 +178,11 @@ const routeConfigOptions = [
     layout: false,
   },
   {
+    path: Routes.Chat + '/:id',
+    Component: () => import('@/pages/next-chats/chat'),
+  },
+  {
     path: Routes.Root,
-    layout: false,
     Component: () => import('@/layouts/root-layout'),
     loader: ({ request }: { request: Request }) => {
       const url = new URL(request.url);
@@ -193,19 +196,9 @@ const routeConfigOptions = [
     },
     children: [
       {
-        path: Routes.Root,
+        index: true,
         Component: () => import('@/pages/home'),
       },
-    ],
-  },
-  {
-    path: Routes.Chat + '/:id',
-    Component: () => import('@/pages/next-chats/chat'),
-  },
-  {
-    path: Routes.Root,
-    Component: () => import('@/layouts/root-layout'),
-    children: [
       {
         path: Routes.Datasets,
         Component: () => import('@/pages/datasets'),

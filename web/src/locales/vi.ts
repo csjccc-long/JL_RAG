@@ -67,6 +67,8 @@ export default {
       review: 'từ hơn 500 đánh giá',
     },
     header: {
+      quickAccess: 'Truy cập nhanh',
+      quickLinks: 'Đi tới',
       knowledgeBase: 'Cơ sở kiến thức',
       chat: 'Chat',
       register: 'Đăng ký',

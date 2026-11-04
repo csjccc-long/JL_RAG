@@ -142,6 +142,8 @@ export default {
       seeAll: '查看全部',
     },
     header: {
+      quickAccess: '快捷栏',
+      quickLinks: '快捷入口',
       knowledgeBase: '知识库',
       chat: '聊天',
       register: '注册',

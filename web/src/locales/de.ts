@@ -95,6 +95,8 @@ export default {
       review: 'von über 500 Bewertungen',
     },
     header: {
+      quickAccess: 'Schnellzugriff',
+      quickLinks: 'Direkt zu',
       knowledgeBase: 'Wissensdatenbank',
       chat: 'Chat',
       register: 'Registrieren',

@@ -145,6 +145,8 @@ export default {
       seeAll: 'See all',
     },
     header: {
+      quickAccess: 'Quick access',
+      quickLinks: 'Jump to',
       knowledgeBase: 'Dataset',
       chat: 'Chat',
       register: 'Register',

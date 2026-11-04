@@ -69,15 +69,22 @@ export function Header({
             <Link
               to={Routes.Root}
               aria-current={pathname === Routes.Root ? 'page' : undefined}
-              className="flex size-10 shrink-0 items-center justify-center"
+              className="group relative flex size-10 shrink-0 items-center justify-center"
             >
               <img src={'/logo.svg'} alt={`${APP_NAME} logo`} className="size-10" />
+              {/* The tile stays still: only the transparent mark spins on hover. */}
+              <img
+                src={'/logo-mark.png'}
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 size-10 transition-transform duration-700 ease-out group-hover:rotate-[360deg] motion-reduce:transition-none"
+              />
             </Link>
           </div>
         </div>
 
         {!isCompact && (
-          <div className="flex min-w-0 flex-1 justify-center overflow-hidden">
+          <div className="flex min-w-0 flex-1 justify-center">
             <DesktopNavbar />
           </div>
         )}
@@ -152,7 +159,7 @@ export function Header({
         aria-hidden
       >
         <div ref={navMeasureRef}>
-          <DesktopNavbar />
+          <DesktopNavbar effects={false} />
         </div>
         <div
           ref={expandedRightMeasureRef}

@@ -1,6 +1,6 @@
-import { useId, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 
 import { LucideHouse, LucideMenu } from 'lucide-react';
 
@@ -9,8 +9,8 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { APP_NAME } from '@/constants/common';
 import { cn } from '@/lib/utils';
 import { Routes } from '@/routes';
-import { supportsCssAnchor } from '@/utils/css-support';
 import { HomeIcon } from '@/components/svg-icon';
+import GooeyNav, { type GooeyNavItem } from '@/components/gooey-nav/gooey-nav';
 
 const PathMap = {
   [Routes.Datasets]: [Routes.Datasets, Routes.DatasetBase],
@@ -93,113 +93,74 @@ function useActivePath() {
   }, [pathname]);
 }
 
-const DesktopNavbarWithAnchor = () => {
-  const { t } = useTranslation();
-  const activePath = useActivePath();
-  const navbarAnchorNamePrefix = useId().replace(/:/g, '');
+const buildNavItems = (t: (key: string) => string): GooeyNavItem[] =>
+  menuItems.map((item) => {
+    const { path, name } = item;
+    const isHome = path === Routes.Root;
 
-  const activePathAnchorName = `--${navbarAnchorNamePrefix}${activePath === Routes.Root ? '-root' : activePath.replace('/', '-')}`;
+    return {
+      href: path,
+      label: isHome ? undefined : t(name),
+      ariaLabel: t(name),
+      testId: 'data-testid' in item ? item['data-testid'] : undefined,
+      icon: isHome ? <LucideHouse className="size-6 stroke-[1.5]" /> : undefined,
+    };
+  });
 
-  const hasAnyActive = useMemo(
-    () => menuItems.some(({ path }) => path === activePath),
-    [activePath],
-  );
-
-  return (
-    <nav>
-      <ul className="relative flex items-center p-1 bg-bg-card rounded-full border border-border-button">
-        {menuItems.map(({ path, name, icon: Icon, ...props }) => {
-          const isActive = path === activePath;
-          const anchorName = `--${navbarAnchorNamePrefix}${path === Routes.Root ? '-root' : path.replace('/', '-')}`;
-
-          return (
-            <li key={path} className="relative" style={{ anchorName }}>
-              <Link
-                {...props}
-                to={path}
-                className={cn(
-                  'h-10 px-4 xl:px-6 text-sm xl:text-base inline-flex items-center justify-center whitespace-nowrap',
-                  'hover:text-current focus-visible:text-current rounded-full transition-all',
-                  isActive && '!text-bg-base',
-                )}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                {path === Routes.Root ? (
-                  <>
-                    <Icon className="size-6 stroke-[1.5]" />
-                    <span className="sr-only">{t(name)}</span>
-                  </>
-                ) : (
-                  <span>{t(name)}</span>
-                )}
-              </Link>
-            </li>
-          );
-        })}
-
-        <li
-          className={cn(
-            'absolute -z-[1] bg-text-primary border-b-2 border-b-accent-primary rounded-full opacity-0',
-            'transition-all',
-            hasAnyActive && 'opacity-100',
-          )}
-          role="presentation"
-          style={{
-            top: 'anchor(top)',
-            left: 'anchor(left)',
-            width: 'anchor-size(width)',
-            height: 'anchor-size(height)',
-            positionAnchor: activePathAnchorName,
-          }}
-        />
-      </ul>
-    </nav>
-  );
+type DesktopNavbarProps = {
+  /** The hidden width probe renders only the measurable list shell. */
+  effects?: boolean;
 };
 
-const DesktopNavbarFallback = () => {
+export function DesktopNavbar({ effects = true }: DesktopNavbarProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const activePath = useActivePath();
+  const items = useMemo(() => buildNavItems(t), [t]);
+  const activeIndex = menuItems.findIndex(({ path }) => path === activePath);
+
+  const handleNavigate = (
+    event: React.MouseEvent<HTMLElement>,
+    _index: number,
+    item: GooeyNavItem,
+  ) => {
+    if (
+      !item.href ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.button !== 0
+    ) {
+      return;
+    }
+    event.preventDefault();
+    navigate(item.href);
+  };
 
   return (
-    <nav>
-      <ul className="flex items-center p-1 bg-bg-card rounded-full border border-border-button">
-        {menuItems.map(({ path, name, icon: Icon, ...props }) => {
-          const isActive = path === activePath;
-
-          return (
-            <li key={path}>
-              <Link
-                {...props}
-                to={path}
-                className={cn(
-                  'h-10 px-4 xl:px-6 text-sm xl:text-base inline-flex items-center justify-center whitespace-nowrap',
-                  'hover:text-current focus-visible:text-current rounded-full transition-all',
-                  isActive &&
-                    '!text-bg-base bg-text-primary border-b-2 border-b-accent-primary',
-                )}
-                aria-label={t(name)}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                {path === Routes.Root ? (
-                  <Icon className="size-6 stroke-[1.5]" />
-                ) : (
-                  <span>{t(name)}</span>
-                )}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-  );
-};
-
-export function DesktopNavbar() {
-  return supportsCssAnchor ? (
-    <DesktopNavbarWithAnchor />
-  ) : (
-    <DesktopNavbarFallback />
+    <GooeyNav
+      items={items}
+      activeIndex={activeIndex}
+      effects={effects}
+      onNavigate={handleNavigate}
+      className="gooey-nav--rag"
+      color="rgb(var(--text-primary))"
+      activeTextColor="var(--bg-base)"
+      hoverColor="var(--bg-input)"
+      gooeyness={0.45}
+      wobble={0.4}
+      particleCount={12}
+      spread={44}
+      style={{
+        '--gn-frame': 'var(--bg-card)',
+        '--gn-frame-edge': 'var(--border-button)',
+        '--gn-frame-highlight': 'transparent',
+        '--gn-frame-shadow': 'none',
+        '--gn-ink': 'rgb(var(--text-primary))',
+        '--gn-muted': 'rgb(var(--text-secondary) / 0.9)',
+      }}
+    />
   );
 }
 
