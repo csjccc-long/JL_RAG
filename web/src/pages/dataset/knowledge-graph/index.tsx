@@ -30,15 +30,15 @@ import type { ChunkGraphEdge, ChunkGraphNode } from './types';
 type GraphView = 'relation' | 'structure' | 'entity';
 
 const TYPE_DOT: Record<string, string> = {
-  document: '#f59e0b',
-  part: '#60a5fa',
-  chapter: '#38bdf8',
-  section: '#22d3ee',
-  article: '#a78bfa',
-  chunk: '#f472b6',
-  sentence: '#94a3b8',
-  keyword: '#34d399',
-  entity: '#fbbf24',
+  document: '#a9bfd2',
+  part: '#d2c3a8',
+  chapter: '#8398a9',
+  section: '#c3aed2',
+  article: '#a6bda3',
+  chunk: '#6c7f90',
+  sentence: '#dfc7a5',
+  keyword: '#5c6c7a',
+  entity: '#e2d7c6',
 };
 
 const TYPE_ORDER = [

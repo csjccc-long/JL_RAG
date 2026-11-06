@@ -1,16 +1,24 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { LucideX } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
+import GradientWaves from './backgrounds/GradientWaves';
+import Iridescence from './backgrounds/Iridescence';
+import Scanner from './backgrounds/Scanner';
+import Silk from './backgrounds/Silk';
+import { useFlowingBand } from './use-flowing-band';
 import './staggered-menu.css';
 
 export type StaggeredMenuItem = {
   label: string;
   ariaLabel?: string;
   value?: string;
-  icon?: ReactNode;
+  /** Text scrolling through the hover band; defaults to label. */
+  marquee?: string;
+  /** Animated backdrop painted inside the hover band. */
+  effect?: 'waves' | 'silk' | 'scanner' | 'iridescence';
 };
 
 export type StaggeredMenuLink = {
@@ -67,6 +75,23 @@ const StaggeredMenu = ({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
+  const {
+    listRef,
+    copies,
+    activeIndex,
+    registerRow,
+    registerBand,
+    registerTrack,
+    reset,
+    handlePointerMove,
+    handlePointerLeave,
+    handleFocus,
+    handleBlur,
+  } = useFlowingBand();
+
+  useEffect(() => {
+    if (!open) reset();
+  }, [open, reset]);
 
   const setMenuOpen = useCallback(
     (next: boolean) => {
@@ -232,12 +257,21 @@ const StaggeredMenu = ({
         </div>
 
         <ul
+          ref={listRef}
           className="sm-list"
           data-numbering={displayNumbering || undefined}
           onClick={handleListClick}
+          onPointerMove={handlePointerMove}
+          onPointerLeave={handlePointerLeave}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
         >
           {items.map((item, index) => (
-            <li className="sm-item" key={item.value ?? item.label + index}>
+            <li
+              className="sm-item"
+              key={item.value ?? item.label + index}
+              ref={registerRow(index)}
+            >
               <button
                 type="button"
                 className="sm-item-button"
@@ -250,7 +284,6 @@ const StaggeredMenu = ({
                   className="sm-item-label"
                   style={{ '--sm-i': index } as React.CSSProperties}
                 >
-                  <span className="sm-item-icon">{item.icon}</span>
                   <span className="sm-item-text">{item.label}</span>
                 </span>
                 {displayNumbering && (
@@ -259,6 +292,76 @@ const StaggeredMenu = ({
                   </span>
                 )}
               </button>
+              <span
+                className={cn(
+                  'sm-band',
+                  item.effect && 'sm-band--media',
+                  item.effect && `sm-band--${item.effect}`,
+                )}
+                aria-hidden="true"
+                ref={registerBand(index)}
+              >
+                {open && item.effect && (
+                  <span
+                    className={cn(
+                      'sm-band-media',
+                      item.effect === 'waves' && 'sm-band-media--waves',
+                      item.effect === 'scanner' && 'sm-band-media--scanner',
+                      item.effect === 'iridescence' &&
+                        'sm-band-media--iridescence',
+                    )}
+                  >
+                    {item.effect === 'waves' ? (
+                      <GradientWaves
+                        fogDepth={100}
+                        paused={activeIndex !== index}
+                        mouseInteraction={activeIndex === index}
+                        swellOnClick={false}
+                      />
+                    ) : item.effect === 'silk' ? (
+                      <Silk
+                        paused={activeIndex !== index}
+                        mouseInteraction={activeIndex === index}
+                        clickRipple={false}
+                      />
+                    ) : item.effect === 'scanner' ? (
+                      <Scanner
+                        scale={1.35}
+                        bandDensity={8}
+                        lineWidth={1.5}
+                        brightness={1.9}
+                        glow={0.8}
+                        vignette={0.12}
+                        scanlineIntensity={0.3}
+                        sweepSpeed={0.3}
+                        scanline
+                        grain
+                        intro
+                        paused={activeIndex !== index}
+                        mouseInteraction={activeIndex === index}
+                        clickEffect={activeIndex === index ? 'ping' : 'none'}
+                      />
+                    ) : (
+                      <Iridescence
+                        color="#8099cc"
+                        brightness={1.25}
+                        speed={0.8}
+                        paused={activeIndex !== index}
+                        mouseReact={activeIndex === index}
+                        clickSwirl={false}
+                      />
+                    )}
+                  </span>
+                )}
+                {item.effect && <span className="sm-band-shade" />}
+                <span className="sm-band-track" ref={registerTrack(index)}>
+                  {Array.from({ length: copies[index] ?? 3 }, (_, copy) => (
+                    <span className="sm-band-part" key={copy}>
+                      {item.marquee ?? item.label}
+                    </span>
+                  ))}
+                </span>
+              </span>
             </li>
           ))}
         </ul>

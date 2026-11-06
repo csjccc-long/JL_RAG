@@ -1,4 +1,6 @@
+import CrystalizedBall from '@/components/crystalized-ball/CrystalizedBall';
 import { RAGFlowAvatar } from '@/components/ragflow-avatar';
+import { useIsDarkTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
 import { APP_NAME } from '@/constants/common';
 import {
@@ -17,7 +19,7 @@ import { TenantRole } from '@/pages/user-setting/constants';
 import { Routes } from '@/routes';
 import { LucideChevronDown, LucideLanguages } from 'lucide-react';
 import React, { useMemo } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { BellButton } from './bell-button';
 import { DesktopNavbar, MobileNavbar } from './global-navbar';
 import ThemeButton from './theme-button';
@@ -30,7 +32,9 @@ export function Header({
   ...props
 }: React.HTMLAttributes<HTMLElement>) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const changeLanguage = useChangeLanguage();
+  const isDark = useIsDarkTheme();
 
   const {
     data: { language = 'en', avatar, nickname },
@@ -138,18 +142,57 @@ export function Header({
 
           <Link
             to={Routes.UserSetting}
+            aria-label={nickname ? `${nickname} - User settings` : 'User settings'}
             className={cn(
-              'relative flex size-10 shrink-0 items-center justify-center',
+              'group relative flex size-10 shrink-0 items-center justify-center rounded-full outline-none transition-shadow',
+              'focus-visible:ring-2 focus-visible:ring-accent-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base',
               !isCompact && 'ms-3',
             )}
             data-testid="settings-entrypoint"
+            onClick={(event) => {
+              if (
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey ||
+                event.detail === 0
+              ) {
+                return;
+              }
+              event.preventDefault();
+              window.setTimeout(() => navigate(Routes.UserSetting), 420);
+            }}
           >
-            <RAGFlowAvatar
-              name={nickname}
-              avatar={avatar}
-              isPerson
-              className="size-8"
-            />
+            <span aria-hidden className="pointer-events-none block size-10">
+              <CrystalizedBall
+                preset="plasma"
+                color="#F25BD0"
+                theme={isDark ? 'dark' : 'light'}
+                size={0.7}
+                crackle={0.85}
+                fill={0.5}
+                interactive
+                hoverStrength={0.7}
+                strands={6}
+                flares={0.65}
+                glow={0.9}
+                sparks={0.6}
+                particleCount={15000}
+                motion="rise"
+                particleShape="square"
+                depth={0.6}
+                sway={0.5}
+                twinkle={0.5}
+                haze={0.7}
+                dustSpeed={1}
+                speed={1}
+                intro
+                paused={false}
+                burstOnClick
+              />
+            </span>
           </Link>
         </div>
       </header>

@@ -1,0 +1,79 @@
+/* Live 3D mark — a clear glass pinwheel that splits apart on scroll. */
+
+.mark-petals {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.mark-petals__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  -webkit-mask-image: radial-gradient(circle, #000 46%, transparent 74%);
+  mask-image: radial-gradient(circle, #000 46%, transparent 74%);
+  filter: drop-shadow(0 24px 54px rgb(2 5 18 / 0.34));
+}
+
+.mark-petals__fallback {
+  display: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.98;
+  -webkit-mask-image: radial-gradient(circle, #000 44%, transparent 71%);
+  mask-image: radial-gradient(circle, #000 44%, transparent 71%);
+}
+
+.mark-petals[data-fallback='true'] .mark-petals__canvas {
+  display: none;
+}
+
+.mark-petals[data-fallback='true'] .mark-petals__fallback {
+  display: block;
+}
+
+html.light .mark-petals__canvas {
+  filter: drop-shadow(0 24px 54px rgb(30 60 110 / 0.16));
+}
+
+html.light .mark-petals__fallback {
+  mix-blend-mode: screen;
+  opacity: 0.92;
+  filter: brightness(1.18) saturate(0.92)
+    drop-shadow(0 24px 54px rgb(30 60 110 / 0.18));
+}
+
+.mark-petals__canvas--front {
+  z-index: 4;
+  filter: drop-shadow(0 10px 22px rgb(2 5 18 / 0.38));
+  pointer-events: none;
+}
+
+html.light .mark-petals__canvas--front {
+  filter: drop-shadow(0 10px 22px rgb(30 60 110 / 0.16));
+}
+
+.mark-petals__merge {
+  position: absolute;
+  z-index: 2;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  -webkit-mask-image: radial-gradient(circle, #000 34%, transparent 70%);
+  mask-image: radial-gradient(circle, #000 34%, transparent 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark-petals {
+    pointer-events: none;
+  }
+}

@@ -23,6 +23,13 @@ const IconMap = {
   [Routes.Memories]: 'memory',
 };
 
+const MenuPresentation: Record<string, Pick<StaggeredMenuItem, 'marquee' | 'effect'>> = {
+  [Routes.Chats]: { marquee: 'Chats', effect: 'waves' },
+  [Routes.Searches]: { marquee: 'Searches', effect: 'silk' },
+  [Routes.Agents]: { marquee: 'Agents', effect: 'scanner' },
+  [Routes.Memories]: { marquee: 'Memories', effect: 'iridescence' },
+};
+
 const EmptyTypeMap = {
   [Routes.Chats]: EmptyCardType.Chat,
   [Routes.Searches]: EmptyCardType.Search,
@@ -64,12 +71,7 @@ export function Applications() {
         value: option.value,
         label: option.label,
         ariaLabel: option.label,
-        icon: (
-          <HomeIcon
-            name={IconMap[option.value as keyof typeof IconMap]}
-            width={26}
-          />
-        ),
+        ...MenuPresentation[option.value],
       })),
     [options],
   );
