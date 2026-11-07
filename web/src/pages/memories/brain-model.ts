@@ -104,7 +104,11 @@ export interface BrainGeometry {
   stemDir: Float32Array;
   /** one flat xyz polyline per gyrus */
   gyri: Float32Array[];
-  /** latitude / meridian polylines of the cortical surface */
+  /** sulci: folds that run with the brain's gyri (front-to-back waves) */
+  folds: Float32Array[];
+  /** the crest that rides beside each sulcus, one per fold */
+  crests: Float32Array[];
+  /** meridian polylines of the cortical surface */
   mesh: Float32Array[];
 }
 
@@ -179,26 +183,91 @@ export function buildBrainGeometry(): BrainGeometry {
     !(Math.abs(d.x) < 0.075 && d.y > -0.32) &&
     !(d.y < -0.72 && Math.abs(d.x) < 0.3 && d.z < 0.1);
 
-  for (let lat = -0.9; lat <= 0.92; lat += 0.145) {
-    const ringY = Math.sin(lat);
-    const ringR = Math.cos(lat);
-    const pts: number[] = [];
-    const steps = 72;
-    for (let i = 0; i <= steps; i += 1) {
-      const t = (i / steps) * Math.PI * 2;
-      const d = { x: Math.cos(t) * ringR, y: ringY, z: Math.sin(t) * ringR };
-      if (!onSurface(d)) {
-        if (pts.length > 3) mesh.push(new Float32Array(pts));
-        pts.length = 0;
-        continue;
+  // folds: the lines that read as gyri. A latitude with a travelling wobble
+  // runs front-to-back and undulates the way a real sulcus does; each fold is
+  // a pair of strands (the trough and the crest that rides beside it).
+  const folds: Float32Array[] = [];
+  const crests: Float32Array[] = [];
+  const FOLD_BANDS = 15;
+  for (let band = 0; band < FOLD_BANDS; band += 1) {
+    const base = -0.96 + ((band + 0.5) / FOLD_BANDS) * 1.92;
+    const phaseA = rng() * Math.PI * 2;
+    const phaseB = rng() * Math.PI * 2;
+    const phaseC = rng() * Math.PI * 2;
+    const ampA = 0.05 + rng() * 0.05;
+    const ampB = 0.018 + rng() * 0.018;
+    const freqA = 2.8 + rng() * 2.2;
+    const freqB = 7 + rng() * 3;
+    for (let strand = 0; strand < 2; strand += 1) {
+      const offset = strand === 0 ? -0.016 : 0.022;
+      const pts: number[] = [];
+      const steps = 96;
+      for (let i = 0; i <= steps; i += 1) {
+        const theta = -Math.PI + (i / steps) * Math.PI * 2;
+        const phi =
+          base +
+          offset +
+          ampA * Math.sin(freqA * theta + phaseA) +
+          ampB * Math.sin(freqB * theta + phaseB) +
+          0.035 * Math.sin(1.1 * theta + phaseC);
+        const ringR = Math.cos(phi);
+        const d = {
+          x: Math.cos(theta) * ringR,
+          y: Math.sin(phi),
+          z: Math.sin(theta) * ringR,
+        };
+        if (!onSurface(d)) {
+          if (pts.length > 3) {
+            (strand === 0 ? folds : crests).push(new Float32Array(pts));
+          }
+          pts.length = 0;
+          continue;
+        }
+        const p = cortexPoint(d, cortexScale(d));
+        pts.push(p.x, p.y, p.z);
       }
-      const p = cortexPoint(d, cortexScale(d));
-      pts.push(p.x, p.y, p.z);
+      if (pts.length > 3) {
+        (strand === 0 ? folds : crests).push(new Float32Array(pts));
+      }
     }
-    if (pts.length > 3) mesh.push(new Float32Array(pts));
+
+    // a broken secondary fold: real sulci die out instead of ringing the
+    // whole hemisphere, and the stubs are what stop the surface reading as a
+    // latitude grid
+    const partials = 2 + Math.floor(rng() * 2);
+    for (let p = 0; p < partials; p += 1) {
+      const from = rng() * Math.PI * 2 - Math.PI;
+      const span = 0.8 + rng() * 2.2;
+      const drift = 0.06 + rng() * 0.06;
+      const wob = 0.014 + rng() * 0.02;
+      const pts: number[] = [];
+      const steps = 26;
+      for (let i = 0; i <= steps; i += 1) {
+        const theta = from + (i / steps) * span;
+        const phi =
+          base +
+          drift +
+          wob * Math.sin(6.5 * theta + phaseA) +
+          0.02 * Math.sin(2.2 * theta + phaseB);
+        const ringR = Math.cos(phi);
+        const d = {
+          x: Math.cos(theta) * ringR,
+          y: Math.sin(phi),
+          z: Math.sin(theta) * ringR,
+        };
+        if (!onSurface(d)) {
+          if (pts.length > 3) folds.push(new Float32Array(pts));
+          pts.length = 0;
+          continue;
+        }
+        const point = cortexPoint(d, cortexScale(d));
+        pts.push(point.x, point.y, point.z);
+      }
+      if (pts.length > 3) folds.push(new Float32Array(pts));
+    }
   }
 
-  for (let m = 0; m < 12; m += 1) {
+  for (let m = 0; m < 7; m += 1) {
     const theta = (m / 12) * Math.PI * 2;
     const pts: number[] = [];
     const steps = 44;
@@ -229,6 +298,8 @@ export function buildBrainGeometry(): BrainGeometry {
     stem: flatten(stemPts),
     stemDir: flatten(stemDirs),
     gyri,
+    folds,
+    crests,
     mesh,
   };
 }

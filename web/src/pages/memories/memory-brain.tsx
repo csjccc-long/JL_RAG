@@ -11,6 +11,7 @@ import {
   Vec3,
 } from './brain-model';
 import { IMemory } from './interface';
+import { NEURON_SOMA, neuronSprite } from './neuron-shape';
 
 interface IProps {
   memories: IMemory[];
@@ -77,6 +78,10 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
   darkRef.current = dark;
   const [hoverId, setHoverId] = useState<string | null>(null);
   const hoverRef = useRef(-1);
+  const pressedRef = useRef(-1);
+  const enterRef = useRef<{ index: number; start: number } | null>(null);
+  const enterTimer = useRef(0);
+  const [entering, setEntering] = useState(false);
 
   // start from the lateral profile — the view everyone recognises as a brain —
   // and let it breathe around that angle instead of spinning away from it
@@ -180,6 +185,34 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       ctx.fillStyle = halo;
       ctx.fillRect(0, 0, w, h);
 
+      // ---- entering a memory: the camera dives into its neuron, so opening
+      // the detail page reads as travelling inward instead of a page swap
+      const focus = enterRef.current;
+      const focusNeuron = focus ? neurons[focus.index] : undefined;
+      let focusEase = 0;
+      let focusColour = '#54e3d6';
+      if (focus && focusNeuron) {
+        const span = Math.min(
+          1,
+          Math.max(0, (time * 1000 - focus.start) / 620),
+        );
+        focusEase = span * span * (3 - 2 * span);
+        focusColour = TYPE_COLORS[focusNeuron.type][isDark ? 'dark' : 'light'];
+        const fp = project(
+          focusNeuron.pos.x,
+          focusNeuron.pos.y,
+          focusNeuron.pos.z,
+          cx,
+          cy,
+          base,
+        );
+        ctx.save();
+        ctx.translate(cx, cy);
+        const z = 1 + 5.6 * focusEase * focusEase;
+        ctx.scale(z, z);
+        ctx.translate(-fp[0], -fp[1]);
+      }
+
       // ---- neurons: project once, resolve hover once
       const projected: { x: number; y: number; z: number }[] = [];
       let hovered = -1;
@@ -187,7 +220,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       for (const neuron of neurons) {
         const p = project(neuron.pos.x, neuron.pos.y, neuron.pos.z, cx, cy, base);
         projected.push({ x: p[0], y: p[1], z: p[2] });
-        if (pointer.current && !drag.current) {
+        if (pointer.current && !drag.current && !enterRef.current) {
           const d = Math.hypot(p[0] - pointer.current.x, p[1] - pointer.current.y);
           if (d < hoveredDist) {
             hoveredDist = d;
@@ -401,6 +434,48 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         }
       }
 
+      // ---- folds: front-to-back gyri. The sulcus (a dark trough) and its
+      // crest sit side by side and both fade with depth, so the surface reads
+      // as folded cortex rather than as a ruled grid.
+      const drawFolds = (
+        lines: Float32Array[],
+        darkColour: string,
+        lightColour: string,
+        width: number,
+        floor: number,
+        gain: number,
+      ) => {
+        ctx.lineWidth = width;
+        for (const line of lines) {
+          const screen: number[] = [];
+          for (let i = 0; i < line.length; i += 3) {
+            const p = project(line[i], line[i + 1], line[i + 2], cx, cy, base);
+            screen.push(p[0], p[1], p[2]);
+          }
+          for (let i = 3; i < screen.length; i += 3) {
+            const z = (screen[i - 1] + screen[i + 2]) / 2;
+            const depth = Math.min(1, Math.max(0, (z + 1) / 2));
+            const alpha = floor + gain * depth * depth;
+            ctx.strokeStyle = isDark
+              ? `rgba(${darkColour}, ${alpha})`
+              : `rgba(${lightColour}, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(screen[i - 3], screen[i - 2]);
+            ctx.lineTo(screen[i], screen[i + 1]);
+            ctx.stroke();
+          }
+        }
+      };
+      drawFolds(geometry.folds, '3, 22, 24', '14, 78, 74', 2.4, 0.06, 0.36);
+      drawFolds(
+        geometry.crests,
+        '150, 246, 236',
+        '255, 255, 255',
+        1,
+        0.04,
+        0.3,
+      );
+
       // ---- silhouette: the same ring, stroked on top so the contour is crisp
       if (traceOutline()) {
         ctx.strokeStyle = isDark
@@ -424,56 +499,34 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
           ? 0.5
           : Math.sin(time * 1.8 + (neuron.seed % 6.28)) * 0.5 + 0.5;
         const r = neuron.radius * (1 + p.z * 0.04);
-        const glowR = (isHover ? 28 : 16) + pulse * 4;
+        const glowR = (isHover ? 30 : 17) + pulse * 4;
 
         const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowR);
-        glow.addColorStop(0, hexToRgba(colour, isHover ? 0.5 : 0.32));
-        glow.addColorStop(0.45, hexToRgba(colour, 0.12));
+        glow.addColorStop(0, hexToRgba(colour, isHover ? 0.45 : 0.26));
+        glow.addColorStop(0.45, hexToRgba(colour, 0.1));
         glow.addColorStop(1, hexToRgba(colour, 0));
         ctx.fillStyle = glow;
         ctx.beginPath();
         ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
         ctx.fill();
 
-        // dendrites
-        ctx.strokeStyle = hexToRgba(colour, isHover ? 0.8 : 0.42);
-        ctx.lineWidth = 1;
-        for (const arm of neuron.arms) {
-          const ex = p.x + arm.dx * arm.len;
-          const ey = p.y + arm.dy * arm.len;
-          const mx = p.x + arm.dx * arm.len * 0.55 - arm.dy * arm.wobble * 4;
-          const my = p.y + arm.dy * arm.len * 0.55 + arm.dx * arm.wobble * 4;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.quadraticCurveTo(mx, my, ex, ey);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.arc(ex, ey, 1, 0, Math.PI * 2);
-          ctx.fillStyle = hexToRgba(colour, 0.55);
-          ctx.fill();
-        }
-
-        // nucleus: the type colour carries the identity, a white speck is
-        // only the highlight on top of it
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r + 1.4, 0, Math.PI * 2);
-        ctx.fillStyle = hexToRgba(colour, isHover ? 0.55 : 0.32);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = colour;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(p.x - r * 0.26, p.y - r * 0.3, r * 0.32, 0, Math.PI * 2);
-        ctx.fillStyle = isDark
-          ? 'rgba(255, 255, 255, 0.9)'
-          : 'rgba(255, 255, 255, 0.8)';
-        ctx.fill();
+        // the neuron itself: a cached morphology sprite, so the dendrites,
+        // spines and boutons keep their detail at 3px as well as at 300px
+        const sprite = neuronSprite(neuron.seed, colour, isDark);
+        const unit = (r * (isHover ? 1.28 : 1)) / NEURON_SOMA;
+        const drawSize = sprite.width * (unit / 22);
+        ctx.drawImage(
+          sprite,
+          p.x - drawSize / 2,
+          p.y - drawSize / 2,
+          drawSize,
+          drawSize,
+        );
 
         if (isHover) {
           ctx.beginPath();
-          ctx.arc(p.x, p.y, glowR * 0.7, 0, Math.PI * 2);
-          ctx.strokeStyle = hexToRgba(colour, 0.35);
+          ctx.arc(p.x, p.y, glowR * 0.8, 0, Math.PI * 2);
+          ctx.strokeStyle = hexToRgba(colour, 0.32);
           ctx.setLineDash([3, 5]);
           ctx.stroke();
           ctx.setLineDash([]);
@@ -548,12 +601,30 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
           height: h,
         });
       }
+
+      if (focus && focusNeuron) {
+        ctx.restore();
+        // flash: the neuron's light fills the frame just before the route flips
+        const flash = ctx.createRadialGradient(
+          cx,
+          cy,
+          0,
+          cx,
+          cy,
+          Math.max(w, h) * 0.6,
+        );
+        flash.addColorStop(0, hexToRgba(focusColour, 0.5 * focusEase));
+        flash.addColorStop(0.5, hexToRgba(focusColour, 0.18 * focusEase));
+        flash.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = flash;
+        ctx.fillRect(0, 0, w, h);
+      }
     };
 
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       if (document.hidden) return;
-      if (!reduced && sway.current) {
+      if (!reduced && sway.current && !enterRef.current) {
         camera.current.yaw = 1.5 + Math.sin(now / 1000 * 0.16) * 0.42;
       }
       draw(now / 1000);
@@ -564,6 +635,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       cancelAnimationFrame(raf);
       observer.disconnect();
       canvas.removeEventListener('wheel', wheel);
+      window.clearTimeout(enterTimer.current);
     };
   }, [geometry, t]);
 
@@ -575,11 +647,15 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         aria-label={t('brainView')}
         className={cn(
           'absolute inset-0 h-full w-full touch-none select-none',
-          hoverId ? 'cursor-pointer' : 'cursor-grab',
+          entering ? 'cursor-wait' : hoverId ? 'cursor-pointer' : 'cursor-grab',
         )}
         onPointerDown={(event) => {
+          if (enterRef.current) return;
           (event.target as HTMLElement).setPointerCapture(event.pointerId);
           sway.current = false;
+          // remember what is under the cursor now: the first frame after the
+          // press clears the hover, so the click target has to be captured here
+          pressedRef.current = hoverRef.current;
           drag.current = { x: event.clientX, y: event.clientY, moved: 0 };
         }}
         onPointerMove={(event) => {
@@ -604,10 +680,20 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         onPointerUp={() => {
           const state = drag.current;
           drag.current = null;
-          const index = hoverRef.current;
-          if (state && state.moved < 6 && index >= 0) {
-            openRef.current?.(graphRef.current.neurons[index].id);
-          }
+          if (enterRef.current) return;
+          const index = state && state.moved < 6 ? pressedRef.current : -1;
+          pressedRef.current = -1;
+          if (index < 0) return;
+          const neuron = graphRef.current.neurons[index];
+          if (!neuron) return;
+          // dive into the neuron first: the detail page is the inside of it
+          sway.current = false;
+          enterRef.current = { index, start: performance.now() };
+          setEntering(true);
+          window.clearTimeout(enterTimer.current);
+          enterTimer.current = window.setTimeout(() => {
+            openRef.current?.(neuron.id);
+          }, 680);
         }}
         onPointerLeave={() => {
           pointer.current = null;
@@ -651,9 +737,11 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         ))}
       </div>
 
-      <p className="pointer-events-none absolute bottom-2 left-1/2 max-w-full -translate-x-1/2 px-4 text-center text-[11px] text-text-secondary/60">
-        {t('brainHint')}
-      </p>
+      {!entering && (
+        <p className="pointer-events-none absolute bottom-2 left-1/2 max-w-full -translate-x-1/2 px-4 text-center text-[11px] text-text-secondary/60">
+          {t('brainHint')}
+        </p>
+      )}
     </div>
   );
 }
