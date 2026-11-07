@@ -1,10 +1,10 @@
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { MenuCard } from '@/components/menu-card';
 import { useDeleteAgentSession } from '@/hooks/use-agent-request';
 import { IAgentLogResponse } from '@/interfaces/database/agent';
 import { Trash2 } from 'lucide-react';
@@ -52,7 +52,7 @@ export function SessionDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent>
+      <MenuCard>
         <ConfirmDeleteDialog onOk={handleDelete}>
           <DropdownMenuItem
             className="text-state-error"
@@ -66,7 +66,7 @@ export function SessionDropdown({
             {t('common.delete')} <Trash2 />
           </DropdownMenuItem>
         </ConfirmDeleteDialog>
-      </DropdownMenuContent>
+      </MenuCard>
     </DropdownMenu>
   );
 }

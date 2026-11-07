@@ -98,6 +98,7 @@ export function SingleChatBox({ conversation }: IProps) {
               nickname={userInfo.nickname}
               avatar={userInfo.avatar}
               avatarDialog={currentDialog.icon}
+              avatarSeed={currentDialog.id}
               reference={messageReferences.get(message) ?? EmptyReference}
               clickDocumentButton={clickDocumentButton}
               index={i}

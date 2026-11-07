@@ -291,13 +291,18 @@ export function getChunkGraph(
 export const listDataset = (params?: IFetchKnowledgeListRequestParams) =>
   request.get(api.kbList, { params });
 
-// Fetch datasets by a set of IDs via the `ids` query param (comma-joined).
-// Used to echo back already-selected datasets whose names are not present
-// in the first page of the paginated list.
-export const listDatasetByIds = (ids: string[]) =>
-  request.get(api.kbList, {
-    params: { ids: ids.join(','), page_size: ids.length },
-  });
+// Fetch datasets by a set of IDs. The list endpoint only understands a single
+// `id` filter — it answers `ids` with code 101 "Extra inputs are not
+// permitted" — so resolve each id on its own and merge the results. Used to
+// echo back already-selected datasets whose names are not present in the first
+// page of the paginated list.
+export const listDatasetByIds = async (ids: string[]) => {
+  const responses = await Promise.all(
+    ids.map((id) => request.get(api.kbList, { params: { id, page_size: 1 } })),
+  );
+  const datasets = responses.flatMap((response) => response?.data?.data ?? []);
+  return { data: { code: 0, data: datasets } };
+};
 
 export const datasetFilter = () => request.get(api.datasetFilter);
 

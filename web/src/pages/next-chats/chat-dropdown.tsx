@@ -4,11 +4,11 @@ import {
 } from '@/components/confirm-delete-dialog';
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { MenuCard } from '@/components/menu-card';
 import { useDeleteChat } from '@/hooks/use-chat-request';
 import { IDialog } from '@/interfaces/database/chat';
 import { PenLine, Trash2 } from 'lucide-react';
@@ -43,7 +43,7 @@ export function ChatDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent>
+      <MenuCard>
         <DropdownMenuItem onClick={handleShowChatRenameModal}>
           {t('common.rename')} <PenLine />
         </DropdownMenuItem>
@@ -72,7 +72,7 @@ export function ChatDropdown({
             {t('common.delete')} <Trash2 />
           </DropdownMenuItem>
         </ConfirmDeleteDialog>
-      </DropdownMenuContent>
+      </MenuCard>
     </DropdownMenu>
   );
 }

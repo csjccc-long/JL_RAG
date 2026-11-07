@@ -1,10 +1,10 @@
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { MenuCard } from '@/components/menu-card';
 import {
   useGetChatSearchParams,
   useRemoveSessions,
@@ -60,7 +60,7 @@ export function ConversationDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent>
+      <MenuCard>
         <ConfirmDeleteDialog onOk={handleDelete}>
           <DropdownMenuItem
             className="text-state-error"
@@ -76,7 +76,7 @@ export function ConversationDropdown({
             {t('common.delete')} <Trash2 />
           </DropdownMenuItem>
         </ConfirmDeleteDialog>
-      </DropdownMenuContent>
+      </MenuCard>
     </DropdownMenu>
   );
 }

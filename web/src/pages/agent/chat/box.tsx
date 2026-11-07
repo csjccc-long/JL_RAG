@@ -113,6 +113,7 @@ function AgentChatBox() {
                   nickname={userInfo.nickname}
                   avatar={userInfo.avatar}
                   avatarDialog={canvasInfo.avatar}
+                  avatarSeed={canvasInfo.id}
                   item={message}
                   reference={findReferenceByMessageId(message.id)}
                   clickDocumentButton={clickDocumentButton}

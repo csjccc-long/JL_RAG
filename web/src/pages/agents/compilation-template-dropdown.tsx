@@ -4,10 +4,10 @@ import {
 } from '@/components/confirm-delete-dialog';
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { MenuCard } from '@/components/menu-card';
 import { ICompilationTemplateGroup } from '@/interfaces/database/compilation-template';
 import { Trash2 } from 'lucide-react';
 import { PropsWithChildren, useCallback } from 'react';
@@ -34,7 +34,7 @@ export function CompilationTemplateDropdown({
       <DropdownMenuTrigger asChild>
         <div onClick={(e) => e.stopPropagation()}>{children}</div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <MenuCard align="end">
         <ConfirmDeleteDialog
           title={t('setting.deleteTemplateGroupModalTitle')}
           content={{
@@ -52,7 +52,7 @@ export function CompilationTemplateDropdown({
             <Trash2 className="size-4" />
           </DropdownMenuItem>
         </ConfirmDeleteDialog>
-      </DropdownMenuContent>
+      </MenuCard>
     </DropdownMenu>
   );
 }

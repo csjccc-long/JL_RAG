@@ -136,6 +136,7 @@ export const AgentLogDetailModal: React.FC<CustomModalProps> = ({
                 nickname={userInfo.nickname}
                 avatar={userInfo.avatar}
                 avatarDialog={canvasInfo.avatar}
+                avatarSeed={canvasInfo.id}
                 item={message as IMessage}
                 reference={buildReferenceObject(msg.reference)}
                 index={i}

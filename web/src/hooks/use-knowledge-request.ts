@@ -939,9 +939,11 @@ export function useFetchKnowledgeMetadataKeys(kbIds: string[] = []) {
     gcTime: 0,
     queryFn: async () => {
       const { data } = await kbService.getMetaKeys({
-        kb_ids: sortedKbIds.join(','),
+        dataset_ids: sortedKbIds.join(','),
       });
-      return data?.data ?? [];
+      // Backend returns {field: {value: [docIds]}}; only the field names are needed here.
+      const meta = data?.data;
+      return meta && typeof meta === 'object' ? Object.keys(meta) : [];
     },
   });
 

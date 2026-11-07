@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Segmented, SegmentedValue } from '@/components/ui/segmented';
 import { useRowSelection } from '@/hooks/logic-hooks/use-row-selection';
-import { useFetchFileList } from '@/hooks/use-file-request';
+import { useFetchFileList, useGetFolderId } from '@/hooks/use-file-request';
 import { LayoutGrid, List, LucidePlus } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,7 @@ import { CreateFolderDialog } from './create-folder-dialog';
 import { FileBreadcrumb } from './file-breadcrumb';
 import { FilesTable } from './files-table';
 import { FolderGrid } from './folder-grid';
+import { FolderTreeMenu } from './folder-tree-menu';
 import {
   useHandleConnectToKnowledge,
   UseHandleConnectToKnowledgeReturnType,
@@ -27,7 +28,10 @@ import { MoveDialog } from './move-dialog';
 import { useBulkOperateFile } from './use-bulk-operate-file';
 import { useHandleCreateFolder } from './use-create-folder';
 import { useHandleMoveFile } from './use-move-file';
-import { useSelectBreadcrumbItems } from './use-navigate-to-folder';
+import {
+  useNavigateToOtherFolder,
+  useSelectBreadcrumbItems,
+} from './use-navigate-to-folder';
 import { useHandleUploadFile } from './use-upload-file';
 
 type FileViewMode = 'list' | 'cards';
@@ -113,6 +117,8 @@ export default function Files() {
   });
 
   const breadcrumbItems = useSelectBreadcrumbItems();
+  const folderId = useGetFolderId();
+  const navigateToOtherFolder = useNavigateToOtherFolder();
 
   const leftPanel = (
     <div>
@@ -155,7 +161,12 @@ export default function Files() {
           searchString={searchString}
           onSearchChange={handleInputChange}
           showFilter={false}
-          icon={'file'}
+          icon={
+            <FolderTreeMenu
+              currentFolderId={folderId}
+              onSelectFolder={navigateToOtherFolder}
+            />
+          }
           preChildren={viewModeSwitch}
         >
           <DropdownMenu>

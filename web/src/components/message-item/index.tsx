@@ -32,8 +32,8 @@ import MarkdownContent from '../markdown-content';
 import { ReferenceDocumentList } from '../next-message-item/reference-document-list';
 import { ReferenceImageList } from '../next-message-item/reference-image-list';
 import { UploadedMessageFiles } from '../next-message-item/uploaded-message-files';
+import { AgentAvatar } from '../agent-avatar';
 import { RAGFlowAvatar } from '../ragflow-avatar';
-import SvgIcon from '../svg-icon';
 import { useTheme } from '../theme-provider';
 import { AssistantGroupButton, UserGroupButton } from './group-button';
 import styles from './index.module.less';
@@ -47,6 +47,8 @@ interface IProps extends Partial<IRemoveMessageById>, IRegenerateMessage {
   nickname?: string;
   avatar?: string;
   avatarDialog?: string | null;
+  /** Stable per-chat seed for the assistant orb's wash colour. */
+  avatarSeed?: string;
   clickDocumentButton?: (documentId: string, chunk: IReferenceChunk) => void;
   index: number;
   showLikeButton?: boolean;
@@ -59,6 +61,7 @@ const MessageItem = ({
   loading = false,
   avatar,
   avatarDialog,
+  avatarSeed,
   sendLoading = false,
   clickDocumentButton,
   index,
@@ -124,11 +127,7 @@ const MessageItem = ({
                 isPerson
               />
             ) : (
-              <SvgIcon
-                name={'assistant'}
-                width={'100%'}
-                className={cn('size-10 fill-current')}
-              ></SvgIcon>
+              <AgentAvatar seed={avatarSeed} size={40} />
             ))}
 
           <section className="flex min-w-0 gap-2 flex-1 flex-col">

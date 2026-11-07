@@ -108,6 +108,16 @@ export default {
           DEFAULT: 'rgb(var(--state-error) / <alpha-value>)',
           5: 'rgba(var(--state-error) / 0.05)', // 5%
         },
+        'menu-surface': 'rgb(var(--menu-surface) / <alpha-value>)',
+        'menu-surface-tint': 'rgb(var(--menu-surface-tint) / <alpha-value>)',
+        'menu-border': 'var(--menu-border)',
+        'menu-text': 'rgb(var(--menu-text) / <alpha-value>)',
+        'menu-hover': 'rgb(var(--menu-hover) / <alpha-value>)',
+        'menu-hover-text': 'rgb(var(--menu-hover-text) / <alpha-value>)',
+        'menu-danger': 'rgb(var(--menu-danger) / <alpha-value>)',
+        'vinyl-base': 'rgb(var(--vinyl-base) / <alpha-value>)',
+        'vinyl-groove': 'rgb(var(--vinyl-groove) / <alpha-value>)',
+        'vinyl-sheen': 'rgb(var(--vinyl-sheen) / <alpha-value>)',
         'team-group': 'var(--team-group)',
         'team-member': 'var(--team-member)',
         'team-department': 'var(--team-department)',
@@ -202,6 +212,25 @@ export default {
           '15.625%': { transform: 'rotate(-9.5deg)' },
           '21.875%': { transform: 'rotate(7.5deg)' },
         },
+        'copy-fill': {
+          '0%': { transform: 'rotate(0deg) scale(0)', opacity: '0' },
+          '50%': { transform: 'rotate(-10deg) scale(1.2)' },
+        },
+        'vinyl-spin': {
+          from: { transform: 'rotate(0deg)' },
+          to: { transform: 'rotate(360deg)' },
+        },
+        'feedback-jump': {
+          '0%': { transform: 'translateY(0) rotate(0deg)' },
+          '50%': {
+            transformOrigin: 'center',
+            transform: 'translateY(-0.28rem) rotate(-8deg)',
+          },
+          '100%': {
+            transformOrigin: 'center',
+            transform: 'translateY(0) rotate(0deg)',
+          },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -210,6 +239,9 @@ export default {
         'spin-reverse': 'spin-reverse 1s linear infinite',
         'bell-shake':
           'bell-shake 2s 1s cubic-bezier(0.33, 1, 0.68, 1) infinite',
+        'copy-fill': 'copy-fill 0.5s',
+        'feedback-jump': 'feedback-jump 0.5s ease-in-out',
+        'vinyl-spin': 'vinyl-spin 4s linear infinite',
       },
     },
   },

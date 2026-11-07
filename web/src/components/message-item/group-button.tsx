@@ -23,17 +23,17 @@ import {
 } from '@/components/ui/tooltip';
 import { useSetModalState } from '@/hooks/common-hooks';
 import { IRemoveMessageById } from '@/hooks/logic-hooks';
+import { IFeedbackRequestBody } from '@/interfaces/request/chat';
 import { cn } from '@/lib/utils';
 import {
   LucidePauseCircle,
   LucideRefreshCw,
-  LucideThumbsDown,
-  LucideThumbsUp,
   LucideTrash2,
   LucideVolume2,
 } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FeedbackCard } from '../feedback-card';
 import FeedbackDialog from '../feedback-dialog';
 import { PromptDialog } from '../prompt-dialog';
 import { Button } from '../ui/button';
@@ -66,14 +66,47 @@ export const AssistantGroupButton = ({
   const { t } = useTranslation();
   const { handleRead, ref, isPlaying } = useSpeech(content, audioBinary);
 
-  const handleLike = useCallback(() => {
-    onFeedbackOk({ thumbup: true });
-  }, [onFeedbackOk]);
+  const [thumb, setThumb] = useState<'up' | 'down' | null>(null);
+  const submittedRef = useRef(false);
+  const revertToRef = useRef<'up' | 'down' | null>(null);
+
+  const handleLike = useCallback(async () => {
+    if (thumb === 'up') {
+      return;
+    }
+    setThumb('up');
+    await onFeedbackOk({ thumbup: true });
+  }, [onFeedbackOk, thumb]);
+
+  const handleDislike = useCallback(() => {
+    submittedRef.current = false;
+    revertToRef.current = thumb;
+    setThumb('down');
+    showModal();
+  }, [showModal, thumb]);
+
+  const handleFeedbackOk = useCallback(
+    async (params: IFeedbackRequestBody) => {
+      submittedRef.current = true;
+      await onFeedbackOk(params);
+    },
+    [onFeedbackOk],
+  );
+
+  const handleHideFeedback = useCallback(() => {
+    hideModal();
+    if (!submittedRef.current) {
+      setThumb(revertToRef.current);
+    }
+  }, [hideModal]);
 
   return (
     <>
       <div
-        className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+        className={cn(
+          'flex gap-1 transition-opacity',
+          thumb ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+        )}
         role="toolbar"
       >
         <CopyToClipboard
@@ -106,23 +139,24 @@ export const AssistantGroupButton = ({
         )}
         {showLikeButton && (
           <>
-            <Button
-              variant="transparent"
-              size="icon-xs"
-              className="border-0"
-              onClick={handleLike}
-            >
-              <LucideThumbsUp />
-            </Button>
-
-            <Button
-              variant="transparent"
-              size="icon-xs"
-              className="border-0"
-              onClick={showModal}
-            >
-              <LucideThumbsDown />
-            </Button>
+            <FeedbackCard
+              kind="like"
+              active={thumb === 'up'}
+              label={t('chat.liked')}
+              ariaLabel={t('chat.like')}
+              onActivate={handleLike}
+              disabled={loading}
+              testId="assistant-like-button"
+            />
+            <FeedbackCard
+              kind="dislike"
+              active={thumb === 'down'}
+              label={t('chat.disliked')}
+              ariaLabel={t('chat.dislike')}
+              onActivate={handleDislike}
+              disabled={loading}
+              testId="assistant-dislike-button"
+            />
           </>
         )}
         {prompt && (
@@ -139,8 +173,8 @@ export const AssistantGroupButton = ({
       {visible && (
         <FeedbackDialog
           visible={visible}
-          hideModal={hideModal}
-          onOk={onFeedbackOk}
+          hideModal={handleHideFeedback}
+          onOk={handleFeedbackOk}
           loading={loading}
         ></FeedbackDialog>
       )}

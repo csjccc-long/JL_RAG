@@ -107,6 +107,20 @@
     --state-warning: 250 173 20;
     --state-error: 216 73 75;
 
+    /* dropdown menu card (MoreButton menus) */
+    --menu-surface: 255 255 255;
+    --menu-surface-tint: 247 244 251;
+    --menu-border: rgba(0, 0, 0, 0.08);
+    --menu-text: 110 116 128;
+    --menu-hover: 83 83 255;
+    --menu-hover-text: 255 255 255;
+    --menu-danger: 142 42 42;
+
+    /* vinyl half-ring on the memory card */
+    --vinyl-base: 26 26 29;
+    --vinyl-groove: 62 62 68;
+    --vinyl-sheen: 150 150 160;
+
     --team-group: #5ab77e;
     --team-member: #5c96c8;
     --team-department: #8866d3;
@@ -201,6 +215,20 @@
     --bg-input: rgba(255, 255, 255, 0.05);
     --bg-canvas: 0 0 0;
     --bg-list: 56 56 58;
+
+    /* dropdown menu card (MoreButton menus) */
+    --menu-surface: 36 40 50;
+    --menu-surface-tint: 37 28 40;
+    --menu-border: rgba(66, 67, 74, 1);
+    --menu-text: 126 133 144;
+    --menu-hover: 83 83 255;
+    --menu-hover-text: 255 255 255;
+    --menu-danger: 142 42 42;
+
+    /* vinyl half-ring on the memory card */
+    --vinyl-base: 22 22 25;
+    --vinyl-groove: 52 52 58;
+    --vinyl-sheen: 150 150 162;
 
     /* #f6f6f7 */
     --text-primary: 246 246 247;

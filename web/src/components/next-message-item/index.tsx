@@ -44,8 +44,8 @@ import { Atom, ChevronDown, ChevronUp } from 'lucide-react';
 import { DocumentDownloadButton } from '../document-download-button';
 import { LoadingDots } from '../loading-dots';
 import MarkdownContent from '../next-markdown-content';
+import { AgentAvatar } from '../agent-avatar';
 import { RAGFlowAvatar } from '../ragflow-avatar';
-import SvgIcon from '../svg-icon';
 import { useTheme } from '../theme-provider';
 import { Button } from '../ui/button';
 import { AssistantGroupButton, UserGroupButton } from './group-button';
@@ -67,6 +67,8 @@ interface IProps
   nickname?: string;
   avatar?: string;
   avatarDialog?: string | null;
+  /** Stable per-agent seed for the assistant orb's wash colour. */
+  avatarSeed?: string;
   agentName?: string;
   clickDocumentButton?: (documentId: string, chunk: IReferenceChunk) => void;
   index: number;
@@ -85,6 +87,7 @@ function MessageItem({
   loading = false,
   avatar,
   avatarDialog,
+  avatarSeed,
   agentName,
   sendLoading = false,
   clickDocumentButton,
@@ -218,11 +221,7 @@ function MessageItem({
                 isPerson
               />
             ) : (
-              <SvgIcon
-                name={'assistant'}
-                width={'100%'}
-                className={cn('size-10 fill-current')}
-              ></SvgIcon>
+              <AgentAvatar seed={avatarSeed} size={40} />
             ))}
           <section className="flex-col gap-2 flex-1">
             <div className="flex justify-between items-center">

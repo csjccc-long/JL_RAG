@@ -4,11 +4,11 @@ import {
 } from '@/components/confirm-delete-dialog';
 import {
   DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { MenuCard } from '@/components/menu-card';
 import { useDeleteAgent } from '@/hooks/use-agent-request';
 import { IFlow } from '@/interfaces/database/agent';
 import { PenLine, Tag, Trash2 } from 'lucide-react';
@@ -56,7 +56,7 @@ export function AgentDropdown({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-        <DropdownMenuContent>
+        <MenuCard>
           <DropdownMenuItem onClick={handleShowAgentRenameModal}>
             {t('common.rename')} <PenLine />
           </DropdownMenuItem>
@@ -88,7 +88,7 @@ export function AgentDropdown({
               {t('common.delete')} <Trash2 />
             </DropdownMenuItem>
           </ConfirmDeleteDialog>
-        </DropdownMenuContent>
+        </MenuCard>
       </DropdownMenu>
       <AgentTagEditor
         agent={agent}

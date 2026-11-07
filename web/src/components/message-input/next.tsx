@@ -30,14 +30,22 @@ import {
 } from '@/components/file-upload';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { CircleStop, Globe, Paperclip, Send, Upload, X } from 'lucide-react';
+import { ArrowUp, Globe, Paperclip, Square, Upload, X } from 'lucide-react';
 import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import storage from '@/utils/authorization-util';
-import { SelectWithSearch } from '../originui/select-with-search';
 import { AudioButton } from '../ui/audio-button';
+import { EffortSlider } from '../effort-slider';
+
+const ComposerDivider = () => (
+  <div
+    aria-hidden
+    className="mx-0.5 h-5 w-px shrink-0 rounded-full bg-gradient-to-b from-transparent via-border-default to-transparent"
+  />
+);
 
 export type NextMessageInputOnPressEnterParameter = {
   enableThinking?: string;
@@ -147,30 +155,6 @@ export function NextMessageInput({
     };
   }, [isResizing]);
 
-  const thinkingOptions = [
-    {
-      label: t('chat.thinkingLevelUltra'),
-      value: '4',
-      description: t('chat.thinkingLevelUltraDescription'),
-    },
-    {
-      label: t('chat.thinkingLevelHigh'),
-      value: '3',
-      description: t('chat.thinkingLevelHighDescription'),
-    },
-    {
-      label: t('chat.thinkingLevelMedium'),
-      value: '2',
-      description: t('chat.thinkingLevelMediumDescription'),
-    },
-    {
-      label: t('chat.thinkingLevelLow'),
-      value: '1',
-      description: t('chat.thinkingLevelLowDescription'),
-    },
-    { label: t('chat.thinkingLevelNone'), value: '0' },
-  ];
-
   const handleThinkingChange = useCallback((value: string) => {
     setEnableThinking(value);
     storage.setThinkingLevel(value);
@@ -274,9 +258,10 @@ export function NextMessageInput({
       <form
         onSubmit={onSubmit}
         className="
-          relative flex w-full flex-col gap-2.5 rounded-md
-          border-0.5 border-border-default bg-bg-card p-2 outline-none
-          has-[textarea:focus]:outline-accent-primary has-[textarea:focus]:outline-1 has-[textarea:focus]:outline-offset-2
+          group/composer relative flex w-full flex-col gap-2 rounded-3xl
+          border border-border-button bg-bg-component p-2.5 shadow-md
+          transition-all duration-300 outline-none
+          focus-within:border-accent-primary/60 focus-within:shadow-lg
         "
       >
         {resize === 'vertical' && (
@@ -284,18 +269,22 @@ export function NextMessageInput({
             type="button"
             onMouseDown={handleResizeStart}
             aria-label={t('common.dragToResize')}
-            className="absolute -top-0.5 left-1/2 z-10 flex h-1 w-12 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full border border-border-default bg-bg-card transition-colors hover:border-accent-primary"
+            className="absolute -top-1 left-1/2 z-10 flex h-2.5 w-12 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full opacity-0 transition-opacity duration-200 group-hover/composer:opacity-100"
           >
-            <span className="h-0.5 w-full rounded-full bg-border-button" />
+            <span className="h-1 w-10 rounded-full bg-border-default" />
           </button>
         )}
         <FileUploadList
           orientation="horizontal"
-          className="overflow-x-auto px-0 py-1"
+          className="gap-2 overflow-x-auto px-0.5 py-1"
         >
           {files.map((file, index) => (
-            <FileUploadItem key={index} value={file} className="max-w-52 p-1.5">
-              <FileUploadItemPreview className="size-8 [&>svg]:size-5">
+            <FileUploadItem
+              key={index}
+              value={file}
+              className="max-w-52 rounded-2xl border border-border-button bg-bg-card/60 p-1.5"
+            >
+              <FileUploadItemPreview className="size-9 overflow-hidden rounded-lg [&>svg]:size-5">
                 <FileUploadItemProgress variant="fill" />
               </FileUploadItemPreview>
               <FileUploadItemMetadata size="sm" />
@@ -319,54 +308,74 @@ export function NextMessageInput({
           onChange={onInputChange}
           placeholder={t('chat.messagePlaceholder')}
           className="
-            min-h-10 max-h-[400px] w-full p-0 overflow-auto
-            !outline-none !border-transparent !bg-transparent !shadow-none !ring-transparent !ring-offset-transparent
+            !min-h-[44px] max-h-[400px] w-full resize-none overflow-auto
+            border-0 bg-transparent px-1.5 py-1 text-base leading-relaxed md:text-base
+            !outline-none !shadow-none !ring-0 !ring-offset-0
+            placeholder:text-text-disabled
           "
           disabled={isUploading || disabled || sendLoading}
           onKeyDown={handleKeyDown}
           resize={resize === 'vertical' ? 'none' : resize}
-          autoSize={isManualMode ? undefined : { minRows: 2, maxRows: 8 }}
+          autoSize={isManualMode ? undefined : { minRows: 1, maxRows: 8 }}
         />
 
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-1">
             {showUploadIcon && (
               <FileUploadTrigger asChild>
                 <Button
                   type="button"
-                  size="icon-xs"
-                  variant="transparent"
-                  className="rounded-sm border-0"
+                  size="icon"
+                  variant="ghost"
+                  className="shrink-0 rounded-full text-text-secondary hover:bg-bg-card hover:text-text-primary"
                   disabled={isUploading || sendLoading}
                   data-testid="chat-detail-attach"
                 >
-                  <Paperclip className="size-3.5" />
+                  <Paperclip className="size-4" />
                   <span className="sr-only">{t('common.attachFile')}</span>
                 </Button>
               </FileUploadTrigger>
             )}
 
             {showReasoning && (
-              <SelectWithSearch
+              <EffortSlider
                 value={enableThinking}
-                options={thinkingOptions}
                 onChange={handleThinkingChange}
-                triggerClassName="h-7 border-0 !bg-bg-card text-sm"
+                disabled={isUploading || sendLoading}
                 testId="chat-detail-thinking-toggle"
               />
             )}
 
             {showInternet && (
-              <Button
-                type="button"
-                variant={enableInternet ? 'accent' : 'transparent'}
-                size="icon-xs"
-                className="border-0"
-                onClick={handleInternetToggle}
-                data-testid="chat-detail-internet-toggle"
-              >
-                <Globe />
-              </Button>
+              <>
+                <ComposerDivider />
+                <button
+                  type="button"
+                  onClick={handleInternetToggle}
+                  aria-pressed={enableInternet}
+                  data-testid="chat-detail-internet-toggle"
+                  className={cn(
+                    'flex h-8 shrink-0 items-center gap-1 rounded-full border px-2 text-xs transition-all duration-200',
+                    enableInternet
+                      ? 'border-accent-primary/40 bg-accent-primary/10 text-accent-primary'
+                      : 'border-transparent text-text-secondary hover:bg-bg-card hover:text-text-primary',
+                  )}
+                >
+                  <Globe className="size-4 shrink-0" />
+                  <span
+                    className={cn(
+                      'grid overflow-hidden transition-all duration-200',
+                      enableInternet
+                        ? 'grid-cols-[1fr] opacity-100'
+                        : 'grid-cols-[0fr] opacity-0',
+                    )}
+                  >
+                    <span className="overflow-hidden whitespace-nowrap text-left">
+                      {t('chat.internetSearch')}
+                    </span>
+                  </span>
+                </button>
+              </>
             )}
           </div>
 
@@ -374,12 +383,14 @@ export function NextMessageInput({
             <Button
               data-testid="chat-stream-status"
               onClick={stopOutputMessage}
-              size="icon-xs"
+              size="icon"
+              className="shrink-0 rounded-full"
             >
-              <CircleStop />
+              <Square className="size-3.5 fill-current" />
+              <span className="sr-only">{t('common.stop')}</span>
             </Button>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-1">
               <AudioButton
                 onOk={(value) => {
                   setAudioInputValue(value);
@@ -388,13 +399,14 @@ export function NextMessageInput({
               />
 
               <Button
-                size="icon-xs"
+                size="icon"
+                className="rounded-full"
                 disabled={
                   sendDisabled || isUploading || sendLoading || !value.trim()
                 }
                 data-testid="chat-detail-send"
               >
-                <Send />
+                <ArrowUp className="size-4" />
                 <span className="sr-only">{t('common.sendMessage')}</span>
               </Button>
             </div>

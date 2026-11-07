@@ -1,4 +1,4 @@
-import { CardContainer } from '@/components/card-container';
+import { BrainLogo } from '@/components/brain-logo';
 import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
 import ListFilterBar from '@/components/list-filter-bar';
@@ -80,7 +80,7 @@ export default function MemoryList() {
         >
           <header className="mb-4 min-w-0 px-5 pt-8">
             <ListFilterBar
-              icon="memory"
+              icon={<BrainLogo className="size-[1.1em] shrink-0" />}
               title={t('memory')}
               onSearchChange={handleInputChange}
               searchString={searchString}
@@ -97,7 +97,7 @@ export default function MemoryList() {
 
           {list?.data?.memory_list?.length ? (
             <>
-              <CardContainer className="flex-1 overflow-auto px-5">
+              <div className="grid flex-1 content-start gap-x-32 gap-y-5 overflow-auto px-5 grid-cols-[repeat(auto-fill,minmax(248px,1fr))]">
                 {list?.data.memory_list.map((x) => (
                   <MemoryCard
                     key={x.id}
@@ -108,7 +108,7 @@ export default function MemoryList() {
                     }}
                   />
                 ))}
-              </CardContainer>
+              </div>
 
               <footer className="mt-4 px-5 pb-5">
                 <RAGFlowPagination
