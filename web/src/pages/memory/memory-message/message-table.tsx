@@ -465,7 +465,11 @@ export function MemoryTable({
             {selectedMessageContent?.content_embed && (
               <div className="flex gap-2 items-center">
                 <CopyToClipboard
-                  text={selectedMessageContent?.content_embed}
+                  text={
+                    Array.isArray(selectedMessageContent?.content_embed)
+                      ? selectedMessageContent.content_embed.join(', ')
+                      : (selectedMessageContent?.content_embed ?? '')
+                  }
                   onCopy={() => {
                     setCopied(true);
                     setTimeout(() => setCopied(false), 1000);

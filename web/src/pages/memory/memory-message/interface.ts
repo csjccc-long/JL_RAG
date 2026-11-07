@@ -30,5 +30,6 @@ export interface IMessageTableProps {
 
 export interface IMessageContentProps {
   content: string;
-  content_embed: string;
+  // the service answers a raw vector, which arrives as an array of floats
+  content_embed: string | number[];
 }

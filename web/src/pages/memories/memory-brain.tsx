@@ -206,9 +206,20 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
           cy,
           base,
         );
+        // the detail page parks its neuron at 44% of the canvas left of the
+        // 370px side panel, so the dive has to end there and not where the
+        // visitor happened to click
+        const stageLeft = 240;
+        const stageW = Math.max(320, w - stageLeft - 386);
+        const targetX = stageLeft + stageW * 0.44;
+        const targetY = h * 0.43;
         ctx.save();
-        ctx.translate(cx, cy);
-        const z = 1 + 5.6 * focusEase * focusEase;
+        ctx.translate(
+          cx + (targetX - cx) * focusEase,
+          cy + (targetY - cy) * focusEase,
+        );
+        // a 4px neuron has to grow into a 45px soma before the page swaps
+        const z = 1 + 10 * focusEase * focusEase;
         ctx.scale(z, z);
         ctx.translate(-fp[0], -fp[1]);
       }
@@ -301,22 +312,6 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       };
       pushPoints(geometry.cortex);
       pushPoints(geometry.cerebellum);
-      // the stem is too thin to outline: it only adds teeth to the contour
-      for (let i = 0; i < geometry.stem.length; i += 3) {
-        const p = project(
-          geometry.stem[i],
-          geometry.stem[i + 1],
-          geometry.stem[i + 2],
-          cx,
-          cy,
-          base,
-        );
-        const bucket = Math.min(
-          13,
-          Math.max(0, Math.round(((p[2] + 1.1) / 2.2) * 13)),
-        );
-        buckets[bucket].push(p[0], p[1]);
-      }
 
       const ring: { x: number; y: number }[] = [];
       for (const q of hull) {
@@ -466,7 +461,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
           }
         }
       };
-      drawFolds(geometry.folds, '3, 22, 24', '14, 78, 74', 2.4, 0.06, 0.36);
+      drawFolds(geometry.folds, '3, 22, 24', '10, 62, 60', 2.6, 0.08, 0.42);
       drawFolds(
         geometry.crests,
         '150, 246, 236',

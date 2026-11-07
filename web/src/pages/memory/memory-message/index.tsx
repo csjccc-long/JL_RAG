@@ -17,6 +17,13 @@ const TYPE_LABELS: Record<string, string> = {
   raw: '原始',
 };
 
+// the service answers "Unknown" when a message carries no agent, which reads
+// like a failure; fall back to the type and the id instead
+const agentLabel = (message: IMessageInfo) =>
+  message.agent_name && message.agent_name !== 'Unknown'
+    ? message.agent_name
+    : `${TYPE_LABELS[message.message_type] ?? message.message_type} #${message.message_id}`;
+
 export default function MemoryMessage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -62,6 +69,15 @@ export default function MemoryMessage() {
     [messages, activeId],
   );
   const seed = useMemo(() => hashSeed(id ?? 'memory'), [id]);
+  const embed = content?.content_embed;
+  const embedDims = Array.isArray(embed)
+    ? embed.length
+    : embed
+      ? embed.trim().split(/[,\s]+/).length
+      : 0;
+  const embedText = Array.isArray(embed)
+    ? embed.map((value) => value.toFixed(4)).join(', ')
+    : embed;
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   const activeColour = active
     ? TYPE_COLORS[active.message_type]?.[dark ? 'dark' : 'light'] ?? '#54e3d6'
@@ -133,7 +149,7 @@ export default function MemoryMessage() {
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs text-text-primary">
-                      {message.agent_name || TYPE_LABELS[message.message_type] || '-'}
+                      {agentLabel(message)}
                     </span>
                     <span className="block truncate text-[11px] text-text-secondary">
                       {TYPE_LABELS[message.message_type] ?? message.message_type}
@@ -155,7 +171,9 @@ export default function MemoryMessage() {
                   />
                   <span className="truncate text-xs text-text-secondary">
                     {TYPE_LABELS[active.message_type] ?? active.message_type}
-                    {active.agent_name ? ` · ${active.agent_name}` : ''}
+                    {active.agent_name && active.agent_name !== 'Unknown'
+                      ? ` · ${active.agent_name}`
+                      : ''}
                   </span>
                   <span className="ml-auto shrink-0 text-[11px] text-text-secondary/60">
                     #{active.message_id}
@@ -174,15 +192,15 @@ export default function MemoryMessage() {
                   ) : (
                     <p className="py-4 text-xs text-text-secondary/70">暂无内容</p>
                   )}
-                  {content?.content_embed && (
-                    <div className="mt-4 border-t border-border-default pt-3">
-                      <p className="mb-1.5 text-[11px] uppercase tracking-[0.14em] text-text-secondary/60">
-                        embed
+                  {embed && (
+                    <details className="mt-4 border-t border-border-default pt-3">
+                      <summary className="cursor-pointer list-none text-[11px] uppercase tracking-[0.14em] text-text-secondary/60 transition-colors hover:text-text-secondary">
+                        向量 · {embedDims} 维
+                      </summary>
+                      <p className="mt-2 max-h-32 overflow-auto break-all text-[11px] leading-relaxed text-text-secondary/45">
+                        {embedText}
                       </p>
-                      <p className="break-all text-[11px] leading-relaxed text-text-secondary/80">
-                        {content.content_embed}
-                      </p>
-                    </div>
+                    </details>
                   )}
                 </div>
               </>

@@ -38,269 +38,11 @@ export function makeRng(seed: number): () => number {
   };
 }
 
-/* ------------------------------------------------------------------ */
-/* cortex                                                              */
-/* ------------------------------------------------------------------ */
-
-const CORTEX_R = { x: 1.02, y: 0.8, z: 0.94 };
-const CEREBELLUM_R = { x: 0.26, y: 0.2, z: 0.24 };
-const CEREBELLUM_C = { x: 0.24, y: -0.48, z: -0.5 };
-
-function fibSphere(count: number): Vec3[] {
-  const out: Vec3[] = [];
-  const golden = Math.PI * (3 - Math.sqrt(5));
-  for (let i = 0; i < count; i += 1) {
-    const y = 1 - (i / (count - 1)) * 2;
-    const radius = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = golden * i;
-    out.push({ x: Math.cos(theta) * radius, y, z: Math.sin(theta) * radius });
-  }
-  return out;
-}
-
-/**
- * Brain silhouette field: a bulge for the temporal lobes, a tapered frontal
- * pole and a rounder occipital lobe, plus low-frequency folds so the outline
- * reads as a brain rather than an egg.
- */
-function cortexScale(d: Vec3): number {
-  const temporal = Math.exp(
-    -(
-      Math.pow((Math.abs(d.x) - 0.84) / 0.36, 2) +
-      Math.pow((d.y + 0.3) / 0.46, 2) +
-      Math.pow((d.z - 0.1) / 0.62, 2)
-    ),
-  );
-  const frontal = Math.max(0, d.z) ** 3;
-  const occipital = Math.max(0, -d.z) ** 2;
-  return (
-    1 +
-    0.11 * temporal -
-    0.08 * frontal +
-    0.035 * occipital +
-    0.04 * Math.sin(5.4 * d.y + 2.1 * d.z) +
-    0.028 * Math.sin(7.1 * d.x - 3.4 * d.z) +
-    0.014 * Math.sin(9.3 * d.z + 2.6 * d.x + 1.4)
-  );
-}
-
-function cortexPoint(d: Vec3, k: number): Vec3 {
-  const raw = d.y * CORTEX_R.y * k;
+function cross(a: Vec3, b: Vec3): Vec3 {
   return {
-    x: d.x * CORTEX_R.x * k,
-    // flatten the underside so the brain sits in the skull instead of floating
-    y: raw < -0.56 ? -0.56 - (raw + 0.56) * 0.32 : raw,
-    z: d.z * CORTEX_R.z * k,
-  };
-}
-
-export interface BrainGeometry {
-  /** xyz triples */
-  cortex: Float32Array;
-  cortexDir: Float32Array;
-  cerebellum: Float32Array;
-  cerebellumDir: Float32Array;
-  stem: Float32Array;
-  stemDir: Float32Array;
-  /** one flat xyz polyline per gyrus */
-  gyri: Float32Array[];
-  /** sulci: folds that run with the brain's gyri (front-to-back waves) */
-  folds: Float32Array[];
-  /** the crest that rides beside each sulcus, one per fold */
-  crests: Float32Array[];
-  /** meridian polylines of the cortical surface */
-  mesh: Float32Array[];
-}
-
-export function buildBrainGeometry(): BrainGeometry {
-  const rng = makeRng(0x9e3779b9);
-
-  const cortexPts: Vec3[] = [];
-  const cortexDirs: Vec3[] = [];
-  for (const d of fibSphere(3600)) {
-    // interhemispheric fissure: a slit along x = 0 over the top half
-    if (Math.abs(d.x) < 0.075 && d.y > -0.32) continue;
-    // leave the underside open where the brain stem leaves the skull
-    if (d.y < -0.72 && Math.abs(d.x) < 0.3 && d.z < 0.1) continue;
-    cortexPts.push(cortexPoint(d, cortexScale(d)));
-    cortexDirs.push(d);
-  }
-
-  const cblPts: Vec3[] = [];
-  const cblDirs: Vec3[] = [];
-  const cbl = fibSphere(760);
-  for (const side of [-1, 1]) {
-    for (const d of cbl) {
-      // folia: thin folds across the cerebellum
-      const fold = 1 + 0.06 * Math.sin(16 * d.x + 5 * d.z);
-      cblPts.push({
-        x: side * (CEREBELLUM_C.x + d.x * CEREBELLUM_R.x * fold),
-        y: CEREBELLUM_C.y + d.y * CEREBELLUM_R.y * fold,
-        z: CEREBELLUM_C.z + d.z * CEREBELLUM_R.z,
-      });
-      cblDirs.push({ x: side * d.x, y: d.y, z: d.z });
-    }
-  }
-
-  const stemPts: Vec3[] = [];
-  const stemDirs: Vec3[] = [];
-  const stemCount = 170;
-  for (let i = 0; i < stemCount; i += 1) {
-    const t = i / (stemCount - 1);
-    const angle = t * Math.PI * 2 * 6 + rng() * 0.4;
-    const radius = 0.13 - t * 0.07;
-    stemPts.push({
-      x: Math.cos(angle) * radius,
-      y: -0.44 - t * 0.16,
-      z: -0.42 - t * 0.1 + Math.sin(angle) * radius,
-    });
-    stemDirs.push({ x: Math.cos(angle), y: 0, z: Math.sin(angle) });
-  }
-
-  // gyri: short arcs traced on the surface, for cortical folding
-  const gyri: Float32Array[] = [];
-  for (let g = 0; g < 170; g += 1) {
-    const axis = randomUnit(rng);
-    // rotate the ORIGINAL direction every step: advancing the running
-    // direction compounds the angle and a "short fold" winds around the sphere
-    const origin = randomUnit(rng, axis, 0.35 + rng() * 0.5);
-    const sweep = 0.18 + rng() * 0.42;
-    const steps = 12;
-    const pts: number[] = [];
-    for (let i = 0; i < steps; i += 1) {
-      const angle = (i / (steps - 1) - 0.5) * sweep;
-      const rotated = rotateAround(origin, axis, angle);
-      const p = cortexPoint(rotated, cortexScale(rotated));
-      pts.push(p.x, p.y, p.z);
-    }
-    gyri.push(new Float32Array(pts));
-  }
-
-  // mesh: latitudes and meridians of the same surface, so the brain reads as a
-  // modelled 3D object instead of a dust cloud
-  const mesh: Float32Array[] = [];
-  const onSurface = (d: Vec3) =>
-    !(Math.abs(d.x) < 0.075 && d.y > -0.32) &&
-    !(d.y < -0.72 && Math.abs(d.x) < 0.3 && d.z < 0.1);
-
-  // folds: the lines that read as gyri. A latitude with a travelling wobble
-  // runs front-to-back and undulates the way a real sulcus does; each fold is
-  // a pair of strands (the trough and the crest that rides beside it).
-  const folds: Float32Array[] = [];
-  const crests: Float32Array[] = [];
-  const FOLD_BANDS = 15;
-  for (let band = 0; band < FOLD_BANDS; band += 1) {
-    const base = -0.96 + ((band + 0.5) / FOLD_BANDS) * 1.92;
-    const phaseA = rng() * Math.PI * 2;
-    const phaseB = rng() * Math.PI * 2;
-    const phaseC = rng() * Math.PI * 2;
-    const ampA = 0.05 + rng() * 0.05;
-    const ampB = 0.018 + rng() * 0.018;
-    const freqA = 2.8 + rng() * 2.2;
-    const freqB = 7 + rng() * 3;
-    for (let strand = 0; strand < 2; strand += 1) {
-      const offset = strand === 0 ? -0.016 : 0.022;
-      const pts: number[] = [];
-      const steps = 96;
-      for (let i = 0; i <= steps; i += 1) {
-        const theta = -Math.PI + (i / steps) * Math.PI * 2;
-        const phi =
-          base +
-          offset +
-          ampA * Math.sin(freqA * theta + phaseA) +
-          ampB * Math.sin(freqB * theta + phaseB) +
-          0.035 * Math.sin(1.1 * theta + phaseC);
-        const ringR = Math.cos(phi);
-        const d = {
-          x: Math.cos(theta) * ringR,
-          y: Math.sin(phi),
-          z: Math.sin(theta) * ringR,
-        };
-        if (!onSurface(d)) {
-          if (pts.length > 3) {
-            (strand === 0 ? folds : crests).push(new Float32Array(pts));
-          }
-          pts.length = 0;
-          continue;
-        }
-        const p = cortexPoint(d, cortexScale(d));
-        pts.push(p.x, p.y, p.z);
-      }
-      if (pts.length > 3) {
-        (strand === 0 ? folds : crests).push(new Float32Array(pts));
-      }
-    }
-
-    // a broken secondary fold: real sulci die out instead of ringing the
-    // whole hemisphere, and the stubs are what stop the surface reading as a
-    // latitude grid
-    const partials = 2 + Math.floor(rng() * 2);
-    for (let p = 0; p < partials; p += 1) {
-      const from = rng() * Math.PI * 2 - Math.PI;
-      const span = 0.8 + rng() * 2.2;
-      const drift = 0.06 + rng() * 0.06;
-      const wob = 0.014 + rng() * 0.02;
-      const pts: number[] = [];
-      const steps = 26;
-      for (let i = 0; i <= steps; i += 1) {
-        const theta = from + (i / steps) * span;
-        const phi =
-          base +
-          drift +
-          wob * Math.sin(6.5 * theta + phaseA) +
-          0.02 * Math.sin(2.2 * theta + phaseB);
-        const ringR = Math.cos(phi);
-        const d = {
-          x: Math.cos(theta) * ringR,
-          y: Math.sin(phi),
-          z: Math.sin(theta) * ringR,
-        };
-        if (!onSurface(d)) {
-          if (pts.length > 3) folds.push(new Float32Array(pts));
-          pts.length = 0;
-          continue;
-        }
-        const point = cortexPoint(d, cortexScale(d));
-        pts.push(point.x, point.y, point.z);
-      }
-      if (pts.length > 3) folds.push(new Float32Array(pts));
-    }
-  }
-
-  for (let m = 0; m < 7; m += 1) {
-    const theta = (m / 12) * Math.PI * 2;
-    const pts: number[] = [];
-    const steps = 44;
-    for (let i = 0; i <= steps; i += 1) {
-      const lat = (i / steps) * Math.PI - Math.PI / 2;
-      const ringR = Math.cos(lat);
-      const d = {
-        x: Math.cos(theta) * ringR,
-        y: Math.sin(lat),
-        z: Math.sin(theta) * ringR,
-      };
-      if (!onSurface(d)) {
-        if (pts.length > 3) mesh.push(new Float32Array(pts));
-        pts.length = 0;
-        continue;
-      }
-      const p = cortexPoint(d, cortexScale(d));
-      pts.push(p.x, p.y, p.z);
-    }
-    if (pts.length > 3) mesh.push(new Float32Array(pts));
-  }
-
-  return {
-    cortex: flatten(cortexPts),
-    cortexDir: flatten(cortexDirs),
-    cerebellum: flatten(cblPts),
-    cerebellumDir: flatten(cblDirs),
-    stem: flatten(stemPts),
-    stemDir: flatten(stemDirs),
-    gyri,
-    folds,
-    crests,
-    mesh,
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
   };
 }
 
@@ -314,27 +56,223 @@ function flatten(points: Vec3[]): Float32Array {
   return out;
 }
 
-function randomUnit(rng: () => number, notParallel?: Vec3, spread = 1): Vec3 {
-  for (let i = 0; i < 40; i += 1) {
-    const z = rng() * 2 - 1;
-    const a = rng() * Math.PI * 2;
-    const r = Math.sqrt(Math.max(0, 1 - z * z));
-    const v = { x: Math.cos(a) * r, y: z, z: Math.sin(a) * r };
-    if (!notParallel) return v;
-    const dot = v.x * notParallel.x + v.y * notParallel.y + v.z * notParallel.z;
-    if (Math.abs(dot) < spread) return v;
+/** evenly spaced directions on the unit sphere (golden angle spiral) */
+function fibSphere(count: number): Vec3[] {
+  const out: Vec3[] = [];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < count; i += 1) {
+    const y = 1 - (i / (count - 1)) * 2;
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const a = golden * i;
+    out.push({ x: Math.cos(a) * r, y, z: Math.sin(a) * r });
   }
-  return { x: 1, y: 0, z: 0 };
+  return out;
 }
 
-function rotateAround(v: Vec3, axis: Vec3, angle: number): Vec3 {
-  const c = Math.cos(angle);
-  const s = Math.sin(angle);
-  const dot = v.x * axis.x + v.y * axis.y + v.z * axis.z;
+/* ------------------------------------------------------------------ */
+/* cortex                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The lateral silhouette is authored by hand and the body is swept from it, so
+ * the profile the visitor sees is always a brain profile: frontal pole, the
+ * temporal lobe with the Sylvian notch above it, the cerebellum tucked under
+ * the occipital pole. Cross sections shrink towards the midline, which keeps
+ * the top and front views rounded instead of a flat cut-out.
+ */
+const SILHOUETTE: [number, number][] = [
+  [0.94, 0.04],
+  [0.88, 0.30],
+  [0.74, 0.52],
+  [0.52, 0.70],
+  [0.26, 0.80],
+  [-0.02, 0.82],
+  [-0.30, 0.76],
+  [-0.58, 0.62],
+  [-0.80, 0.42],
+  [-0.94, 0.16],
+  [-0.97, -0.06],
+  [-0.90, -0.26],
+  [-0.74, -0.38],
+  [-0.70, -0.56],
+  [-0.54, -0.68],
+  [-0.34, -0.70],
+  [-0.18, -0.62],
+  [-0.04, -0.55],
+  [0.14, -0.56],
+  [0.34, -0.52],
+  [0.48, -0.42],
+  [0.56, -0.32],
+  [0.60, -0.22],
+  [0.68, -0.24],
+  [0.80, -0.19],
+  [0.90, -0.08],
+];
+
+/** how far the body reaches to either side of the midline */
+const X_MAX = 0.62;
+const RIM = 220;
+
+function pointInSilhouette(z: number, y: number): boolean {
+  let inside = false;
+  const n = SILHOUETTE.length;
+  for (let i = 0, j = n - 1; i < n; j = i, i += 1) {
+    const [zi, yi] = SILHOUETTE[i];
+    const [zj, yj] = SILHOUETTE[j];
+    if (yi > y !== yj > y && z < ((zj - zi) * (y - yi)) / (yj - yi) + zi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/** polar radius of the hand drawn profile */
+function profileRadius(psi: number): number {
+  const dz = Math.cos(psi);
+  const dy = Math.sin(psi);
+  let radius = 0;
+  for (let step = 1; step <= 500; step += 1) {
+    const t = (step / 500) * 1.15;
+    if (!pointInSilhouette(dz * t, dy * t)) break;
+    radius = t;
+  }
+  return radius;
+}
+
+const RADII = (() => {
+  const table = new Float32Array(RIM);
+  for (let i = 0; i < RIM; i += 1) {
+    table[i] = profileRadius((i / RIM) * Math.PI * 2);
+  }
+  // two passes of neighbour averaging, enough to take the facets off the
+  // polygon without softening the Sylvian notch and the temporal pole
+  for (let pass = 0; pass < 2; pass += 1) {
+    const copy = table.slice();
+    for (let i = 0; i < RIM; i += 1) {
+      table[i] =
+        (copy[(i - 1 + RIM) % RIM] + copy[i] * 2 + copy[(i + 1) % RIM]) / 4;
+    }
+  }
+  return table;
+})();
+
+function radiusAt(psi: number): number {
+  const raw = (((psi / (Math.PI * 2)) % 1) + 1) % 1;
+  const f = raw * RIM;
+  const i = Math.floor(f) % RIM;
+  const mix = f - Math.floor(f);
+  return RADII[i] * (1 - mix) + RADII[(i + 1) % RIM] * mix;
+}
+
+/** cross sections close off towards the midline with a rounded, not flat, edge */
+function taper(t: number): number {
+  const a = Math.min(1, Math.abs(t));
+  // circular fall-off: the flanks roll away gradually instead of turning on a
+  // hard edge, which is what keeps the profile from reading as a bowl
+  return Math.sqrt(Math.max(0, 1 - a * a));
+}
+
+function surfacePoint(t: number, psi: number): Vec3 {
+  const r = radiusAt(psi) * taper(t);
+  return { x: t * X_MAX, y: r * Math.sin(psi), z: r * Math.cos(psi) };
+}
+
+function surfaceNormal(t: number, psi: number): Vec3 {
+  const e = 0.0035;
+  const a = surfacePoint(t + e, psi);
+  const b = surfacePoint(t - e, psi);
+  const c = surfacePoint(t, psi + e);
+  const d = surfacePoint(t, psi - e);
+  const n = cross(
+    { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z },
+    { x: c.x - d.x, y: c.y - d.y, z: c.z - d.z },
+  );
+  const p = surfacePoint(t, psi);
+  const out = n.x * p.x + n.y * p.y + n.z * p.z;
+  const len = Math.hypot(n.x, n.y, n.z) || 1;
+  const sign = out < 0 ? -1 : 1;
   return {
-    x: v.x * c + (axis.y * v.z - axis.z * v.y) * s + axis.x * dot * (1 - c),
-    y: v.y * c + (axis.z * v.x - axis.x * v.z) * s + axis.y * dot * (1 - c),
-    z: v.z * c + (axis.x * v.y - axis.y * v.x) * s + axis.z * dot * (1 - c),
+    x: (n.x / len) * sign,
+    y: (n.y / len) * sign,
+    z: (n.z / len) * sign,
+  };
+}
+
+export interface BrainGeometry {
+  /** xyz triples */
+  cortex: Float32Array;
+  cortexDir: Float32Array;
+  cerebellum: Float32Array;
+  cerebellumDir: Float32Array;
+  stem: Float32Array;
+  stemDir: Float32Array;
+  /** one flat xyz polyline per gyrus */
+  gyri: Float32Array[];
+  /** sulci traced as wandering walks over the cortex */
+  folds: Float32Array[];
+  /** the crest that rides just above each sulcus */
+  crests: Float32Array[];
+  /** meridian polylines of the cortical surface */
+  mesh: Float32Array[];
+}
+
+export function buildBrainGeometry(): BrainGeometry {
+  const rng = makeRng(0x9e3779b9);
+
+  const cortexPts: Vec3[] = [];
+  const cortexDirs: Vec3[] = [];
+  for (const d of fibSphere(3400)) {
+    const psi = Math.atan2(d.y, d.z);
+    const t = Math.max(-0.92, Math.min(0.92, d.x));
+    // the shell stops just short of the midline: points that sit exactly on the
+    // silhouette pile up into a bright lip
+    cortexPts.push(surfacePoint(t, psi));
+    cortexDirs.push(surfaceNormal(t, psi));
+  }
+
+  // a sulcus wanders across the surface in (t, psi) space and is then mapped
+  // back onto the body, so it can never leave the cortex. The crest rides a
+  // little above it and catches the light like a gyrus.
+  const folds: Float32Array[] = [];
+  const crests: Float32Array[] = [];
+  for (let g = 0; g < 880; g += 1) {
+    let t = rng() * 1.4 - 0.7;
+    let psi = rng() * Math.PI * 2;
+    let heading = rng() * Math.PI * 2;
+    const long = g % 5 === 0;
+    const steps = long ? 9 + Math.floor(rng() * 4) : 3 + Math.floor(rng() * 3);
+    const step = 0.045 + rng() * 0.04;
+    const turn = 0.7 + rng() * 0.9;
+    const pts: number[] = [];
+    const crestPts: number[] = [];
+    for (let i = 0; i < steps; i += 1) {
+      heading += (rng() - 0.5) * turn;
+      t += Math.cos(heading) * step;
+      psi += Math.sin(heading) * step * 1.5;
+      if (t > 0.74 || t < -0.74) {
+        t = Math.max(-0.74, Math.min(0.74, t));
+        heading = Math.PI - heading;
+      }
+      const p = surfacePoint(t, psi);
+      const n = surfaceNormal(t, psi);
+      pts.push(p.x, p.y, p.z);
+      crestPts.push(p.x + n.x * 0.013, p.y + n.y * 0.013, p.z + n.z * 0.013);
+    }
+    folds.push(new Float32Array(pts));
+    crests.push(new Float32Array(crestPts));
+  }
+
+  return {
+    cortex: flatten(cortexPts),
+    cortexDir: flatten(cortexDirs),
+    cerebellum: new Float32Array(0),
+    cerebellumDir: new Float32Array(0),
+    stem: new Float32Array(0),
+    stemDir: new Float32Array(0),
+    gyri: [],
+    folds,
+    crests,
+    mesh: [],
   };
 }
 
@@ -459,10 +397,12 @@ function insideLobe(p: Vec3, lobe: Lobe): boolean {
 }
 
 function insideBrain(p: Vec3): boolean {
-  const dx = p.x / (CORTEX_R.x * 0.82);
-  const dy = p.y / (CORTEX_R.y * 0.82);
-  const dz = p.z / (CORTEX_R.z * 0.82);
-  return dx * dx + dy * dy + dz * dz <= 1 && p.y > -0.55;
+  // a little inside the swept surface, so a neuron never floats outside it
+  const t = p.x / X_MAX;
+  if (Math.abs(t) > 0.97) return false;
+  const psi = Math.atan2(p.y, p.z);
+  const r = Math.hypot(p.y, p.z);
+  return r < radiusAt(psi) * taper(t) * 0.9;
 }
 
 function placeNeuron(rng: () => number, lobe: Lobe, used: Vec3[]): Vec3 {
