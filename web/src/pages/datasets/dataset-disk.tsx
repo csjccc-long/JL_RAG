@@ -42,12 +42,12 @@ export function DatasetDisk({ name, files, date, badge, more, active = false, on
 
   const bw = Math.round(Math.min(W * 0.58, 176));
   const bd = Math.round(Math.min(182, bw * 1.34));
-  const t = 32;
+  const t = 38;
   const gap = 8;
   const tw = bw - gap * 2;
   const td = bd - gap * 2;
   const tt = 13;
-  const slide = Math.round(bw * 0.5);
+  const slide = Math.max(24, Math.round(Math.min(bw * 0.72, W - bw - 10)));
   const x0 = Math.max(2, Math.round((W - (bw + slide)) / 2));
   const cy = CARD_H * 0.5;
 
@@ -103,8 +103,25 @@ export function DatasetDisk({ name, files, date, badge, more, active = false, on
       <div ref={ref} className="absolute inset-0">
         {/* the shadow the box casts on the desk, widening as the tray comes out */}
         <div
-          className="pointer-events-none absolute rounded-[50%] bg-black/60 blur-[22px]"
-          style={{ left: x0 + 6, top: cy + bd * 0.44, width: bw * 0.92, height: 18 }}
+          className="pointer-events-none absolute rounded-[50%] bg-[radial-gradient(ellipse_at_center,rgba(150,196,214,0.10),rgba(150,196,214,0.03)_46%,transparent_72%)] blur-[10px]"
+          style={{ left: x0 - 10, top: cy + bd * 0.30, width: bw + 20 + slide, height: 74 }}
+        />
+        <div
+          className="pointer-events-none absolute rounded-[50%] bg-black/70 blur-[18px]"
+          style={{ left: x0 + 8, top: cy + bd * 0.46, width: bw * 0.88, height: 14 }}
+        />
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            left: x0 + 10,
+            top: cy + bd * 0.47,
+            width: bw - 20,
+            height: 46,
+            background: 'linear-gradient(180deg, rgba(146,170,186,0.20) 0%, rgba(146,170,186,0.06) 40%, transparent 100%)',
+            maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.85), transparent 88%)',
+            WebkitMaskImage: 'linear-gradient(180deg, rgba(0,0,0,0.85), transparent 88%)',
+            filter: 'blur(2px)',
+          }}
         />
 
         <div
@@ -113,7 +130,7 @@ export function DatasetDisk({ name, files, date, badge, more, active = false, on
         >
           <div
             className="absolute left-0"
-            style={{ top: cy, width: 0, height: 0, transformStyle: 'preserve-3d', transform: 'rotateX(28deg) rotateY(-11deg)' }}
+            style={{ top: cy, width: 0, height: 0, transformStyle: 'preserve-3d', transform: 'rotateX(33deg) rotateY(-13deg)' }}
           >
             {/* tray: the drive sliding out of the open end */}
             <div
@@ -152,7 +169,7 @@ export function DatasetDisk({ name, files, date, badge, more, active = false, on
                     background: 'linear-gradient(90deg,#20252a,#3f464d 40%,#22272c 74%,#0d1013)',
                     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.24)',
                   },
-                  children: <GoldEdge vertical />,
+                  children: null,
                 },
                 {
                   w: tw,
@@ -179,7 +196,7 @@ export function DatasetDisk({ name, files, date, badge, more, active = false, on
                   h: t,
                   transform: 'translateY(' + -bd / 2 + 'px) rotateX(90deg)',
                   style: {
-                    background: 'linear-gradient(180deg,#59616a 0%,#3a4149 34%,#20252a 100%)',
+                    background: 'linear-gradient(180deg,#6f7883 0%,#49515a 34%,#262c32 100%)',
                     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3)',
                   },
                 },
@@ -193,7 +210,7 @@ export function DatasetDisk({ name, files, date, badge, more, active = false, on
                   w: t,
                   h: bd,
                   transform: 'translateX(' + -bw / 2 + 'px) rotateY(90deg)',
-                  style: { background: 'linear-gradient(90deg,#0c0f12,#3d444b 52%,#14181c)' },
+                  style: { background: 'linear-gradient(90deg,#0c0f12,#4a525b 52%,#191e24)' },
                 },
                 {
                   w: t,
@@ -342,23 +359,6 @@ function TrayFace({ tw, td, files, active }: { tw: number; td: number; files: st
   );
 }
 
-function GoldEdge({ vertical = false }: { vertical?: boolean }) {
-  return (
-    <div className={vertical ? 'absolute inset-y-[8px] right-[3px] flex w-[5px] flex-col gap-[2px]' : 'absolute inset-x-[6px] bottom-[3px] flex h-[5px] gap-[2px]'}>
-      {Array.from({ length: vertical ? 10 : 12 }).map((_, index) => (
-        <span
-          key={index}
-          className="flex-1 rounded-[0.5px]"
-          style={{
-            background: vertical
-              ? 'linear-gradient(90deg,#e9c86a,#b9902f 70%,#7a5c1c)'
-              : 'linear-gradient(180deg,#e9c86a,#b9902f 70%,#7a5c1c)',
-          }}
-        />
-      ))}
-    </div>
-  );
-}
 
 function SleeveFace({
   name,
@@ -374,14 +374,18 @@ function SleeveFace({
   more?: ReactNode;
 }) {
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[2px] bg-[linear-gradient(154deg,#31373f_0%,#20242a_52%,#14171c_100%)]">
+    <div className="relative h-full w-full overflow-hidden rounded-[2px] bg-[linear-gradient(154deg,#4a525c_0%,#31373f_46%,#20242a_78%,#171b20_100%)]">
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.35]"
         style={{
           backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px)',
         }}
       />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(158deg,rgba(255,255,255,0.1)_0%,transparent_42%,rgba(0,0,0,0.38)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(158deg,rgba(255,255,255,0.16)_0%,transparent_42%,rgba(0,0,0,0.42)_100%)]" />
+      <div
+        className="pointer-events-none absolute -inset-y-6 -left-10 w-[46%] rotate-[14deg] mix-blend-screen"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(208,228,240,0.10) 40%, rgba(208,228,240,0.03) 62%, transparent)' }}
+      />
       <div className="pointer-events-none absolute inset-[5px] rounded-[2px] border border-white/[0.09]" />
       <div className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-[linear-gradient(180deg,transparent,rgba(118,185,0,0.55)_35%,rgba(118,185,0,0.55)_65%,transparent)]" />
 
