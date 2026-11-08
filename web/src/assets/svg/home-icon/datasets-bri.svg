@@ -1,10 +1,11 @@
 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect x="2.75" y="5.75" width="18.5" height="12.5" rx="2.75" stroke="url(#diskBodyB)" stroke-width="1.5"/>
-<circle cx="8.6" cy="12" r="3.5" stroke="#00BEB4" stroke-width="1.5"/>
-<circle cx="8.6" cy="12" r="1.05" fill="#00BEB4"/>
-<path d="M14.4 9.4H19M14.4 12H19M14.4 14.6H17.2" stroke="url(#diskBodyB)" stroke-width="1.5" stroke-linecap="round"/>
+<ellipse cx="12" cy="5.9" rx="7.5" ry="2.9" stroke="url(#dbBodyB)" stroke-width="1.5"/>
+<path d="M4.5 5.9v6.2c0 1.6 3.36 2.9 7.5 2.9s7.5-1.3 7.5-2.9V5.9" stroke="url(#dbBodyB)" stroke-width="1.5"/>
+<path d="M4.5 12.1v6.1c0 1.6 3.36 2.9 7.5 2.9s7.5-1.3 7.5-2.9v-6.1" stroke="url(#dbBodyB)" stroke-width="1.5"/>
+<path d="M4.5 12.1c0 1.6 3.36 2.9 7.5 2.9s7.5-1.3 7.5-2.9" stroke="#00BEB4" stroke-width="1.5"/>
+<circle cx="12" cy="5.9" r="1.1" fill="#00BEB4"/>
 <defs>
-<linearGradient id="diskBodyB" x1="12" y1="5.75" x2="12" y2="18.25" gradientUnits="userSpaceOnUse">
+<linearGradient id="dbBodyB" x1="12" y1="3" x2="12" y2="21" gradientUnits="userSpaceOnUse">
 <stop stop-color="#161618"/>
 <stop offset="1" stop-color="#888888"/>
 </linearGradient>

@@ -14,6 +14,70 @@ export interface DatasetDiskProps {
 
 const CARD_H = 220;
 
+function hashSeed(text: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function makeRng(seed: number) {
+  let state = seed || 1;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function smoothPath(points: [number, number][]) {
+  if (points.length < 2) return '';
+  let path = 'M ' + points[0][0].toFixed(2) + ' ' + points[0][1].toFixed(2);
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const midX = (points[index][0] + points[index + 1][0]) / 2;
+    const midY = (points[index][1] + points[index + 1][1]) / 2;
+    path += ' Q ' + points[index][0].toFixed(2) + ' ' + points[index][1].toFixed(2) + ' ' + midX.toFixed(2) + ' ' + midY.toFixed(2);
+  }
+  const last = points[points.length - 1];
+  return path + ' L ' + last[0].toFixed(2) + ' ' + last[1].toFixed(2);
+}
+
+/** Irregular hand-drawn rings that wrap the platter, unique per dataset. */
+function buildFiligree(seed: string) {
+  const rnd = makeRng(hashSeed(seed));
+  const cx = 58;
+  const cy = 46;
+  const paths: { d: string; accent: boolean }[] = [];
+  for (let ring = 0; ring < 4; ring += 1) {
+    const base = 40 + ring * 5.4 + rnd() * 2.6;
+    const steps = 26;
+    const phase = rnd() * Math.PI * 2;
+    const amp = 2.2 + rnd() * 2.4;
+    const points: [number, number][] = [];
+    for (let step = 0; step <= steps; step += 1) {
+      const angle = phase + (step / steps) * Math.PI * 1.72;
+      const radius = base + Math.sin(angle * 3 + ring) * amp + (rnd() - 0.5) * 1.8;
+      points.push([cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius * 0.94]);
+    }
+    paths.push({ d: smoothPath(points), accent: ring === 1 });
+  }
+  for (let squiggle = 0; squiggle < 8; squiggle += 1) {
+    const start = rnd() * Math.PI * 2;
+    const radius0 = 33 + rnd() * 26;
+    const points: [number, number][] = [];
+    for (let step = 0; step <= 6; step += 1) {
+      const angle = start + step * (0.05 + rnd() * 0.06);
+      const radius = radius0 + Math.sin(step * 0.9 + squiggle) * 3.2 + (rnd() - 0.5) * 2;
+      points.push([cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius * 0.94]);
+    }
+    paths.push({ d: smoothPath(points), accent: squiggle % 3 === 0 });
+  }
+  return paths;
+}
+
 /** Width of the card, so the box can be rebuilt in real pixels when it resizes. */
 function useWidth() {
   const ref = useRef<HTMLDivElement>(null);
@@ -152,7 +216,7 @@ export function DatasetDisk({ name, files, date, badge, more, active = false, on
                     background: 'linear-gradient(158deg,#6d757e 0%,#484f57 26%,#2f353b 62%,#4a5158 86%,#23282d 100%)',
                     boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.16), inset 0 0 0 3px rgba(0,0,0,0.55)',
                   },
-                  children: <TrayFace tw={tw} td={td} files={files} active={active} />,
+                  children: <TrayFace tw={tw} td={td} files={files} name={name} active={active} />,
                 },
                 {
                   w: tw,
@@ -251,8 +315,9 @@ export function DatasetDisk({ name, files, date, badge, more, active = false, on
   );
 }
 
-function TrayFace({ tw, td, files, active }: { tw: number; td: number; files: string; active: boolean }) {
+function TrayFace({ tw, td, files, name, active }: { tw: number; td: number; files: string; name: string; active: boolean }) {
   const size = Math.round(Math.min(tw * 0.72, td * 0.64));
+  const filigree = buildFiligree(name);
   return (
     <div className="absolute inset-0">
       <div
@@ -269,6 +334,24 @@ function TrayFace({ tw, td, files, active }: { tw: number; td: number; files: st
             'linear-gradient(148deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 30%, transparent 52%, rgba(0,0,0,0.35) 100%)',
         }}
       />
+
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        aria-hidden
+      >
+        {filigree.map((ring, index) => (
+          <path
+            key={index}
+            d={ring.d}
+            fill="none"
+            stroke={ring.accent ? 'rgba(0, 196, 182, 0.46)' : 'rgba(198, 228, 232, 0.26)'}
+            strokeWidth={ring.accent ? 0.5 : 0.38}
+            strokeLinecap="round"
+          />
+        ))}
+      </svg>
 
       <div
         className="absolute rounded-full"
