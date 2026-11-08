@@ -87,12 +87,31 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
 
   return (
     <div
-      className="group relative h-[220px] w-full"
+      className="group relative h-[220px] w-full hover:z-20 focus-within:z-20"
+      style={{ perspective: 1300, perspectiveOrigin: '50% -6%' }}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
-      {/* record: parked behind the sleeve, slides out and spins on hover */}
-      <div className="pointer-events-none absolute top-1/2 right-[6px] z-0 h-[196px] w-[196px] -translate-y-1/2 transition-transform duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] group-hover:translate-x-[118px]">
+      {/* contact shadow, so the sleeve reads as a slab resting on a desk */}
+      <div className="pointer-events-none absolute inset-x-6 -bottom-4 h-9 rounded-[50%] bg-black/50 opacity-70 blur-2xl" />
+
+      {/* the sleeve is a real slab: printed face, thickness, and a hollow the record hides in */}
+      <div
+        className="relative h-full w-full [transform-style:preserve-3d]"
+        style={{ transform: 'rotateX(30deg) rotateY(-10deg)' }}
+      >
+        {/* the board behind the printed face, dropped back to give the sleeve its thickness */}
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[14px] bg-[#c9ccd1] dark:bg-[#0a0c0f]"
+          style={{ transform: 'translateZ(-26px)' }}
+        />
+
+        {/* record: parked inside the sleeve, slides out of the open end and spins */}
+        <div
+          className="pointer-events-none absolute inset-0 [transform-style:preserve-3d]"
+          style={{ transform: 'translateZ(-2px)' }}
+        >
+          <div className="absolute top-1/2 right-[6px] h-[196px] w-[196px] -translate-y-1/2 transition-transform duration-500 ease-[cubic-bezier(0.34,1.36,0.64,1)] group-hover:translate-x-[104px]">
         <div className="relative h-full w-full group-hover:animate-vinyl-spin group-hover:[animation-delay:140ms]">
           {/* dyed rim: the wash is masked into the outer ring of the disc */}
           <div
@@ -135,10 +154,13 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
         </div>
       </div>
 
-      {/* opaque sleeve face: covers the parked record and wraps its rim */}
-      <div className="pointer-events-none absolute inset-0 z-0 rounded-[14px] bg-bg-base" />
+        </div>
 
-      <Card
+        {/* the printed face of the sleeve, lifted above the hollow */}
+        <div className="absolute inset-0" style={{ transform: 'translateZ(6px)' }}>
+          <div className="pointer-events-none absolute inset-0 rounded-[14px] bg-bg-base" />
+
+          <Card
         as="article"
         tabIndex={0}
         data-testid="memory-card"
@@ -202,7 +224,9 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
           </p>
           <SharedBadge>{data?.owner_name}</SharedBadge>
         </div>
-      </Card>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

@@ -64,7 +64,7 @@ function buildFiligree(seed: string) {
     }
     paths.push({ d: smoothPath(points), accent: ring === 1 });
   }
-  for (let squiggle = 0; squiggle < 8; squiggle += 1) {
+  for (let squiggle = 0; squiggle < 12; squiggle += 1) {
     const start = rnd() * Math.PI * 2;
     const radius0 = 33 + rnd() * 26;
     const points: [number, number][] = [];
@@ -339,17 +339,33 @@ function TrayFace({ tw, td, files, name, active }: { tw: number; td: number; fil
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         className="pointer-events-none absolute inset-0 h-full w-full"
+        style={{ filter: 'drop-shadow(0 0 2px rgba(0, 196, 182, 0.45))' }}
         aria-hidden
       >
         {filigree.map((ring, index) => (
-          <path
-            key={index}
-            d={ring.d}
-            fill="none"
-            stroke={ring.accent ? 'rgba(0, 196, 182, 0.46)' : 'rgba(198, 228, 232, 0.26)'}
-            strokeWidth={ring.accent ? 0.5 : 0.38}
-            strokeLinecap="round"
-          />
+          <g key={index}>
+            <path
+              d={ring.d}
+              fill="none"
+              stroke={ring.accent ? 'rgba(0, 214, 198, 0.78)' : 'rgba(204, 236, 240, 0.46)'}
+              strokeWidth={ring.accent ? 0.6 : 0.44}
+              strokeLinecap="round"
+            />
+            {/* a spark that runs the groove, so the etching keeps catching the light */}
+            <path
+              d={ring.d}
+              fill="none"
+              className="filigree-flow"
+              stroke={ring.accent ? 'rgba(170, 255, 248, 1)' : 'rgba(226, 255, 252, 0.8)'}
+              strokeWidth={ring.accent ? 0.8 : 0.62}
+              strokeLinecap="round"
+              strokeDasharray="7 150"
+              style={{
+                animationDuration: 6 + index * 0.7 + 's',
+                animationDelay: index * 0.55 + 's',
+              }}
+            />
+          </g>
         ))}
       </svg>
 

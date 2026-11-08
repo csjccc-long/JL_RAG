@@ -325,3 +325,23 @@
     background-color: rgba(255, 255, 255, 0.3);
   }
 }
+
+/* a spark travelling along the etched rings on the drive tray */
+@keyframes filigree-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -157;
+  }
+}
+
+.filigree-flow {
+  animation: filigree-flow 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filigree-flow {
+    animation: none;
+  }
+}
