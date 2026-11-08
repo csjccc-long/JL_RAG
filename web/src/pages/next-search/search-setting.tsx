@@ -21,6 +21,7 @@ import { KnowledgeBaseFormField } from '@/components/knowledge-base-item';
 import {
   LLMIdFormField,
   LlmSettingEnabledSchema,
+  LlmSettingFieldItems,
   LlmSettingFieldSchema,
 } from '@/components/llm-setting-items/next';
 import {
@@ -201,6 +202,10 @@ const SearchSetting: React.FC<SearchSettingProps> = ({
     name: 'search_config.use_rerank',
   });
 
+  const aiSummaryEnabled = useWatch({
+    control: formMethods.control,
+    name: 'search_config.summary',
+  });
   const selectedKbIds = useWatch({
     control: formMethods.control,
     name: 'search_config.kb_ids',
@@ -504,7 +509,19 @@ const SearchSetting: React.FC<SearchSettingProps> = ({
                 />
               </>
             )}
-            {/* AI summary model + effort live in the search box chip row. */}
+            {/* The summary switch, model and effort live in the search box chip
+                row; these are the fine-grained parameters behind "effort". */}
+            {aiSummaryEnabled && (
+              <LlmSettingFieldItems
+                prefix="search_config.llm_setting"
+                showFields={[
+                  'temperature',
+                  'top_p',
+                  'presence_penalty',
+                  'frequency_penalty',
+                ]}
+              />
+            )}
             {/* Feature Controls */}
             {/* <FormField
               control={formMethods.control}
