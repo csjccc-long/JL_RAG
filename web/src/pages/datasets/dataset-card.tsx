@@ -1,11 +1,12 @@
-import { HomeCard } from '@/components/home-card';
-import { MoreButton } from '@/components/more-button';
 import { SharedBadge } from '@/components/shared-badge';
+import { MoreButton } from '@/components/more-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { IDataset } from '@/interfaces/database/dataset';
+import { formatDate } from '@/utils/date';
 import { t } from 'i18next';
 import { ChevronRight } from 'lucide-react';
+import { DatasetDisk } from './dataset-disk';
 import { DatasetDropdown } from './dataset-dropdown';
 import { useRenameDataset } from './use-rename-dataset';
 
@@ -20,12 +21,12 @@ export function DatasetCard({
   const { navigateToDataset } = useNavigatePage();
 
   return (
-    <HomeCard
-      data={{
-        ...dataset,
-        description: `${dataset.document_count} ${t('knowledgeDetails.files')}`,
-      }}
-      moreDropdown={
+    <DatasetDisk
+      name={dataset.name}
+      files={`${dataset.document_count} ${t('knowledgeDetails.files')}`}
+      date={formatDate(dataset.update_time)}
+      badge={<SharedBadge>{dataset.nickname}</SharedBadge>}
+      more={
         <DatasetDropdown
           showDatasetRenameModal={showDatasetRenameModal}
           dataset={dataset}
@@ -33,7 +34,6 @@ export function DatasetCard({
           <MoreButton></MoreButton>
         </DatasetDropdown>
       }
-      sharedBadge={<SharedBadge>{dataset.nickname}</SharedBadge>}
       onClick={navigateToDataset(dataset.id)}
     />
   );
