@@ -94,37 +94,33 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
       className="group relative block h-[220px] w-full cursor-pointer outline-none hover:z-20 focus-visible:z-20 focus-within:z-20"
       style={{ perspective: 900, perspectiveOrigin: '50% 20%' }}
     >
-      {/* hover aura: the flux lines glow around the deck instead of the tile */}
+      {/* the tile's own backdrop: flux lines drifting behind the plinth */}
       {fluxOn && (
-        <div
-          className="pointer-events-none absolute inset-[-6px] z-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-          style={{
-            maskImage:
-              'radial-gradient(closest-side at 50% 58%, #000 34%, transparent 78%)',
-            WebkitMaskImage:
-              'radial-gradient(closest-side at 50% 58%, #000 34%, transparent 78%)',
-          }}
-        >
-          <FluxLines
-            colors={[accent, accent, accent]}
-            flowDirection="down"
-            speed={0.5}
-            scale={1.6}
-            turbulence={1}
-            fluidity={0.1}
-            rimWidth={0.2}
-            sharpness={2.5}
-            shimmer={1.5}
-            glow={2}
-            lineWidth={1}
-            opacity={0.85}
-            mouseInteraction
-            mouseStrength={1}
-            mouseRadius={0.35}
-            clickSwirl
-            intro
-            lightMode={!dark}
-          />
+        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
+          <div className="absolute inset-0 opacity-45 transition-opacity duration-700 group-hover:opacity-85 dark:opacity-60 dark:group-hover:opacity-100">
+            <FluxLines
+              colors={[accent, accent, accent]}
+              flowDirection="down"
+              speed={0.4}
+              scale={2.1}
+              turbulence={1}
+              fluidity={0.1}
+              rimWidth={0.25}
+              sharpness={2.5}
+              shimmer={1.4}
+              glow={1.8}
+              lineWidth={1}
+              opacity={0.75}
+              mouseInteraction
+              mouseStrength={1}
+              mouseRadius={0.4}
+              clickSwirl
+              intro
+              lightMode={!dark}
+            />
+          </div>
+          {/* keep the tile deep, so the light stays a glow and not a wash */}
+          <div className="absolute inset-0 bg-bg-base/35 dark:bg-black/30" />
         </div>
       )}
 
@@ -311,23 +307,23 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
           <div className="pointer-events-none absolute inset-0 rounded-t-[16px] shadow-[inset_2px_0_0_rgba(255,255,255,0.06),inset_-2px_0_0_rgba(0,0,0,0.6)]" />
         </div>
 
-        {/* front fascia: silk-screened with the memory's name and date */}
+        {/* front fascia: it hangs off the deck's front edge, so the seam is exact */}
         <div
-          className="absolute bottom-0 left-[-19px] h-[72px] w-[274px] origin-bottom overflow-hidden rounded-b-[12px] px-[33px] pt-3.5"
+          className="absolute left-0 top-full h-[64px] w-[236px] overflow-hidden rounded-b-[10px] px-3.5 pt-2.5"
           style={{
-            transform: 'translateZ(-72px) rotateX(-90deg)',
-            transformOrigin: 'bottom center',
+            transform: 'rotateX(-90deg)',
+            transformOrigin: 'top center',
             backfaceVisibility: 'hidden',
             willChange: 'transform',
             background:
-              'linear-gradient(180deg,#40474f 0%,#262c33 52%,#1a1e23 100%)',
+              'linear-gradient(180deg,#454d56 0%,#272d34 52%,#1a1e23 100%)',
             boxShadow:
               'inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -10px 16px rgba(0,0,0,0.45)',
           }}
         >
           {/* half a brain is silk-screened onto the fascia, cropped by the panel */}
-          <div className="pointer-events-none absolute right-[-26px] top-[-18px] h-[120px] w-[120px]">
-            <MemoryBrainWatermark size={120} opacity={0.32} color="#a9e3e6" />
+          <div className="pointer-events-none absolute right-[-58px] top-[-18px] h-[120px] w-[120px]">
+            <MemoryBrainWatermark size={120} opacity={0.26} color="#a9e3e6" />
           </div>
           <div className="relative flex items-center gap-2">
             <TruncatedText
@@ -346,7 +342,7 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
             </span>
             <SharedBadge>{data?.owner_name}</SharedBadge>
           </div>
-          <span className="pointer-events-none absolute bottom-[11px] right-[33px] text-[7px] tracking-[0.16em] text-white/40">
+          <span className="pointer-events-none absolute bottom-[9px] right-3 text-[7px] tracking-[0.16em] text-white/40">
             33⅓
           </span>
         </div>
