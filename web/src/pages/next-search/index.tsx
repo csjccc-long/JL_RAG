@@ -64,6 +64,7 @@ export default function SearchPage() {
                 setSearchText={setSearchText}
                 userInfo={userInfo}
                 canSearch={!checkOpenSetting}
+                searchData={SearchData as ISearchAppDetailProps}
               />
             </div>
           )}

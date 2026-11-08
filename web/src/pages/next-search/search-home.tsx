@@ -14,16 +14,16 @@
  *  limitations under the License.
  */
 
+import { PromptInput } from '@/components/ai-prompt-input';
 import Spotlight from '@/components/spotlight';
 import message from '@/components/ui/message';
-import { useAutoResizeTextarea } from '@/hooks/use-auto-resize-textarea';
 import { IUserInfo } from '@/interfaces/database/user-setting';
-import { cn } from '@/lib/utils';
-import { Search } from 'lucide-react';
-import { Dispatch, SetStateAction, useRef } from 'react';
+import { Dispatch, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ISearchAppDetailProps } from '../next-searches/hooks';
 import './index.less';
 import { RAGFlowLogo } from './ragflow-logo';
+import { useSummarySettings } from './use-summary-settings';
 
 export default function SearchHome({
   isSearching,
@@ -33,6 +33,7 @@ export default function SearchHome({
   userInfo,
   canSearch,
   showEmbedLogo,
+  searchData,
 }: {
   isSearching: boolean;
   setIsSearching: Dispatch<SetStateAction<boolean>>;
@@ -41,19 +42,38 @@ export default function SearchHome({
   userInfo?: IUserInfo;
   canSearch?: boolean;
   showEmbedLogo?: boolean;
+  searchData?: ISearchAppDetailProps;
 }) {
-  // const { data: userInfo } = useFetchUserInfo();
   const { t } = useTranslation();
-  const searchInputRef = useRef<HTMLTextAreaElement>(null);
+  const {
+    enabled: summaryEnabled,
+    modelId,
+    effort,
+    updating,
+    setEnabled,
+    setModel,
+    setEffort,
+  } = useSummarySettings(searchData);
 
-  const isMultiLine = useAutoResizeTextarea(searchInputRef, searchText);
+  const guardSearch = () => {
+    if (canSearch === false) {
+      message.warning(t('search.chooseDataset'));
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = () => {
+    if (!guardSearch() || !searchText.trim()) return;
+    setIsSearching(!isSearching);
+  };
 
   return (
     <section className="relative w-full flex transition-all justify-center items-center mt-[15vh]">
       <div className="relative z-10 px-8 pt-8 flex  text-transparent flex-col justify-center items-center w-[780px]">
         <RAGFlowLogo showEmbedIcon={showEmbedLogo}></RAGFlowLogo>
         <div className="rounded-lg  text-primary text-xl sticky flex justify-center w-full transform scale-100 mt-8 p-6 min-h-[240px] border">
-          {!isSearching && <Spotlight className="z-0" />}
+          {!isSearching && <Spotlight className="z-0 dark:opacity-[0.12]" />}
           <div className="flex flex-col justify-center items-center  w-2/3">
             {!isSearching && (
               <>
@@ -68,55 +88,24 @@ export default function SearchHome({
               </>
             )}
 
-            <div className="relative w-full ">
-              <textarea
-                ref={searchInputRef}
-                rows={1}
-                placeholder={t('search.searchGreeting')}
-                className={cn(
-                  'w-full py-4 px-4 pr-14 text-text-primary text-lg bg-bg-base border border-border-button resize-none scrollbar-thin outline-none focus-visible:ring-1 focus-visible:ring-text-primary/50',
-                  isMultiLine ? 'rounded-3xl' : 'rounded-full',
-                )}
-                value={searchText}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === 'Enter' &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing
-                  ) {
-                    e.preventDefault();
-                    if (canSearch === false) {
-                      message.warning(t('search.chooseDataset'));
-                      return;
-                    }
-                    setIsSearching(!isSearching);
-                  }
-                }}
-                onChange={(e) => {
-                  if (canSearch === false) {
-                    message.warning(t('search.chooseDataset'));
-                    return;
-                  }
-                  setSearchText(e.target.value || '');
-                }}
-              />
-              <button
-                type="button"
-                className={cn(
-                  'absolute right-3 flex size-9 items-center justify-center rounded-full bg-text-primary text-bg-base shadow transition-opacity hover:opacity-90',
-                  isMultiLine ? 'bottom-3' : 'top-1/2 -translate-y-1/2',
-                )}
-                onClick={() => {
-                  if (canSearch === false) {
-                    message.warning(t('search.chooseDataset'));
-                    return;
-                  }
-                  setIsSearching(!isSearching);
-                }}
-              >
-                <Search size={18} />
-              </button>
-            </div>
+            <PromptInput
+              value={searchText}
+              onChange={(next) => {
+                if (!guardSearch()) return;
+                setSearchText(next);
+              }}
+              onSubmit={handleSubmit}
+              placeholder={t('search.searchGreeting')}
+              showChips={summaryEnabled}
+              summaryEnabled={summaryEnabled}
+              onSummaryToggle={setEnabled}
+              modelValue={modelId}
+              onModelChange={setModel}
+              effortValue={effort}
+              onEffortChange={setEffort}
+              chipsDisabled={updating}
+              testId="search-home-input"
+            />
           </div>
         </div>
       </div>

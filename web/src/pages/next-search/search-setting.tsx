@@ -21,7 +21,6 @@ import { KnowledgeBaseFormField } from '@/components/knowledge-base-item';
 import {
   LLMIdFormField,
   LlmSettingEnabledSchema,
-  LlmSettingFieldItems,
   LlmSettingFieldSchema,
 } from '@/components/llm-setting-items/next';
 import {
@@ -202,10 +201,6 @@ const SearchSetting: React.FC<SearchSettingProps> = ({
     name: 'search_config.use_rerank',
   });
 
-  const aiSummaryDisabled = useWatch({
-    control: formMethods.control,
-    name: 'search_config.summary',
-  });
   const selectedKbIds = useWatch({
     control: formMethods.control,
     name: 'search_config.kb_ids',
@@ -509,37 +504,7 @@ const SearchSetting: React.FC<SearchSettingProps> = ({
                 />
               </>
             )}
-            {/* AI Summary */}
-            <FormField
-              control={formMethods.control}
-              name="search_config.summary"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel>{t('search.AISummary')}</FormLabel>
-                </FormItem>
-              )}
-            />
-            {aiSummaryDisabled && (
-              // <LlmSettingFieldItems
-              //   prefix="search_config.llm_setting"
-              //   options={aiSummeryModelOptions}
-              // ></LlmSettingFieldItems>
-              <LlmSettingFieldItems
-                prefix="search_config.llm_setting"
-                showFields={[
-                  'temperature',
-                  'top_p',
-                  'presence_penalty',
-                  'frequency_penalty',
-                ]}
-              ></LlmSettingFieldItems>
-            )}
+            {/* AI summary model + effort live in the search box chip row. */}
             {/* Feature Controls */}
             {/* <FormField
               control={formMethods.control}

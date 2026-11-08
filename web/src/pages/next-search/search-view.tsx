@@ -26,12 +26,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { PromptInput } from '@/components/ai-prompt-input';
 import { IReference } from '@/interfaces/database/chat';
-import { useAutoResizeTextarea } from '@/hooks/use-auto-resize-textarea';
 import { cn } from '@/lib/utils';
 import { isEmpty } from 'lodash';
-import { ListTree, Search, X } from 'lucide-react';
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
+import { ListTree } from 'lucide-react';
+import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ISearchAppDetailProps } from '../next-searches/hooks';
 import PdfDrawer from './document-preview-modal';
@@ -44,6 +44,7 @@ import { RAGFlowLogo } from './ragflow-logo';
 import RetrievalDocuments from './retrieval-documents';
 import { sanitizeHtmlWithImagesAsText } from '@/utils/dom-util';
 import classNames from 'classnames';
+import { useSummarySettings } from './use-summary-settings';
 
 const formatMetadataValue = (value: unknown) => {
   if (Array.isArray(value)) return value.join(', ');
@@ -90,13 +91,19 @@ export default function SearchingView({
 
   const [searchText, setSearchText] = useState<string>('');
   const [retrievalLoading, setRetrievalLoading] = useState(false);
-  const searchInputRef = useRef<HTMLTextAreaElement>(null);
+  const {
+    enabled: summaryEnabled,
+    modelId: summaryModel,
+    effort: summaryEffort,
+    updating: summaryUpdating,
+    setEnabled: setSummaryEnabled,
+    setModel: setSummaryModel,
+    setEffort: setSummaryEffort,
+  } = useSummarySettings(searchData);
 
   useEffect(() => {
     setSearchText(searchStr);
   }, [searchStr, setSearchText]);
-
-  const isMultiLine = useAutoResizeTextarea(searchInputRef, searchText);
   return (
     <section
       className={cn(
@@ -122,65 +129,29 @@ export default function SearchingView({
         >
           <div className={cn('flex flex-col justify-start items-start w-full')}>
             <div className="relative w-full text-primary">
-              <textarea
-                ref={searchInputRef}
-                rows={1}
-                placeholder={t('search.searchGreeting')}
-                className={cn(
-                  'w-full rounded-full py-4 pl-4 !pr-[8rem] text-primary text-lg bg-bg-base border border-border-button resize-none scrollbar-thin outline-none focus-visible:ring-1 focus-visible:ring-text-primary/50 disabled:cursor-not-allowed disabled:opacity-50',
-                  isMultiLine ? 'rounded-3xl' : 'rounded-full',
-                )}
+              <PromptInput
                 value={searchText}
-                onChange={(e) => {
-                  setSearchText(e.target.value);
-                }}
+                onChange={setSearchText}
+                onSubmit={() => handleSearch(searchText)}
+                onStop={stopOutputMessage}
+                placeholder={t('search.searchGreeting')}
+                alwaysExpanded
+                loading={sendingLoading}
                 disabled={sendingLoading}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === 'Enter' &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing
-                  ) {
-                    e.preventDefault();
-                    handleSearch(searchText);
-                  }
+                showChips={summaryEnabled}
+                summaryEnabled={summaryEnabled}
+                onSummaryToggle={setSummaryEnabled}
+                modelValue={summaryModel}
+                onModelChange={setSummaryModel}
+                effortValue={summaryEffort}
+                onEffortChange={setSummaryEffort}
+                chipsDisabled={summaryUpdating}
+                onClear={() => {
+                  setSearchText('');
+                  handleClickRelatedQuestion('');
                 }}
+                testId="search-view-input"
               />
-              <div
-                className={cn(
-                  'absolute  right-3 flex items-center gap-3',
-                  isMultiLine ? 'bottom-3' : 'top-1/2 -translate-y-1/2',
-                )}
-              >
-                {searchText && (
-                  <X
-                    className="text-text-secondary cursor-pointer opacity-80 hover:opacity-100"
-                    size={16}
-                    onClick={() => {
-                      setSearchText('');
-                      handleClickRelatedQuestion('');
-                    }}
-                  />
-                )}
-                <span className="h-4 w-px bg-border-button" aria-hidden />
-                <button
-                  type="button"
-                  className="flex size-9 items-center justify-center rounded-full bg-text-primary text-bg-base shadow transition-opacity hover:opacity-90"
-                  onClick={() => {
-                    if (sendingLoading) {
-                      stopOutputMessage();
-                    } else {
-                      handleSearch(searchText);
-                    }
-                  }}
-                >
-                  {sendingLoading ? (
-                    <div className="size-2 bg-bg-base"></div>
-                  ) : (
-                    <Search size={18} />
-                  )}
-                </button>
-              </div>
             </div>
           </div>
           {/* search body */}
@@ -188,7 +159,7 @@ export default function SearchingView({
             className="w-full mt-5 overflow-auto scrollbar-thin "
             style={{ height: 'calc(100vh - 250px)' }}
           >
-            {searchData.search_config.summary && !isSearchStrEmpty && (
+            {summaryEnabled && !isSearchStrEmpty && (
               <>
                 <div className="flex justify-start items-start text-text-primary text-2xl">
                   {t('search.AISummary')}
