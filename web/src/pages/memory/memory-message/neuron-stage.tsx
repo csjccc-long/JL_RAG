@@ -1,9 +1,6 @@
 import { isDarkTheme, watchTheme } from '@/components/live-orb';
-import {
-  buildNeuronShape,
-  hexToRgb,
-  paintNeuron,
-} from '@/pages/memories/neuron-shape';
+import { hexToRgb } from '@/pages/memories/neuron-shape';
+import { buildNeuron3D, Tip3D } from '@/pages/memories/neuron3d';
 import { TYPE_COLORS } from '@/pages/memories/brain-model';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IMessageInfo } from './interface';
@@ -15,8 +12,6 @@ interface IProps {
   onSelect: (message: IMessageInfo) => void;
 }
 
-type Dot = { x: number; y: number; z: number };
-
 const TAU = Math.PI * 2;
 
 const TYPE_LABELS: Record<string, string> = {
@@ -26,23 +21,28 @@ const TYPE_LABELS: Record<string, string> = {
   raw: '原始',
 };
 
+interface Segment {
+  a: [number, number, number];
+  b: [number, number, number];
+  wa: number;
+  wb: number;
+}
+
 /**
- * The memory seen from inside: one neuron blown up to fill the stage, with
- * every message hanging off it as a bouton. The boutons orbit the cell on a
- * sphere, so the stage reads as a 3D synapse rather than a flat diagram.
- * Clicking a bouton opens that message, so the detail page stays inside the
- * same visual language as the brain it was entered from.
+ * The memory seen from inside: the neuron itself is modelled in three
+ * dimensions and turned by the viewer, and every message hangs off one of its
+ * dendritic terminals. Rotating the cell therefore moves the messages through
+ * space with it, the way synapses sit on a real arbor.
  */
 export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const shape = useMemo(() => buildNeuronShape(seed, 'high'), [seed]);
+  const neuron = useMemo(() => buildNeuron3D(seed, 'high'), [seed]);
   const [dark, setDark] = useState(() => isDarkTheme());
   const darkRef = useRef(dark);
   darkRef.current = dark;
   const [hovered, setHovered] = useState<number | null>(null);
   const [grabbing, setGrabbing] = useState(false);
   const hoverRef = useRef<number | null>(null);
-  const pointer = useRef<{ x: number; y: number } | null>(null);
   const sizeState = useRef({ w: 0, h: 0 });
   const nodeRef = useRef<{ x: number; y: number; r: number; index: number }[]>([]);
   const messagesRef = useRef(messages);
@@ -50,14 +50,70 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
   const activeRef = useRef(activeId);
   activeRef.current = activeId;
 
-  // the orbit turns by itself until the viewer grabs the cell, then their drag
-  // takes over and the spin resumes once they let go
-  const yaw = useRef(0.55);
-  const pitch = useRef(-0.26);
+  const yaw = useRef(0.62);
+  const sway = useRef(true);
+  const pitch = useRef(-0.32);
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(
     null,
   );
   const dragged = useRef(0);
+
+  // flatten the arbor once: the frame loop only projects and sorts
+  const segments = useMemo<Segment[]>(() => {
+    const out: Segment[] = [];
+    for (const branch of neuron.branches) {
+      const { pts, w } = branch;
+      for (let i = 3; i < pts.length; i += 3) {
+        out.push({
+          a: [pts[i - 3], pts[i - 2], pts[i - 1]],
+          b: [pts[i], pts[i + 1], pts[i + 2]],
+          wa: w[i / 3 - 1],
+          wb: w[i / 3],
+        });
+      }
+    }
+    return out;
+  }, [neuron]);
+
+  // every message gets its own terminal, spread around the arbor
+  const anchors = useMemo<Tip3D[]>(() => {
+    if (!neuron.tips.length) return [];
+    // score every terminal as it appears from the opening camera: messages
+    // start on the side facing the viewer instead of hiding behind the soma
+    const cyaw = Math.cos(0.62);
+    const syaw = Math.sin(0.62);
+    const cp = Math.cos(-0.32);
+    const sp = Math.sin(-0.32);
+    const scored = neuron.tips
+      .map((tip) => {
+        const x1 = tip.x * cyaw - tip.z * syaw;
+        const z1 = tip.x * syaw + tip.z * cyaw;
+        const y1 = tip.y * cp - z1 * sp;
+        const z2 = tip.y * sp + z1 * cp;
+        return {
+          tip,
+          depth: Math.min(1, Math.max(0, (z2 / neuron.reach + 1) / 2)),
+          screen: Math.hypot(x1, y1),
+          angle: Math.atan2(y1, x1),
+        };
+      })
+      .filter((item) => Math.hypot(item.tip.x, item.tip.z) > 0.5);
+    const visible = scored.filter((item) => item.depth >= 0.52);
+    const pool = visible.length >= messages.length ? visible : scored;
+    if (!pool.length) return [];
+    const sorted = [...pool].sort((a, b) => a.angle - b.angle);
+    if (messages.length === 1) {
+      // keep the single message on the face of the cell, not on its silhouette
+      const facing = sorted.filter((item) => item.depth >= 0.7);
+      const pickFrom = facing.length ? facing : sorted;
+      const best = [...pickFrom].sort((a, b) => b.screen - a.screen);
+      return [best[0].tip];
+    }
+    return messages.map((_, i) => {
+      const at = Math.floor((i * sorted.length) / messages.length);
+      return sorted[at % sorted.length].tip;
+    });
+  }, [neuron, messages]);
 
   useEffect(() => watchTheme(() => setDark(isDarkTheme())), []);
 
@@ -81,80 +137,148 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
     observer.observe(canvas);
 
     let raf = 0;
-    let last = 0;
     const draw = (time: number) => {
       const { w, h } = sizeState.current;
       if (!w || !h) return;
-      const dt = last ? Math.min(0.05, time - last) : 0;
-      last = time;
-      if (!reduced && !drag.current) yaw.current += dt * 0.24;
+      // a slow sway shows the depth of the arbor without ever turning the
+      // terminals away from the viewer
+      if (!reduced && !drag.current && sway.current) {
+        yaw.current = 0.62 + Math.sin(time * 0.24) * 0.2;
+      }
 
       const isDark = darkRef.current;
       const cx = w * 0.44;
       const cy = h * 0.5;
-      // the morphology reaches ~1.7 units, so this leaves the dendrites room
-      // to breathe while the orbit stays outside their tips
-      const unit = Math.min(w * 0.125, h * 0.2);
-      const breathe = reduced ? 1 : 1 + Math.sin(time * 0.9) * 0.012;
+      const unit = Math.min(w * 0.155, h * 0.225);
+      const breathe = reduced ? 1 : 1 + Math.sin(time * 0.9) * 0.01;
       const list = messagesRef.current;
-      const count = list.length;
 
       const cyaw = Math.cos(yaw.current);
       const syaw = Math.sin(yaw.current);
       const cp = Math.cos(pitch.current);
       const sp = Math.sin(pitch.current);
-
-      // radius of the shell the boutons ride on, and the perspective distance
-      const orbit = unit * 2.05;
-      const focal = orbit * 2.1;
-      const project = (p: Dot) => {
-        const x1 = p.x * cyaw - p.z * syaw;
-        const z1 = p.x * syaw + p.z * cyaw;
-        const y1 = p.y * cp - z1 * sp;
-        const z2 = p.y * sp + z1 * cp;
+      const focal = neuron.reach * 2.35;
+      const project = (p: [number, number, number]) => {
+        const x1 = p[0] * cyaw - p[2] * syaw;
+        const z1 = p[0] * syaw + p[2] * cyaw;
+        const y1 = p[1] * cp - z1 * sp;
+        const z2 = p[1] * sp + z1 * cp;
         const k = focal / (focal - z2);
-        return { x: cx + x1 * k, y: cy + y1 * k, z: z2, k };
+        return { x: cx + x1 * unit * k, y: cy + y1 * unit * k, z: z2, k };
       };
+      const depthOf = (z: number) =>
+        Math.min(1, Math.max(0, (z / neuron.reach + 1) / 2));
+
+      const colour = TYPE_COLORS.semantic[isDark ? 'dark' : 'light'];
+      const rgb = hexToRgb(colour);
 
       ctx.clearRect(0, 0, w, h);
 
       // light behind the cell
-      const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, unit * 2.9);
+      const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, unit * 2.8);
       halo.addColorStop(
         0,
-        isDark ? 'rgba(0, 190, 180, 0.17)' : 'rgba(0, 150, 145, 0.08)',
+        isDark ? 'rgba(0, 190, 180, 0.16)' : 'rgba(0, 150, 145, 0.08)',
       );
-      halo.addColorStop(0.5, isDark ? 'rgba(0, 120, 116, 0.05)' : 'rgba(0, 0, 0, 0)');
+      halo.addColorStop(0.55, isDark ? 'rgba(0, 120, 116, 0.05)' : 'rgba(0, 0, 0, 0)');
       halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = halo;
       ctx.fillRect(0, 0, w, h);
 
-      const colour = TYPE_COLORS.semantic[isDark ? 'dark' : 'light'];
+      // project the arbor and sort it back to front: that ordering is what
+      // makes dendrites pass in front of and behind the soma
+      const drawn = segments.map((seg) => {
+        const a = project(seg.a);
+        const b = project(seg.b);
+        return { a, b, wa: seg.wa, wb: seg.wb, z: (a.z + b.z) / 2 };
+      });
+      drawn.sort((p, q) => p.z - q.z);
 
-      // two faint great circles, so the orbit reads as a sphere in space
-      for (const ring of [1, 0.66]) {
+      const somaR = neuron.somaR * unit;
+      const somaPoint = project([0, 0, 0]);
+      const somaKeepOut = somaR * 1.22;
+
+      const strokeSegment = (item: (typeof drawn)[number]) => {
+        const depth = depthOf(item.z);
+        const k = (item.a.k + item.b.k) / 2;
+        const width = ((item.wa + item.wb) / 2) * unit * k;
         ctx.beginPath();
-        for (let step = 0; step <= 64; step += 1) {
-          const a = (step / 64) * TAU;
-          const p = project({
-            x: Math.cos(a) * orbit * ring,
-            y: 0,
-            z: Math.sin(a) * orbit * ring,
-          });
-          if (step === 0) ctx.moveTo(p.x, p.y);
-          else ctx.lineTo(p.x, p.y);
-        }
-        ctx.strokeStyle = isDark
-          ? 'rgba(120, 220, 210, 0.07)'
-          : 'rgba(10, 90, 86, 0.08)';
-        ctx.lineWidth = 1;
+        ctx.moveTo(item.a.x, item.a.y);
+        ctx.lineTo(item.b.x, item.b.y);
+        ctx.lineCap = 'round';
+        // wide dim membrane, then the bright filament inside it
+        ctx.strokeStyle = 'rgba(' + rgb + ', ' + (0.07 + 0.2 * depth).toFixed(3) + ')';
+        ctx.lineWidth = Math.max(1.2, width * 3);
         ctx.stroke();
-      }
+        ctx.strokeStyle =
+          'rgba(' + rgb + ', ' + (0.16 + 0.7 * depth * depth).toFixed(3) + ')';
+        ctx.lineWidth = Math.max(0.9, width * 1.25);
+        ctx.stroke();
+      };
 
-      const golden = Math.PI * (3 - Math.sqrt(5));
+      const scale = breathe;
+      const drawSoma = () => {
+        ctx.save();
+        ctx.translate(somaPoint.x, somaPoint.y);
+        // the body is a lumpy sphere; pitch squashes it a little, which sells
+        // the turn of the cell
+        ctx.scale(scale, scale * (0.9 + 0.1 * cp));
+        ctx.beginPath();
+        for (let i = 0; i <= 64; i += 1) {
+          const a = (i / 64) * TAU;
+          const wobble =
+            1 +
+            0.09 * Math.sin(neuron.lobes * a + neuron.lobePhase) +
+            0.04 * Math.sin(2 * neuron.lobes * a - neuron.lobePhase);
+          const x = Math.cos(a) * somaR * wobble;
+          const y = Math.sin(a) * somaR * wobble;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        const body = ctx.createRadialGradient(
+          -somaR * 0.34,
+          -somaR * 0.38,
+          somaR * 0.12,
+          0,
+          0,
+          somaR * 1.08,
+        );
+        body.addColorStop(0, 'rgba(' + rgb + ', 0.98)');
+        body.addColorStop(0.62, 'rgba(' + rgb + ', 0.72)');
+        body.addColorStop(1, 'rgba(' + rgb + ', ' + (isDark ? 0.36 : 0.3) + ')');
+        ctx.fillStyle = body;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(' + rgb + ', 0.9)';
+        ctx.lineWidth = Math.max(0.8, unit * 0.026);
+        ctx.stroke();
+
+        // nucleus sits toward the viewer, so it moves with the turning
+        const shift = 0.09;
+        const nx = Math.sin(yaw.current) * somaR * shift;
+        const ny = Math.cos(pitch.current) * somaR * shift * 0.5;
+        const nr = neuron.nucleus * unit;
+        const nuc = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr * 1.3);
+        nuc.addColorStop(0, isDark ? 'rgba(4, 20, 20, 0.72)' : 'rgba(255,255,255,0.55)');
+        nuc.addColorStop(1, isDark ? 'rgba(6, 28, 28, 0.82)' : 'rgba(255,255,255,0.4)');
+        ctx.beginPath();
+        ctx.arc(nx, ny, nr, 0, TAU);
+        ctx.fillStyle = nuc;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(nx - nr * 0.2, ny - nr * 0.16, nr * 0.36, 0, TAU);
+        ctx.fillStyle = 'rgba(' + rgb + ', 0.95)';
+        ctx.fill();
+
+        // specular
+        ctx.beginPath();
+        ctx.arc(-somaR * 0.36, -somaR * 0.42, somaR * 0.15, 0, TAU);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fill();
+        ctx.restore();
+      };
+
       const nodes: { x: number; y: number; r: number; index: number }[] = [];
-      // a bouton on the far side would vanish behind the cell, so the ones
-      // that end up behind are re-marked with a dashed ghost afterwards
       const ghosts: {
         x: number;
         y: number;
@@ -163,91 +287,98 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
         label: string;
       }[] = [];
 
-      const drawBouton = (i: number, front: boolean) => {
-        const message = list[i];
-        const nodeColour =
-          TYPE_COLORS[message.message_type]?.[isDark ? 'dark' : 'light'] ?? colour;
-        const selected = message.message_id === activeRef.current;
-        const hover = hoverRef.current === i;
+      const clampX = (value: number) => Math.min(Math.max(value, 46), w - 46);
+      const clampY = (value: number) => Math.min(Math.max(value, 36), h - 36);
 
-        // a fibonacci shell keeps the boutons apart whatever their number; a
-        // slow drift on every one of them keeps the depth legible while the
-        // orbit turns
-        const t = count === 1 ? 0 : (i + 0.5) / count;
-        const drift = reduced ? 0 : Math.sin(time * 0.5 + i * 1.7) * 0.07;
-        const rawY = (count === 1 ? 0.18 : 1 - t * 2) + drift;
-        const y3 = Math.min(0.92, Math.max(-0.92, rawY));
-        const ring = Math.sqrt(Math.max(0, 1 - y3 * y3));
-        const phi =
-          (count === 1 ? 0.4 : i * golden) +
-          (reduced ? 0 : Math.sin(time * 0.34 + i) * 0.12);
-        const radius = orbit * (0.92 + ((i * 37) % 11) * 0.014);
-        const dot = project({
-          x: Math.cos(phi) * ring * radius,
-          y: y3 * radius * 0.86,
-          z: Math.sin(phi) * ring * radius,
+      const anchorScreen = () =>
+        anchors.map((tip) => {
+          // the message sits a hair beyond the terminal it hangs from
+          const p = project([
+            tip.x + tip.dx * 0.05,
+            tip.y + tip.dy * 0.05,
+            tip.z + tip.dz * 0.05,
+          ]);
+          const base = project([tip.x, tip.y, tip.z]);
+          return { tip, base, p };
         });
 
-        const depth = (dot.z / orbit + 1) / 2;
-        if (front !== (depth >= 0.5)) return;
+      const screen = anchorScreen();
+      // keep the captions from stacking: when two terminals land on top of each
+      // other the deeper one slides outward, its stalk showing the true origin
+      const placed: { x: number; y: number }[] = [];
+      for (const item of [...screen].sort((a, b) => a.p.z - b.p.z)) {
+        let px = item.p.x;
+        let py = item.p.y;
+        for (const other of placed) {
+          const dx = px - other.x;
+          const dy = py - other.y;
+          const d = Math.hypot(dx, dy);
+          if (d < 86) {
+            const push = (86 - d) / (d || 1);
+            px += dx * push;
+            py += dy * push;
+          }
+        }
+        // a bead must not land on the cell body: slide it out along the same
+        // bearing, the stalk keeps showing where it really hangs
+        const ox = px - somaPoint.x;
+        const oy = py - somaPoint.y;
+        const out = Math.hypot(ox, oy);
+        if (out < somaKeepOut) {
+          const push = (somaKeepOut - out) / (out || 1);
+          px += ox * push;
+          py += oy * push;
+        }
+        placed.push({ x: px, y: py });
+        item.p = { ...item.p, x: px, y: py };
+      }
 
-        const clampX = (value: number) => Math.min(Math.max(value, 52), w - 52);
-        const clampY = (value: number) => Math.min(Math.max(value, 40), h - 40);
-        const x = clampX(dot.x);
-        const y = clampY(dot.y);
-        const shrink = 0.68 + depth * 0.62;
+      const drawMessage = (index: number, near: boolean) => {
+        const message = list[index];
+        const { base, p } = screen[index];
+        const depth = depthOf(p.z);
+        if (near !== depth >= 0.5) return;
+        const nodeColour =
+          TYPE_COLORS[message.message_type]?.[isDark ? 'dark' : 'light'] ?? colour;
+        const nodeRgb = hexToRgb(nodeColour);
+        const selected = message.message_id === activeRef.current;
+        const hover = hoverRef.current === index;
+        const alpha = 0.34 + depth * 0.66;
         const r = Math.min(
-          17,
-          (selected ? 13 : hover ? 11.5 : 9) * shrink * dot.k,
+          16,
+          (selected ? 12.5 : hover ? 11 : 8.5) * (0.7 + depth * 0.55) * p.k,
         );
-        const alpha = Math.min(1, 0.34 + depth * 0.78);
-        // the far half sits in a shallow depth of field
-        const blur = depth < 0.5 ? (0.5 - depth) * 1.7 : 0;
+        const x = clampX(p.x);
+        const y = clampY(p.y);
         const rawLabel =
           message.agent_name && message.agent_name !== 'Unknown'
             ? message.agent_name
             : (TYPE_LABELS[message.message_type] ?? message.message_type);
         const label = rawLabel.length > 10 ? rawLabel.slice(0, 10) + '…' : rawLabel;
-        if (!front && depth < 0.5) {
+
+        if (!near) {
           ghosts.push({ x, y, r: Math.max(r, 7), colour: nodeColour, label });
         }
 
-        // the fibre that ties the message to the cell, bending through space
-        const dx = x - cx;
-        const dy = y - cy;
-        const len = Math.hypot(dx, dy) || 1;
-        const sx = cx + (dx / len) * unit * 0.44;
-        const sy = cy + (dy / len) * unit * 0.44;
-        const mx = (sx + x) / 2 - (dy / len) * 24 * dot.k;
-        const my = (sy + y) / 2 + (dx / len) * 24 * dot.k;
-        ctx.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : 'none';
+        // the short stalk that ties the message to its terminal
         ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.quadraticCurveTo(mx, my, x, y);
-        ctx.strokeStyle = `rgba(${hexToRgb(nodeColour)}, ${(selected ? 0.62 : 0.3) * alpha})`;
-        ctx.lineWidth = (selected ? 1.6 : 1) * dot.k;
+        ctx.moveTo(base.x, base.y);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = 'rgba(' + nodeRgb + ', ' + (0.32 * alpha).toFixed(3) + ')';
+        ctx.lineWidth = 1.1 * p.k;
         ctx.stroke();
 
-        // travelling signal
-        if (!reduced) {
-          const s = (time * 0.35 + i * 0.17) % 1;
-          const inv = 1 - s;
-          const px = inv * inv * sx + 2 * inv * s * mx + s * s * x;
-          const py = inv * inv * sy + 2 * inv * s * my + s * s * y;
-          const tracer = ctx.createRadialGradient(px, py, 0, px, py, 6 * dot.k);
-          tracer.addColorStop(0, `rgba(${hexToRgb(nodeColour)}, ${0.9 * alpha})`);
-          tracer.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          ctx.fillStyle = tracer;
-          ctx.beginPath();
-          ctx.arc(px, py, 6 * dot.k, 0, TAU);
-          ctx.fill();
-        }
+        // the synapse itself, a small knob on the fibre
+        ctx.beginPath();
+        ctx.arc(base.x, base.y, Math.max(1.6, 2.4 * p.k), 0, TAU);
+        ctx.fillStyle = 'rgba(' + nodeRgb + ', ' + (0.6 * alpha).toFixed(3) + ')';
+        ctx.fill();
 
         if (selected) {
           const pulse = reduced ? 0.5 : Math.sin(time * 2.4) * 0.5 + 0.5;
           ctx.beginPath();
-          ctx.arc(x, y, r + 8 + pulse * 4, 0, TAU);
-          ctx.strokeStyle = `rgba(${hexToRgb(nodeColour)}, ${0.4 * alpha})`;
+          ctx.arc(x, y, r + 7 + pulse * 4, 0, TAU);
+          ctx.strokeStyle = 'rgba(' + nodeRgb + ', ' + (0.4 * alpha).toFixed(3) + ')';
           ctx.lineWidth = 1;
           ctx.setLineDash([3, 5]);
           ctx.stroke();
@@ -255,14 +386,13 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
         }
 
         const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
-        glow.addColorStop(0, `rgba(${hexToRgb(nodeColour)}, ${0.38 * alpha})`);
+        glow.addColorStop(0, 'rgba(' + nodeRgb + ', ' + (0.36 * alpha).toFixed(3) + ')');
         glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = glow;
         ctx.beginPath();
         ctx.arc(x, y, r * 3, 0, TAU);
         ctx.fill();
 
-        // a lit sphere rather than a flat disc: the highlight rides the light
         const body = ctx.createRadialGradient(
           x - r * 0.34,
           y - r * 0.4,
@@ -271,17 +401,14 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
           y,
           r * 1.05,
         );
-        body.addColorStop(
-          0,
-          `rgba(${hexToRgb(nodeColour)}, ${Math.min(1, 0.55 * alpha + 0.3)})`,
-        );
-        body.addColorStop(1, `rgba(${hexToRgb(nodeColour)}, ${0.22 * alpha})`);
+        body.addColorStop(0, 'rgba(' + nodeRgb + ', ' + Math.min(1, 0.55 * alpha + 0.3) + ')');
+        body.addColorStop(1, 'rgba(' + nodeRgb + ', ' + (0.22 * alpha).toFixed(3) + ')');
         ctx.beginPath();
         ctx.arc(x, y, r, 0, TAU);
         ctx.fillStyle = body;
         ctx.fill();
         ctx.lineWidth = 1.3;
-        ctx.strokeStyle = `rgba(${hexToRgb(nodeColour)}, ${alpha})`;
+        ctx.strokeStyle = 'rgba(' + nodeRgb + ', ' + alpha.toFixed(3) + ')';
         ctx.stroke();
 
         if (selected) {
@@ -291,14 +418,9 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
           ctx.fill();
         }
 
-        // only the half in front of the cell carries a caption: on the far
-        // side it would sit on top of the soma and read as a mistake
-        // only the half in front of the cell carries a caption: on the far
-        // side it would sit on top of the soma and read as a mistake
-        if (depth < 0.42) {
-          nodes.push({ x, y, r: r + 10, index: i });
-          return;
-        }
+        nodes.push({ x, y, r: r + 9, index });
+
+        if (depth < 0.44) return;
         ctx.font =
           (selected || hover ? '600' : '500') +
           ' 12px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
@@ -308,44 +430,58 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
         ctx.shadowBlur = 6;
         ctx.fillStyle = selected
           ? isDark
-            ? `rgba(235, 250, 248, ${Math.min(1, alpha + 0.2)})`
-            : `rgba(12, 40, 40, ${Math.min(1, alpha + 0.2)})`
+            ? 'rgba(235, 250, 248, ' + Math.min(1, alpha + 0.2) + ')'
+            : 'rgba(12, 40, 40, ' + Math.min(1, alpha + 0.2) + ')'
           : isDark
-            ? `rgba(210, 230, 228, ${0.75 * alpha})`
-            : `rgba(40, 70, 70, ${0.75 * alpha})`;
-        ctx.fillText(label, x, y + r + 8);
+            ? 'rgba(210, 230, 228, ' + (0.72 * alpha).toFixed(3) + ')'
+            : 'rgba(40, 70, 70, ' + (0.72 * alpha).toFixed(3) + ')';
+        ctx.fillText(label, x, y + r + 7);
         ctx.shadowBlur = 0;
-        ctx.filter = 'none';
-
-        nodes.push({ x, y, r: r + 10, index: i });
       };
 
-      // far half first, then the cell, then the near half: that order is what
-      // makes the boutons sit in front of and behind the neuron
-      for (let i = 0; i < count; i += 1) drawBouton(i, false);
+      // far half of the messages, then the arbor, then the near half
+      for (let i = 0; i < list.length; i += 1) drawMessage(i, false);
 
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.scale(breathe, breathe * (0.94 + 0.06 * cp));
-      paintNeuron(ctx, shape, unit, colour, { dark: isDark, halo: 3.4 });
-      ctx.restore();
+      // synaptic knobs on every terminal, so the arbor reads as a real cell
+      const drawTip = (tip: Tip3D, near: boolean) => {
+        const q = project([tip.x, tip.y, tip.z]);
+        const depth = depthOf(q.z);
+        if (near !== depth >= 0.5) return;
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, Math.max(1.1, 2.4 * q.k * (0.55 + depth * 0.7)), 0, TAU);
+        ctx.fillStyle =
+          'rgba(' + rgb + ', ' + (0.22 + 0.42 * depth).toFixed(3) + ')';
+        ctx.fill();
+      };
+      for (const tip of neuron.tips) drawTip(tip, false);
 
-      for (let i = 0; i < count; i += 1) drawBouton(i, true);
+      let somaDrawn = false;
+      for (const item of drawn) {
+        if (!somaDrawn && item.z > 0) {
+          drawSoma();
+          somaDrawn = true;
+        }
+        strokeSegment(item);
+      }
+      if (!somaDrawn) drawSoma();
+      for (const tip of neuron.tips) drawTip(tip, true);
+
+      for (let i = 0; i < list.length; i += 1) drawMessage(i, true);
 
       for (const ghost of ghosts) {
-        // the message is behind the cell: mark it so it can still be found
-        const rad = Math.max(ghost.r * 1.6, 9);
+        const rad = Math.max(ghost.r * 1.55, 9);
+        // seen through the cell: a dim bead behind a dashed outline
+        ctx.beginPath();
+        ctx.arc(ghost.x, ghost.y, Math.max(5, rad * 0.52), 0, TAU);
+        ctx.fillStyle = 'rgba(' + hexToRgb(ghost.colour) + ', 0.45)';
+        ctx.fill();
         ctx.beginPath();
         ctx.arc(ghost.x, ghost.y, rad, 0, TAU);
-        ctx.strokeStyle = 'rgba(' + hexToRgb(ghost.colour) + ', 0.55)';
+        ctx.strokeStyle = 'rgba(' + hexToRgb(ghost.colour) + ', 0.62)';
         ctx.lineWidth = 1.2;
         ctx.setLineDash([2, 4]);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.arc(ghost.x, ghost.y, 2, 0, TAU);
-        ctx.fillStyle = 'rgba(' + hexToRgb(ghost.colour) + ', 0.7)';
-        ctx.fill();
         ctx.font =
           '500 11px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
         ctx.textAlign = 'center';
@@ -369,7 +505,7 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
       cancelAnimationFrame(raf);
       observer.disconnect();
     };
-  }, [shape]);
+  }, [neuron, segments, anchors]);
 
   const pick = (x: number, y: number) => {
     let hit: number | null = null;
@@ -400,6 +536,7 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
         onPointerDown={(event) => {
           event.currentTarget.setPointerCapture(event.pointerId);
           dragged.current = 0;
+          sway.current = false;
           setGrabbing(true);
           drag.current = {
             x: event.clientX,
@@ -412,7 +549,6 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
           const rect = event.currentTarget.getBoundingClientRect();
           const x = event.clientX - rect.left;
           const y = event.clientY - rect.top;
-          pointer.current = { x, y };
           const grabbed = drag.current;
           if (grabbed) {
             const dx = event.clientX - grabbed.x;
@@ -437,7 +573,6 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
           setGrabbing(false);
         }}
         onPointerLeave={() => {
-          pointer.current = null;
           drag.current = null;
           hoverRef.current = null;
           setGrabbing(false);
