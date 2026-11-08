@@ -7,7 +7,7 @@ import { makeRng } from './brain-model';
  * synapses the messages hang off.
  */
 
-export const SOMA_R = 0.3;
+export const SOMA_R = 0.38;
 
 export interface Tip3D {
   x: number;
@@ -36,6 +36,8 @@ export interface Neuron3D {
   /** flat x, y, z triples */
   spines: number[];
   tips: Tip3D[];
+  /** surface bumps on the soma, so the body reads as a turning sphere */
+  bumps: { dir: Vec3; size: number }[];
   reach: number;
 }
 
@@ -76,16 +78,20 @@ export function buildNeuron3D(
   const primaries = detail === 'high' ? 9 + Math.floor(rng() * 2) : 6;
   const maxDepth = detail === 'high' ? 2 : 1;
 
+  // a strand keeps the path of its parent, so a primary dendrite is one
+  // continuous curve with its forks rather than a chain of short sausages
   const grow = (
     start: Vec3,
     dir0: Vec3,
     len: number,
     width: number,
     depth: number,
+    prefixPts: number[] = [],
+    prefixW: number[] = [],
   ) => {
     const steps = 3;
-    const pts: number[] = [start[0], start[1], start[2]];
-    const ws: number[] = [width];
+    const pts: number[] = [...prefixPts, start[0], start[1], start[2]];
+    const ws: number[] = [...prefixW, width];
     let p: Vec3 = [start[0], start[1], start[2]];
     let dir = dir0;
     for (let s = 0; s < steps; s += 1) {
@@ -118,7 +124,7 @@ export function buildNeuron3D(
           dir[1] + perp[1] * side * spread + (rng() - 0.5) * 0.16,
           dir[2] + perp[2] * side * spread + (rng() - 0.5) * 0.16,
         ]);
-        grow(p, child, len * 0.62, width * 0.58, depth + 1);
+        grow(p, child, len * 0.62, width * 0.58, depth + 1, pts, ws);
       }
       return;
     }
@@ -151,28 +157,23 @@ export function buildNeuron3D(
     );
   }
 
-  // axon: one long process leaving the soma, diving away from the dendrites
-  const axonDir = normalize([(rng() - 0.5) * 0.6, -1, (rng() - 0.5) * 0.6]);
-  let ap: Vec3 = [axonDir[0] * somaR * 0.9, axonDir[1] * somaR * 0.9, axonDir[2] * somaR * 0.9];
-  const apts: number[] = [ap[0], ap[1], ap[2]];
-  const aws: number[] = [0.044];
-  let adir = axonDir;
-  for (let s = 0; s < 5; s += 1) {
-    adir = normalize([
-      adir[0] + (rng() - 0.5) * 0.2,
-      adir[1] + (rng() - 0.5) * 0.1,
-      adir[2] + (rng() - 0.5) * 0.2,
-    ]);
-    ap = [ap[0] + adir[0] * 0.3, ap[1] + adir[1] * 0.3, ap[2] + adir[2] * 0.3];
-    apts.push(ap[0], ap[1], ap[2]);
-    aws.push(0.044 * (1 - ((s + 1) / 5) * 0.62));
-    reach = Math.max(reach, Math.hypot(ap[0], ap[1], ap[2]));
+  // a few lobes on the soma surface: they slide across the body as it turns,
+  // which is what makes the middle read as a volume rather than a disc
+  const bumps: { dir: Vec3; size: number }[] = [];
+  for (let i = 0; i < 5; i += 1) {
+    const y = 1 - ((i + 0.5) / 5) * 2;
+    const ring = Math.sqrt(Math.max(0, 1 - y * y));
+    const a = i * 2.399 + (rng() - 0.5) * 0.8;
+    bumps.push({
+      dir: normalize([Math.cos(a) * ring, y, Math.sin(a) * ring]),
+      size: 0.55 + rng() * 0.5,
+    });
   }
-  branches.push({ pts: apts, w: aws });
 
   return {
     somaR,
-    nucleus: somaR * 0.4,
+    bumps,
+    nucleus: somaR * 0.34,
     lobes,
     lobePhase,
     branches,

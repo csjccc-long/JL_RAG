@@ -21,11 +21,9 @@ const TYPE_LABELS: Record<string, string> = {
   raw: '原始',
 };
 
-interface Segment {
-  a: [number, number, number];
-  b: [number, number, number];
-  wa: number;
-  wb: number;
+interface BranchShape {
+  pts: [number, number, number][];
+  widths: number[];
 }
 
 /**
@@ -58,22 +56,19 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
   );
   const dragged = useRef(0);
 
-  // flatten the arbor once: the frame loop only projects and sorts
-  const segments = useMemo<Segment[]>(() => {
-    const out: Segment[] = [];
-    for (const branch of neuron.branches) {
-      const { pts, w } = branch;
-      for (let i = 3; i < pts.length; i += 3) {
-        out.push({
-          a: [pts[i - 3], pts[i - 2], pts[i - 1]],
-          b: [pts[i], pts[i + 1], pts[i + 2]],
-          wa: w[i / 3 - 1],
-          wb: w[i / 3],
-        });
-      }
-    }
-    return out;
-  }, [neuron]);
+  // keep the arbor as continuous strands: stroking them point to point keeps
+  // the taper smooth instead of leaving a bead at every joint
+  const branches = useMemo<BranchShape[]>(
+    () =>
+      neuron.branches.map((branch) => {
+        const pts: [number, number, number][] = [];
+        for (let i = 0; i < branch.pts.length; i += 3) {
+          pts.push([branch.pts[i], branch.pts[i + 1], branch.pts[i + 2]]);
+        }
+        return { pts, widths: branch.w };
+      }),
+    [neuron],
+  );
 
   // every message gets its own terminal, spread around the arbor
   const anchors = useMemo<Tip3D[]>(() => {
@@ -124,13 +119,30 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
     if (!ctx) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    // the arbor is painted into two offscreen layers — one behind the soma and
+    // one in front — so overlapping strokes cannot stack up into beads
+    const farLayer = document.createElement('canvas');
+    const nearLayer = document.createElement('canvas');
+    const farCtx = farLayer.getContext('2d');
+    const nearCtx = nearLayer.getContext('2d');
+    let dpr = 1;
+
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      dpr = Math.min(2, window.devicePixelRatio || 1);
       sizeState.current = { w: rect.width, h: rect.height };
       canvas.width = Math.round(rect.width * dpr);
       canvas.height = Math.round(rect.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      for (const [layer, layerCtx] of [
+        [farLayer, farCtx] as const,
+        [nearLayer, nearCtx] as const,
+      ]) {
+        if (!layerCtx) continue;
+        layer.width = canvas.width;
+        layer.height = canvas.height;
+        layerCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
     };
     resize();
     const observer = new ResizeObserver(resize);
@@ -171,6 +183,8 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
 
       const colour = TYPE_COLORS.semantic[isDark ? 'dark' : 'light'];
       const rgb = hexToRgb(colour);
+      const membraneStroke = isDark ? 'rgba(16, 126, 120, 1)' : 'rgba(120, 205, 198, 1)';
+      const coreStroke = isDark ? 'rgba(196, 255, 246, 1)' : 'rgba(12, 128, 120, 1)';
 
       ctx.clearRect(0, 0, w, h);
 
@@ -187,10 +201,20 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
 
       // project the arbor and sort it back to front: that ordering is what
       // makes dendrites pass in front of and behind the soma
-      const drawn = segments.map((seg) => {
-        const a = project(seg.a);
-        const b = project(seg.b);
-        return { a, b, wa: seg.wa, wb: seg.wb, z: (a.z + b.z) / 2 };
+      const drawn = branches.map((branch) => {
+        const screen = branch.pts.map((point) => project(point));
+        let z = 0;
+        let k = 0;
+        for (const point of screen) {
+          z += point.z;
+          k += point.k;
+        }
+        return {
+          screen,
+          widths: branch.widths,
+          z: z / screen.length,
+          k: k / screen.length,
+        };
       });
       drawn.sort((p, q) => p.z - q.z);
 
@@ -198,82 +222,233 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
       const somaPoint = project([0, 0, 0]);
       const somaKeepOut = somaR * 1.22;
 
-      const strokeSegment = (item: (typeof drawn)[number]) => {
-        const depth = depthOf(item.z);
-        const k = (item.a.k + item.b.k) / 2;
-        const width = ((item.wa + item.wb) / 2) * unit * k;
-        ctx.beginPath();
-        ctx.moveTo(item.a.x, item.a.y);
-        ctx.lineTo(item.b.x, item.b.y);
-        ctx.lineCap = 'round';
-        // wide dim membrane, then the bright filament inside it
-        ctx.strokeStyle = 'rgba(' + rgb + ', ' + (0.07 + 0.2 * depth).toFixed(3) + ')';
-        ctx.lineWidth = Math.max(1.2, width * 3);
-        ctx.stroke();
-        ctx.strokeStyle =
-          'rgba(' + rgb + ', ' + (0.16 + 0.7 * depth * depth).toFixed(3) + ')';
-        ctx.lineWidth = Math.max(0.9, width * 1.25);
-        ctx.stroke();
+      // one stroke per stretch of a strand: the width follows the taper, and
+      // because the layer is opaque the joins cannot stack into beads
+      // a strand is filled rather than stroked: a ribbon whose width follows the
+      // taper has soft edges and no caps, so nothing can step or bead
+      const strokeStrands = (
+        layer: CanvasRenderingContext2D,
+        group: typeof drawn,
+        scale: number,
+        fill: string,
+      ) => {
+        layer.fillStyle = fill;
+        for (const item of group) {
+          const count = item.screen.length;
+          if (count < 2) continue;
+          const raw = item.screen.map((point, i) => ({
+            x: point.x,
+            y: point.y,
+            w: Math.max(
+              0.8,
+              (item.widths[i] ?? 0.05) * unit * item.k * scale,
+            ),
+          }));
+          // one smoothing pass, then the two offset rails of the ribbon
+          const pts: typeof raw = [];
+          for (let i = 0; i < raw.length - 1; i += 1) {
+            const a = raw[i];
+            const b = raw[i + 1];
+            pts.push({
+              x: a.x * 0.75 + b.x * 0.25,
+              y: a.y * 0.75 + b.y * 0.25,
+              w: a.w * 0.75 + b.w * 0.25,
+            });
+            pts.push({
+              x: a.x * 0.25 + b.x * 0.75,
+              y: a.y * 0.25 + b.y * 0.75,
+              w: a.w * 0.25 + b.w * 0.75,
+            });
+          }
+          const left: { x: number; y: number }[] = [];
+          const right: { x: number; y: number }[] = [];
+          for (let i = 0; i < pts.length; i += 1) {
+            const prev = pts[Math.max(0, i - 1)];
+            const next = pts[Math.min(pts.length - 1, i + 1)];
+            let dx = next.x - prev.x;
+            let dy = next.y - prev.y;
+            const len = Math.hypot(dx, dy) || 1;
+            dx /= len;
+            dy /= len;
+            const half = pts[i].w * 0.5;
+            left.push({ x: pts[i].x - dy * half, y: pts[i].y + dx * half });
+            right.push({ x: pts[i].x + dy * half, y: pts[i].y - dx * half });
+          }
+          layer.beginPath();
+          layer.moveTo(left[0].x, left[0].y);
+          for (let i = 1; i < left.length; i += 1) layer.lineTo(left[i].x, left[i].y);
+          for (let i = right.length - 1; i >= 0; i -= 1) {
+            layer.lineTo(right[i].x, right[i].y);
+          }
+          layer.closePath();
+          layer.fill();
+          // rounded ends, so a fork looks like a branch and not a cut ribbon
+          for (const end of [pts[0], pts[pts.length - 1]]) {
+            layer.beginPath();
+            layer.arc(end.x, end.y, end.w * 0.5, 0, TAU);
+            layer.fill();
+          }
+        }
       };
 
-      const scale = breathe;
+      const paintArbor = (
+        layer: CanvasRenderingContext2D,
+        group: typeof drawn,
+      ) => {
+        layer.clearRect(0, 0, w, h);
+        layer.lineJoin = 'round';
+        layer.lineCap = 'round';
+        strokeStrands(layer, group, 2.2, membraneStroke);
+        // the filament replaces the middle of the membrane instead of being
+        // laid over it, so the strands keep a halo without extra opacity
+        layer.globalCompositeOperation = 'source-atop';
+        strokeStrands(layer, group, 1, coreStroke);
+        layer.globalCompositeOperation = 'source-over';
+      };
+
+      const rot3 = (v: [number, number, number]) => {
+        const x1 = v[0] * cyaw - v[2] * syaw;
+        const z1 = v[0] * syaw + v[2] * cyaw;
+        const y1 = v[1] * cp - z1 * sp;
+        const z2 = v[1] * sp + z1 * cp;
+        return { x: x1, y: y1, z: z2 };
+      };
+
       const drawSoma = () => {
         ctx.save();
         ctx.translate(somaPoint.x, somaPoint.y);
-        // the body is a lumpy sphere; pitch squashes it a little, which sells
-        // the turn of the cell
-        ctx.scale(scale, scale * (0.9 + 0.1 * cp));
+        ctx.scale(breathe, breathe);
+        const R = somaR;
+
+        // the silhouette carries the lobes: as the cell turns they slide around
+        // the rim instead of sitting still like a flat badge
         ctx.beginPath();
-        for (let i = 0; i <= 64; i += 1) {
-          const a = (i / 64) * TAU;
-          const wobble =
-            1 +
-            0.09 * Math.sin(neuron.lobes * a + neuron.lobePhase) +
-            0.04 * Math.sin(2 * neuron.lobes * a - neuron.lobePhase);
-          const x = Math.cos(a) * somaR * wobble;
-          const y = Math.sin(a) * somaR * wobble;
+        for (let i = 0; i <= 96; i += 1) {
+          const a = (i / 96) * TAU;
+          let wobble = 1 + 0.018 * Math.sin(2 * a + yaw.current);
+          for (const bump of neuron.bumps) {
+            const r3 = rot3(bump.dir);
+            if (r3.z <= 0) continue;
+            const ba = Math.atan2(r3.y, r3.x);
+            const d = Math.abs(((a - ba + Math.PI * 4) % TAU) - Math.PI);
+            wobble += 0.075 * bump.size * r3.z * Math.exp(-(d * d) / 0.12);
+          }
+          const x = Math.cos(a) * R * wobble;
+          const y = Math.sin(a) * R * wobble;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        const body = ctx.createRadialGradient(
-          -somaR * 0.34,
-          -somaR * 0.38,
-          somaR * 0.12,
-          0,
-          0,
-          somaR * 1.08,
+
+        // lit sphere: light from the upper left, falling off to the limb
+        const body = ctx.createRadialGradient(-R * 0.38, -R * 0.46, R * 0.04, 0, 0, R * 1.04);
+        body.addColorStop(0, 'rgba(216, 255, 250, 0.98)');
+        body.addColorStop(0.34, 'rgba(' + rgb + ', 0.98)');
+        body.addColorStop(0.72, 'rgba(' + rgb + ', 0.9)');
+        body.addColorStop(
+          0.9,
+          isDark ? 'rgba(16, 104, 98, 0.92)' : 'rgba(122, 214, 206, 0.94)',
         );
-        body.addColorStop(0, 'rgba(' + rgb + ', 0.98)');
-        body.addColorStop(0.62, 'rgba(' + rgb + ', 0.72)');
-        body.addColorStop(1, 'rgba(' + rgb + ', ' + (isDark ? 0.36 : 0.3) + ')');
+        body.addColorStop(
+          1,
+          isDark ? 'rgba(5, 50, 48, 0.95)' : 'rgba(72, 168, 160, 0.95)',
+        );
         ctx.fillStyle = body;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(' + rgb + ', 0.9)';
-        ctx.lineWidth = Math.max(0.8, unit * 0.026);
-        ctx.stroke();
 
-        // nucleus sits toward the viewer, so it moves with the turning
-        const shift = 0.09;
-        const nx = Math.sin(yaw.current) * somaR * shift;
-        const ny = Math.cos(pitch.current) * somaR * shift * 0.5;
-        const nr = neuron.nucleus * unit;
-        const nuc = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr * 1.3);
-        nuc.addColorStop(0, isDark ? 'rgba(4, 20, 20, 0.72)' : 'rgba(255,255,255,0.55)');
-        nuc.addColorStop(1, isDark ? 'rgba(6, 28, 28, 0.82)' : 'rgba(255,255,255,0.4)');
+        // limb darkening pulls the edge away from the viewer
+        const limb = ctx.createRadialGradient(
+          -R * 0.3,
+          -R * 0.36,
+          R * 0.2,
+          0,
+          0,
+          R * 1.02,
+        );
+        limb.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        limb.addColorStop(0.62, isDark ? 'rgba(0, 20, 20, 0.1)' : 'rgba(0, 40, 40, 0.05)');
+        limb.addColorStop(1, isDark ? 'rgba(0, 8, 8, 0.6)' : 'rgba(0, 34, 34, 0.26)');
+        ctx.fillStyle = limb;
+        ctx.fill();
+
+        // the surface lobes themselves: a lit crest and its shaded flank
+        ctx.save();
+        ctx.clip();
+        for (const bump of neuron.bumps) {
+          const r3 = rot3(bump.dir);
+          if (r3.z <= 0.02) continue;
+          const bx = r3.x * R * 0.9;
+          const by = r3.y * R * 0.9;
+          const br = R * 0.5 * bump.size * (0.5 + r3.z * 0.5);
+          const shade = ctx.createRadialGradient(
+            bx + R * 0.09,
+            by + R * 0.1,
+            br * 0.15,
+            bx + R * 0.09,
+            by + R * 0.1,
+            br * 1.15,
+          );
+          shade.addColorStop(0, 'rgba(0, 14, 14, ' + (0.3 * r3.z).toFixed(3) + ')');
+          shade.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = shade;
+          ctx.beginPath();
+          ctx.arc(bx + R * 0.09, by + R * 0.1, br * 1.15, 0, TAU);
+          ctx.fill();
+          const crest = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+          crest.addColorStop(0, 'rgba(255, 255, 255, ' + (0.22 * r3.z).toFixed(3) + ')');
+          crest.addColorStop(0.55, 'rgba(' + rgb + ', ' + (0.14 * r3.z).toFixed(3) + ')');
+          crest.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = crest;
+          ctx.beginPath();
+          ctx.arc(bx, by, br, 0, TAU);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        // nucleus: a body suspended inside the cell. Its edge fades into the
+        // surrounding gel so the centre reads as depth rather than a pupil
+        // painted on a disc.
+        const nuc3 = rot3([0.22, -0.18, 0.75]);
+        const nr = neuron.nucleus * unit * (0.82 + nuc3.z * 0.24);
+        const nx = nuc3.x * R * 0.46;
+        const ny = nuc3.y * R * 0.46;
+        const nuc = ctx.createRadialGradient(nx - nr * 0.3, ny - nr * 0.34, nr * 0.05, nx, ny, nr * 1.2);
+        nuc.addColorStop(0, isDark ? 'rgba(64, 156, 148, 0.9)' : 'rgba(255, 255, 255, 0.95)');
+        nuc.addColorStop(0.5, isDark ? 'rgba(22, 88, 84, 0.82)' : 'rgba(232, 250, 248, 0.8)');
+        nuc.addColorStop(0.8, isDark ? 'rgba(9, 48, 46, 0.6)' : 'rgba(186, 228, 224, 0.45)');
+        nuc.addColorStop(1, isDark ? 'rgba(9, 48, 46, 0)' : 'rgba(186, 228, 224, 0)');
         ctx.beginPath();
-        ctx.arc(nx, ny, nr, 0, TAU);
+        ctx.arc(nx, ny, nr * 1.2, 0, TAU);
         ctx.fillStyle = nuc;
         ctx.fill();
-        ctx.beginPath();
-        ctx.arc(nx - nr * 0.2, ny - nr * 0.16, nr * 0.36, 0, TAU);
-        ctx.fillStyle = 'rgba(' + rgb + ', 0.95)';
-        ctx.fill();
 
-        // specular
+        ctx.strokeStyle = 'rgba(' + rgb + ', 0.55)';
+        ctx.lineWidth = Math.max(0.7, unit * 0.02);
+        ctx.stroke();
+
+        // specular highlight on the lit shoulder, plus a cooler bounce on the
+        // shadow side: together they read as a glossy volume, not a flat disc
+        const spec = ctx.createRadialGradient(
+          -R * 0.42,
+          -R * 0.48,
+          0,
+          -R * 0.42,
+          -R * 0.48,
+          R * 0.46,
+        );
+        spec.addColorStop(0, isDark ? 'rgba(255, 255, 255, 0.52)' : 'rgba(255, 255, 255, 0.8)');
+        spec.addColorStop(0.45, isDark ? 'rgba(226, 255, 251, 0.12)' : 'rgba(255, 255, 255, 0.2)');
+        spec.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = spec;
         ctx.beginPath();
-        ctx.arc(-somaR * 0.36, -somaR * 0.42, somaR * 0.15, 0, TAU);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.arc(-R * 0.42, -R * 0.48, R * 0.46, 0, TAU);
+        ctx.fill();
+        const bounce = ctx.createRadialGradient(R * 0.44, R * 0.5, 0, R * 0.44, R * 0.5, R * 0.5);
+        bounce.addColorStop(0, isDark ? 'rgba(' + rgb + ', 0.34)' : 'rgba(' + rgb + ', 0.2)');
+        bounce.addColorStop(1, 'rgba(' + rgb + ', 0)');
+        ctx.fillStyle = bounce;
+        ctx.beginPath();
+        ctx.arc(R * 0.44, R * 0.5, R * 0.5, 0, TAU);
         ctx.fill();
         ctx.restore();
       };
@@ -455,15 +630,32 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
       };
       for (const tip of neuron.tips) drawTip(tip, false);
 
-      let somaDrawn = false;
-      for (const item of drawn) {
-        if (!somaDrawn && item.z > 0) {
-          drawSoma();
-          somaDrawn = true;
-        }
-        strokeSegment(item);
+      // the far half of the arbor, then the body, then the near half: the soma
+      // cuts the cell in two and the layers keep each half flat
+      const behind = drawn.filter((item) => item.z < 0);
+      const front = drawn.filter((item) => item.z >= 0);
+      // each half is laid down twice: a blurred pass for the glow of a living
+      // membrane, then the crisp strand on top
+      const layDown = (layer: HTMLCanvasElement, alpha: number) => {
+        ctx.globalAlpha = alpha * 0.75;
+        ctx.filter = 'blur(11px)';
+        ctx.drawImage(layer, 0, 0, w, h);
+        ctx.filter = 'none';
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(layer, 0, 0, w, h);
+        ctx.globalAlpha = 1;
+      };
+      if (farCtx) {
+        paintArbor(farCtx, behind);
+        layDown(farLayer, isDark ? 0.38 : 0.32);
       }
-      if (!somaDrawn) drawSoma();
+      if (nearCtx) {
+        paintArbor(nearCtx, front);
+        layDown(nearLayer, isDark ? 0.95 : 0.9);
+      }
+      // the body sits in front of its own processes: the arbor grows out from
+      // behind it, so the shaded sphere stays readable as the centre
+      drawSoma();
       for (const tip of neuron.tips) drawTip(tip, true);
 
       for (let i = 0; i < list.length; i += 1) drawMessage(i, true);
@@ -505,7 +697,7 @@ export function NeuronStage({ seed, messages, activeId, onSelect }: IProps) {
       cancelAnimationFrame(raf);
       observer.disconnect();
     };
-  }, [neuron, segments, anchors]);
+  }, [neuron, branches, anchors]);
 
   const pick = (x: number, y: number) => {
     let hit: number | null = null;
