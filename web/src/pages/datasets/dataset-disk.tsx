@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { ReactNode } from 'react';
+import { CSSProperties, ReactNode, useEffect, useRef, useState } from 'react';
 
 export interface DatasetDiskProps {
   name: string;
@@ -12,36 +12,74 @@ export interface DatasetDiskProps {
   onClick?: () => void;
 }
 
-/** Chassis screws, drawn as a bevelled dot with a slot. */
-function Screw({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        'pointer-events-none absolute size-[5px] rounded-full bg-[radial-gradient(circle_at_35%_30%,#c9d2d8,#6e777e_55%,#23272b_100%)] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.7),0_0.5px_1px_rgba(255,255,255,0.18)]',
-        className,
-      )}
-    >
-      <span className="absolute left-1/2 top-1/2 h-[0.5px] w-[3px] -translate-x-1/2 -translate-y-1/2 rotate-[28deg] bg-black/60" />
-    </span>
-  );
+const CARD_H = 220;
+
+/** Width of the card, so the box can be rebuilt in real pixels when it resizes. */
+function useWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => setWidth(el.offsetWidth);
+    read();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(read);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, width] as const;
 }
 
 /**
- * A knowledge base as a disk drive lying on a table: the sleeve on the left is
- * printed with the name, the tray on the right carries the drive itself — an
- * anodised chassis, a mirrored platter and a green status light. The tray rides
- * behind the sleeve, so the part still inside stays hidden and pointing at the
- * card pulls the rest of it out.
+ * A knowledge base as a matchbox standing on a desk: the sleeve is a box with
+ * real thickness and a printed panel, and the tray inside slides out of its open
+ * end carrying the drive. Pure CSS 3D, no canvas.
  */
-export function DatasetDisk({
-  name,
-  files,
-  date,
-  badge,
-  more,
-  active = false,
-  onClick,
-}: DatasetDiskProps) {
+export function DatasetDisk({ name, files, date, badge, more, active = false, onClick }: DatasetDiskProps) {
+  const [ref, measured] = useWidth();
+  const W = measured || 232;
+
+  const bw = Math.round(Math.min(W * 0.58, 176));
+  const bd = Math.round(Math.min(182, bw * 1.34));
+  const t = 32;
+  const gap = 8;
+  const tw = bw - gap * 2;
+  const td = bd - gap * 2;
+  const tt = 13;
+  const slide = Math.round(bw * 0.5);
+  const x0 = Math.max(2, Math.round((W - (bw + slide)) / 2));
+  const cy = CARD_H * 0.5;
+
+  type FaceSpec = {
+    w: number;
+    h: number;
+    transform: string;
+    className?: string;
+    style?: CSSProperties;
+    children?: ReactNode;
+  };
+
+  const faces = (boxW: number, boxH: number, list: FaceSpec[]) =>
+    list.map((face, index) => (
+      <div
+        key={index}
+        className={cn('absolute', face.className)}
+        style={{
+          left: (boxW - face.w) / 2,
+          top: (boxH - face.h) / 2,
+          width: face.w,
+          height: face.h,
+          transform: face.transform,
+          ...face.style,
+        }}
+      >
+        {face.children}
+      </div>
+    ));
+
+  const trayZ = 0;
+
   return (
     <article
       data-testid="dataset-disk"
@@ -54,190 +92,334 @@ export function DatasetDisk({
           onClick?.();
         }
       }}
-      className="group group/disk relative h-[220px] w-full cursor-pointer select-none rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-text-accent hover:z-30"
-      style={{ perspective: '900px', perspectiveOrigin: '44% 44%' }}
+      className={cn(
+        'group group/disk relative h-[220px] w-full cursor-pointer select-none rounded-xl outline-none',
+        'focus-visible:ring-2 focus-visible:ring-text-accent hover:z-30',
+        '[--dx:0px] hover:[--dx:var(--slide)] focus-visible:[--dx:var(--slide)]',
+        active && '[--dx:var(--slide)]',
+      )}
+      style={{ '--slide': slide + 'px' } as CSSProperties}
     >
-      <div
-        className="absolute inset-0"
-        style={{ transformStyle: 'preserve-3d', transform: 'rotateX(10deg)' }}
-      >
-        {/* table shadow, spreading as the drive comes out */}
+      <div ref={ref} className="absolute inset-0">
+        {/* the shadow the box casts on the desk, widening as the tray comes out */}
         <div
-          className={cn(
-            'pointer-events-none absolute bottom-[3%] left-[6%] right-[2%] top-[14%] rounded-[18px] bg-black/75 blur-[15px]',
-            'transition-all duration-500 [transition-timing-function:cubic-bezier(.32,.08,.18,1)]',
-            'group-hover/disk:translate-x-[4%] group-hover/disk:translate-y-[8px]',
-            active && 'translate-x-[4%] translate-y-[8px]',
-          )}
+          className="pointer-events-none absolute rounded-[50%] bg-black/60 blur-[22px]"
+          style={{ left: x0 + 6, top: cy + bd * 0.44, width: bw * 0.92, height: 18 }}
         />
 
-        {/* tray: aluminium chassis, slides out of the sleeve */}
         <div
-          className={cn(
-            'absolute left-[46%] top-[9%] h-[82%] w-[50%] will-change-transform',
-            'transition-transform duration-500 [transition-timing-function:cubic-bezier(.32,.08,.18,1)]',
-            '[transform:translate3d(0,0,0)]',
-            'group-hover/disk:[transform:translate3d(15%,-3px,0)]',
-            'group-focus-visible/disk:[transform:translate3d(15%,-3px,0)]',
-            active && '[transform:translate3d(15%,-3px,0)]',
-          )}
-          style={{ transformStyle: 'preserve-3d' }}
+          className="absolute inset-0"
+          style={{ perspective: Math.round(W * 2.3), perspectiveOrigin: '50% 14%' }}
         >
           <div
-            className={cn(
-              'relative h-full w-full overflow-hidden rounded-[4px]',
-              'bg-[linear-gradient(158deg,#3d4349_0%,#22262b_26%,#171a1e_58%,#2a2f35_84%,#101216_100%)]',
-              'transition-shadow duration-500',
-              '[box-shadow:inset_0_1px_0_rgba(255,255,255,0.3),inset_0_-1px_0_rgba(0,0,0,0.85),inset_1px_0_0_rgba(255,255,255,0.07),inset_-1px_0_0_rgba(0,0,0,0.6),0_16px_28px_-14px_rgba(0,0,0,0.95)]',
-              'group-hover/disk:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.34),inset_0_-1px_0_rgba(0,0,0,0.85),inset_1px_0_0_rgba(255,255,255,0.08),inset_-1px_0_0_rgba(0,0,0,0.6),16px_18px_40px_-14px_rgba(0,0,0,1)]',
-            )}
+            className="absolute left-0"
+            style={{ top: cy, width: 0, height: 0, transformStyle: 'preserve-3d', transform: 'rotateX(28deg) rotateY(-11deg)' }}
           >
-            {/* brushed anodised grain */}
+            {/* tray: the drive sliding out of the open end */}
             <div
-              className="pointer-events-none absolute inset-0 opacity-[0.35]"
+              className="absolute transition-transform duration-500 [transition-timing-function:cubic-bezier(.32,.08,.18,1)]"
               style={{
-                backgroundImage:
-                  'repeating-linear-gradient(0deg, rgba(255,255,255,0.045) 0 1px, transparent 1px 3px)',
+                width: tw,
+                height: td,
+                transform: 'translate3d(calc(' + x0 + 'px + ' + gap + 'px + var(--dx)), ' + -td / 2 + 'px, ' + (trayZ - tt / 2) + 'px)',
+                transformStyle: 'preserve-3d',
               }}
-            />
-            {/* chamfer highlight */}
-            <div className="pointer-events-none absolute inset-[1px] rounded-[3px] border border-white/[0.06]" />
-            {/* curved specular sweep across the top of the chassis */}
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(148deg,rgba(255,255,255,0.13)_0%,rgba(255,255,255,0.03)_26%,transparent_46%,rgba(0,0,0,0.25)_100%)]" />
-            {/* green status light, and the hairline that goes with it */}
-            <div className="pointer-events-none absolute right-[6px] top-[6px] size-[3px] rounded-full bg-[#76b900] shadow-[0_0_5px_rgba(118,185,0,0.9)]" />
-            <div className="pointer-events-none absolute left-[8px] right-[8px] top-[7px] h-[1px] bg-[linear-gradient(90deg,transparent,rgba(118,185,0,0.35)_40%,rgba(118,185,0,0.55)_78%,transparent)]" />
-
-            {/* platter */}
-            <div className="absolute left-1/2 top-[46%] aspect-square w-[64%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_30%_24%,#ffffff_0%,#e8eff3_9%,#c0cad1_24%,#8d979f_44%,#59626a_66%,#2b3035_92%)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.4),inset_0_0_0_3px_rgba(0,0,0,0.35),0_6px_14px_rgba(0,0,0,0.7)]">
-              <div
-                className={cn(
-                  'absolute inset-0 rounded-full opacity-70 mix-blend-screen',
-                  'group-hover/disk:animate-vinyl-spin',
-                  active && 'animate-vinyl-spin',
-                )}
-                style={{
-                  backgroundImage:
-                    'conic-gradient(from 20deg, rgba(255,255,255,0.4) 0deg, transparent 28deg, rgba(255,255,255,0.22) 62deg, transparent 104deg, rgba(255,255,255,0.34) 148deg, transparent 196deg, rgba(255,255,255,0.26) 244deg, transparent 300deg, rgba(255,255,255,0.36) 360deg)',
-                }}
-              />
-              <div
-                className="absolute inset-[2px] rounded-full opacity-60"
-                style={{
-                  backgroundImage:
-                    'repeating-radial-gradient(circle at center, rgba(255,255,255,0.28) 0 0.5px, rgba(0,0,0,0.18) 0.5px 1px, transparent 1px 3px)',
-                }}
-              />
-              {/* spindle hub with its screws */}
-              <div className="absolute left-1/2 top-1/2 size-[34%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_34%_28%,#aeb8bf,#5d666d_52%,#22272b_100%)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.25),inset_0_0_0_3px_rgba(0,0,0,0.5)]">
-                <span className="absolute left-1/2 top-1/2 size-[30%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_40%_35%,#3c4348,#0c0e11)] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.8)]" />
-                {[0, 120, 240].map((deg) => (
-                  <span
-                    key={deg}
-                    className="absolute left-1/2 top-1/2 size-[12%] rounded-full bg-[#8e979e] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.6)]"
-                    style={{
-                      transform: `rotate(${deg}deg) translateY(-190%) translateX(-50%)`,
-                    }}
-                  />
-                ))}
-              </div>
+            >
+              {faces(tw, td, [
+                {
+                  w: tw,
+                  h: td,
+                  transform: 'translateZ(' + tt / 2 + 'px)',
+                  className: 'overflow-hidden rounded-[2px]',
+                  style: {
+                    background: 'linear-gradient(158deg,#6d757e 0%,#484f57 26%,#2f353b 62%,#4a5158 86%,#23282d 100%)',
+                    boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.16), inset 0 0 0 3px rgba(0,0,0,0.55)',
+                  },
+                  children: <TrayFace tw={tw} td={td} files={files} active={active} />,
+                },
+                {
+                  w: tw,
+                  h: tt,
+                  transform: 'translateY(' + td / 2 + 'px) rotateX(-90deg)',
+                  style: { background: 'linear-gradient(180deg,#3f464d,#14181c)' },
+                },
+                {
+                  w: tt,
+                  h: td,
+                  transform: 'translateX(' + tw / 2 + 'px) rotateY(90deg)',
+                  className: 'overflow-hidden',
+                  style: {
+                    background: 'linear-gradient(90deg,#20252a,#3f464d 40%,#22272c 74%,#0d1013)',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.24)',
+                  },
+                  children: <GoldEdge vertical />,
+                },
+                {
+                  w: tw,
+                  h: tt,
+                  transform: 'translateY(' + -td / 2 + 'px) rotateX(90deg)',
+                  style: { background: 'linear-gradient(180deg,#262b30,#0b0e11)' },
+                },
+              ])}
             </div>
 
-            {/* actuator arm reaching in from the corner */}
-            <div className="pointer-events-none absolute bottom-[16%] left-[8%] h-[4px] w-[54%] origin-left -rotate-[16deg] rounded-full bg-[linear-gradient(180deg,#c3ccd2,#6b747b_60%,#2f353a)] shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
-              <span className="absolute -left-[4px] top-1/2 size-[9px] -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_35%_30%,#b6bfc5,#4b5258_60%,#1b1f22)] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,0.6)]" />
-              <span className="absolute -right-[2px] top-1/2 size-[6px] -translate-y-1/2 rounded-full bg-[#20262a] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]" />
-            </div>
-
-            {/* gold edge connector */}
-            <div className="pointer-events-none absolute inset-x-[10px] bottom-[3px] flex gap-[2px]">
-              {Array.from({ length: 14 }).map((_, index) => (
-                <span
-                  key={index}
-                  className="h-[4px] flex-1 rounded-[0.5px] bg-[linear-gradient(180deg,#e9c86a,#b9902f_70%,#7a5c1c)] opacity-80"
-                />
-              ))}
-            </div>
-
-            {/* chassis screws on the visible side */}
-            <Screw className="right-[5px] bottom-[10px]" />
-            <Screw className="right-[5px] top-[14px]" />
-
-            {/* engraved spec text */}
-            <div className="pointer-events-none absolute bottom-[13px] right-[13px] text-right">
-              <p className="text-[7px] font-semibold uppercase leading-none tracking-[0.16em] text-white/45">
-                {files}
-              </p>
-              <p className="mt-[3px] text-[6px] uppercase leading-none tracking-[0.3em] text-white/25">
-                nvme · disk
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* sleeve: the printed case, painted over the part of the drive inside */}
-        <div className="absolute inset-y-0 left-0 z-10 w-[58%] overflow-hidden rounded-[10px] border border-white/[0.14] bg-[linear-gradient(154deg,#2f343c_0%,#20242a_50%,#15181d_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),inset_1px_0_0_rgba(255,255,255,0.06),inset_-1px_0_0_rgba(0,0,0,0.7),0_18px_36px_-22px_rgba(0,0,0,0.95)] transition-colors duration-300 group-hover/disk:border-text-accent/30">
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.3]"
-            style={{
-              backgroundImage:
-                'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px)',
-            }}
-          />
-          <div className="pointer-events-none absolute inset-[6px] rounded-[6px] border border-white/[0.07]" />
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(160deg,rgba(255,255,255,0.07)_0%,transparent_38%,transparent_72%,rgba(0,0,0,0.32)_100%)]" />
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-[linear-gradient(180deg,transparent,rgba(118,185,0,0.5)_35%,rgba(118,185,0,0.5)_65%,transparent)]" />
-          <div className="pointer-events-none absolute -right-9 -top-8 size-[96px] rounded-full border border-white/[0.06] bg-[radial-gradient(circle_at_36%_30%,rgba(255,255,255,0.08),transparent_60%)]">
-            <div className="absolute inset-[18px] rounded-full border border-white/[0.05]" />
-          </div>
-
-          <div className="relative flex h-full flex-col px-3 pb-3 pt-[11px]">
-            <div className="flex items-center justify-between gap-1">
-              <span className="truncate text-[8px] font-medium uppercase tracking-[0.18em] text-text-secondary/70">
-                knowledge base
-              </span>
-            </div>
-
-            <div className="mt-1.5 flex items-start gap-1">
-              <h3 className="min-w-0 flex-1 line-clamp-2 text-[15px] font-bold leading-tight text-text-primary">
-                {name}
-              </h3>
-              {more ? (
-                <span
-                  className="flex-none"
-                  onClick={(event) => event.stopPropagation()}
-                  onKeyDown={(event) => event.stopPropagation()}
-                >
-                  {more}
-                </span>
-              ) : null}
-            </div>
-
-            <p className="mt-1 truncate text-[11px] text-text-secondary">{files}</p>
-
-            <div className="mt-auto flex min-w-0 flex-col gap-1.5">
-              <div className="flex items-end gap-[2px] opacity-[0.26]" aria-hidden>
-                {[6, 3, 9, 4, 7, 3, 10, 5, 8, 3, 6].map((weight, index) => (
-                  <span
-                    key={index}
-                    className="w-[2px] rounded-[1px] bg-text-secondary"
-                    style={{ height: weight + 6 }}
-                  />
-                ))}
-              </div>
-              <div className="flex min-w-0 items-center gap-1">
-                {badge}
-                <p className="min-w-0 flex-1 truncate text-[10px] tabular-nums leading-tight text-text-secondary/70">
-                  {date}
-                </p>
-              </div>
+            {/* sleeve: a printed box with thickness, open on the right */}
+            <div
+              className="absolute"
+              style={{
+                width: bw,
+                height: bd,
+                transform: 'translate3d(' + x0 + 'px, ' + -bd / 2 + 'px, 0)',
+                transformStyle: 'preserve-3d',
+              }}
+            >
+              {faces(bw, bd, [
+                {
+                  w: bw,
+                  h: t,
+                  transform: 'translateY(' + -bd / 2 + 'px) rotateX(90deg)',
+                  style: {
+                    background: 'linear-gradient(180deg,#59616a 0%,#3a4149 34%,#20252a 100%)',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.3)',
+                  },
+                },
+                {
+                  w: bw,
+                  h: t,
+                  transform: 'translateY(' + bd / 2 + 'px) rotateX(-90deg)',
+                  style: { background: 'linear-gradient(180deg,#2a3036,#0c0f12)' },
+                },
+                {
+                  w: t,
+                  h: bd,
+                  transform: 'translateX(' + -bw / 2 + 'px) rotateY(90deg)',
+                  style: { background: 'linear-gradient(90deg,#0c0f12,#3d444b 52%,#14181c)' },
+                },
+                {
+                  w: t,
+                  h: bd,
+                  transform: 'translateX(' + bw / 2 + 'px) rotateY(90deg)',
+                  style: {
+                    background: 'linear-gradient(90deg,#04060a,#1b2025 42%,#080b0e)',
+                    boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.9)',
+                  },
+                },
+                {
+                  w: bw - 12,
+                  h: bd - 12,
+                  transform: 'translateZ(' + (trayZ - 1) + 'px)',
+                  style: { background: 'rgba(0,0,0,0.72)' },
+                },
+                {
+                  w: bw,
+                  h: bd,
+                  transform: 'translateZ(' + t / 2 + 'px)',
+                  className: 'overflow-hidden rounded-[2px]',
+                  children: <SleeveFace name={name} files={files} date={date} badge={badge} more={more} />,
+                },
+                {
+                  w: 6,
+                  h: bd - 10,
+                  transform: 'translateX(' + (bw / 2 - 5) + 'px) translateZ(' + (t / 2 + 0.5) + 'px)',
+                  style: {
+                    background: 'linear-gradient(90deg, rgba(0,0,0,0.6), rgba(0,0,0,0.22) 55%, transparent)',
+                  },
+                },
+              ])}
             </div>
           </div>
-
-          {/* the opening the drive leaves through */}
-          <div className="pointer-events-none absolute inset-y-[12px] right-[2px] w-[6px] rounded-l-[3px] bg-[linear-gradient(90deg,rgba(0,0,0,0.35),rgba(0,0,0,0.78))] shadow-[inset_1px_0_2px_rgba(0,0,0,0.85),inset_-1px_0_1px_rgba(255,255,255,0.14)]" />
         </div>
       </div>
     </article>
+  );
+}
+
+function TrayFace({ tw, td, files, active }: { tw: number; td: number; files: string; active: boolean }) {
+  const size = Math.round(Math.min(tw * 0.72, td * 0.64));
+  return (
+    <div className="absolute inset-0">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px)',
+        }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'linear-gradient(148deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.02) 30%, transparent 52%, rgba(0,0,0,0.35) 100%)',
+        }}
+      />
+
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: size,
+          height: size,
+          left: '56%',
+          top: '44%',
+          transform: 'translate(-50%, -50%)',
+          background:
+            'radial-gradient(circle at 30% 24%, #ffffff 0%, #e8eff3 9%, #c0cad1 24%, #8d979f 44%, #59626a 66%, #262b30 92%)',
+          boxShadow:
+            'inset 0 0 0 1px rgba(255,255,255,0.4), inset 0 0 0 3px rgba(0,0,0,0.45), 0 5px 12px rgba(0,0,0,0.65)',
+        }}
+      >
+        <div
+          className={cn('absolute inset-0 rounded-full mix-blend-screen', 'group-hover/disk:animate-vinyl-spin', active && 'animate-vinyl-spin')}
+          style={{
+            backgroundImage:
+              'conic-gradient(from 20deg, rgba(255,255,255,0.45) 0deg, transparent 28deg, rgba(255,255,255,0.22) 62deg, transparent 104deg, rgba(255,255,255,0.4) 148deg, transparent 196deg, rgba(255,255,255,0.28) 244deg, transparent 300deg, rgba(255,255,255,0.4) 360deg)',
+          }}
+        />
+        <div
+          className="absolute inset-[2px] rounded-full opacity-55"
+          style={{
+            backgroundImage:
+              'repeating-radial-gradient(circle at center, rgba(255,255,255,0.3) 0 0.5px, rgba(0,0,0,0.2) 0.5px 1px, transparent 1px 3px)',
+          }}
+        />
+        <div
+          className="absolute left-1/2 top-1/2 rounded-full"
+          style={{
+            width: size * 0.34,
+            height: size * 0.34,
+            transform: 'translate(-50%, -50%)',
+            background: 'radial-gradient(circle at 34% 28%, #aeb8bf, #5d666d 52%, #22272b 100%)',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.3), inset 0 0 0 3px rgba(0,0,0,0.5)',
+          }}
+        >
+          <span
+            className="absolute left-1/2 top-1/2 rounded-full"
+            style={{
+              width: '30%',
+              height: '30%',
+              transform: 'translate(-50%, -50%)',
+              background: 'radial-gradient(circle at 40% 35%, #3c4348, #0c0e11)',
+            }}
+          />
+        </div>
+      </div>
+
+      <div
+        className="absolute origin-left rounded-full"
+        style={{
+          left: size * 0.28,
+          top: '76%',
+          width: size * 0.92,
+          height: 4,
+          transform: 'rotate(-19deg)',
+          background: 'linear-gradient(180deg,#c3ccd2,#6b747b 60%,#2f353a)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.7)',
+        }}
+      >
+        <span
+          className="absolute rounded-full"
+          style={{
+            left: -4,
+            top: '50%',
+            width: 9,
+            height: 9,
+            transform: 'translateY(-50%)',
+            background: 'radial-gradient(circle at 35% 30%, #b6bfc5, #4b5258 60%, #1b1f22)',
+          }}
+        />
+      </div>
+
+      <div
+        className="absolute rounded-full bg-[#76b900]"
+        style={{ right: 9, top: 8, width: 3, height: 3, boxShadow: '0 0 6px rgba(118,185,0,0.95)' }}
+      />
+      <p
+        className="absolute font-semibold uppercase text-white/40"
+        style={{ right: 9, bottom: 7, fontSize: 7, letterSpacing: '0.14em', lineHeight: 1 }}
+      >
+        {files}
+      </p>
+    </div>
+  );
+}
+
+function GoldEdge({ vertical = false }: { vertical?: boolean }) {
+  return (
+    <div className={vertical ? 'absolute inset-y-[8px] right-[3px] flex w-[5px] flex-col gap-[2px]' : 'absolute inset-x-[6px] bottom-[3px] flex h-[5px] gap-[2px]'}>
+      {Array.from({ length: vertical ? 10 : 12 }).map((_, index) => (
+        <span
+          key={index}
+          className="flex-1 rounded-[0.5px]"
+          style={{
+            background: vertical
+              ? 'linear-gradient(90deg,#e9c86a,#b9902f 70%,#7a5c1c)'
+              : 'linear-gradient(180deg,#e9c86a,#b9902f 70%,#7a5c1c)',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SleeveFace({
+  name,
+  files,
+  date,
+  badge,
+  more,
+}: {
+  name: string;
+  files: string;
+  date: string;
+  badge?: ReactNode;
+  more?: ReactNode;
+}) {
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-[2px] bg-[linear-gradient(154deg,#31373f_0%,#20242a_52%,#14171c_100%)]">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.35]"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px)',
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(158deg,rgba(255,255,255,0.1)_0%,transparent_42%,rgba(0,0,0,0.38)_100%)]" />
+      <div className="pointer-events-none absolute inset-[5px] rounded-[2px] border border-white/[0.09]" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-[linear-gradient(180deg,transparent,rgba(118,185,0,0.55)_35%,rgba(118,185,0,0.55)_65%,transparent)]" />
+
+      <div className="relative flex h-full flex-col px-2.5 pb-2.5 pt-2">
+        <div className="flex items-center justify-between gap-1">
+          <span className="truncate text-[7px] font-medium uppercase tracking-[0.16em] text-text-secondary/70">
+            knowledge base
+          </span>
+          {more ? (
+            <span
+              className="flex-none"
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              {more}
+            </span>
+          ) : null}
+        </div>
+
+        <h3 className="mt-1 line-clamp-2 text-[14px] font-bold leading-tight text-text-primary">{name}</h3>
+        <p className="mt-1 truncate text-[10px] text-text-secondary">{files}</p>
+
+        <div className="mt-auto flex min-w-0 flex-col gap-1.5">
+          <div className="flex items-end gap-[2px] opacity-[0.26]" aria-hidden>
+            {[6, 3, 9, 4, 7, 3, 10, 5, 8, 3, 6].map((weight, index) => (
+              <span key={index} className="w-[2px] rounded-[1px] bg-text-secondary" style={{ height: weight + 6 }} />
+            ))}
+          </div>
+          <div className="flex min-w-0 items-center gap-1">
+            {badge}
+            <p className="min-w-0 flex-1 truncate text-[9px] tabular-nums leading-tight text-text-secondary/70">
+              {date}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-y-[6px] right-0 w-[3px] bg-[linear-gradient(90deg,transparent,rgba(0,0,0,0.85))]" />
+    </div>
   );
 }
