@@ -97,7 +97,7 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
       {/* the tile's own backdrop: flux lines drifting behind the plinth */}
       {fluxOn && (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-[18px]">
-          <div className="absolute inset-0 opacity-45 transition-opacity duration-700 group-hover:opacity-85 dark:opacity-60 dark:group-hover:opacity-100">
+          <div className="absolute inset-0 opacity-40 transition-opacity duration-700 group-hover:opacity-80 dark:opacity-50 dark:group-hover:opacity-90">
             <FluxLines
               colors={[accent, accent, accent]}
               flowDirection="down"
@@ -120,7 +120,7 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
             />
           </div>
           {/* keep the tile deep, so the light stays a glow and not a wash */}
-          <div className="absolute inset-0 bg-bg-base/35 dark:bg-black/30" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,24,28,0.2),rgba(20,24,28,0.02)_45%,rgba(20,24,28,0.14))] dark:bg-[linear-gradient(180deg,rgba(0,0,0,0.6),rgba(0,0,0,0.12)_45%,rgba(0,0,0,0.5))]" />
         </div>
       )}
 
@@ -321,10 +321,6 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
               'inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -10px 16px rgba(0,0,0,0.45)',
           }}
         >
-          {/* half a brain is silk-screened onto the fascia, cropped by the panel */}
-          <div className="pointer-events-none absolute right-[-58px] top-[-18px] h-[120px] w-[120px]">
-            <MemoryBrainWatermark size={120} opacity={0.26} color="#a9e3e6" />
-          </div>
           <div className="relative flex items-center gap-2">
             <TruncatedText
               as="h3"
