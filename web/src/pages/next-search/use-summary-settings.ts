@@ -35,33 +35,59 @@ import {
  * app configuration), so the chips on the search input persist their choice
  * back onto search_config instead of being sent with the question.
  */
+interface SummaryChoice {
+  enabled: boolean;
+  modelId: string;
+  effort: EffortLevel;
+}
+
+/**
+ * The search detail prop is fetched by the page and can lag behind a chip click,
+ * so the last choice made in this session is cached per app id. The home input
+ * and the results input mount separately and both read this cache.
+ */
+const summaryChoiceCache = new Map<string, SummaryChoice>();
+
 export function useSummarySettings(data?: ISearchAppDetailProps) {
   const { t } = useTranslation();
   const { updateSearch } = useUpdateSearch();
   const [updating, setUpdating] = useState(false);
 
   const config = data?.search_config;
-  // Optimistic mirrors so the chips flip as soon as they are clicked, before
-  // the search detail is re-fetched by the parent.
-  const [enabledState, setEnabledState] = useState(!!config?.summary);
-  const [modelState, setModelState] = useState(config?.chat_id || '');
-  const [effortState, setEffortState] = useState<EffortLevel>(
-    deriveEffortLevel(config?.llm_setting),
+  const cacheKey = data?.id ?? '';
+
+  const readChoice = (): SummaryChoice => {
+    const cached = summaryChoiceCache.get(cacheKey);
+    if (cached) return cached;
+    return {
+      enabled: !!config?.summary,
+      modelId: config?.chat_id || '',
+      effort: deriveEffortLevel(config?.llm_setting),
+    };
+  };
+
+  const [choice, setChoice] = useState<SummaryChoice>(readChoice);
+
+  // A different app starts from its own configuration.
+  useEffect(() => {
+    setChoice(readChoice());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cacheKey]);
+
+  const remember = useCallback(
+    (patch: Partial<SummaryChoice>) => {
+      setChoice((prev) => {
+        const next = { ...prev, ...patch };
+        summaryChoiceCache.set(cacheKey, next);
+        return next;
+      });
+    },
+    [cacheKey],
   );
 
-  useEffect(() => {
-    setEnabledState(!!config?.summary);
-  }, [config?.summary]);
-  useEffect(() => {
-    setModelState(config?.chat_id || '');
-  }, [config?.chat_id]);
-  useEffect(() => {
-    setEffortState(deriveEffortLevel(config?.llm_setting));
-  }, [config?.llm_setting]);
-
-  const enabled = enabledState;
-  const modelId = modelState;
-  const effort = effortState;
+  const enabled = choice.enabled;
+  const modelId = choice.modelId;
+  const effort = choice.effort;
 
   const patchConfig = useCallback(
     async (nextConfig: Record<string, unknown>) => {
@@ -91,23 +117,23 @@ export function useSummarySettings(data?: ISearchAppDetailProps) {
 
   const setEnabled = useCallback(
     (next: boolean) => {
-      setEnabledState(next);
+      remember({ enabled: next });
       return patchConfig({ summary: next });
     },
-    [patchConfig],
+    [patchConfig, remember],
   );
 
   const setModel = useCallback(
     (nextModelId: string) => {
-      setModelState(nextModelId);
+      remember({ modelId: nextModelId });
       return patchConfig({ chat_id: nextModelId });
     },
-    [patchConfig],
+    [patchConfig, remember],
   );
 
   const setEffort = useCallback(
     (level: EffortLevel) => {
-      setEffortState(level);
+      remember({ effort: level });
       return patchConfig({
         llm_setting: {
           ...(config?.llm_setting ?? {}),
@@ -120,7 +146,7 @@ export function useSummarySettings(data?: ISearchAppDetailProps) {
         },
       });
     },
-    [config?.llm_setting, patchConfig],
+    [config?.llm_setting, patchConfig, remember],
   );
 
   return {
