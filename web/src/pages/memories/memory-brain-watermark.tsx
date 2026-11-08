@@ -25,7 +25,15 @@ const BRAIN_PATHS = [
   'M15.7 13.8c-.8.2-1.4.8-1.6 1.6',
 ];
 
-export function MemoryBrainWatermark({ size = 88 }: { size?: number }) {
+export function MemoryBrainWatermark({
+  size = 88,
+  opacity = 0.12,
+  color,
+}: {
+  size?: number;
+  opacity?: number;
+  color?: string;
+}) {
   return (
     <svg
       width={size}
@@ -36,7 +44,8 @@ export function MemoryBrainWatermark({ size = 88 }: { size?: number }) {
       strokeWidth={44 / size}
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-text-primary opacity-[0.12] transition-opacity duration-300 group-hover:opacity-[0.18]"
+      className="text-text-primary transition-opacity duration-300"
+      style={{ opacity, color }}
     >
       {BRAIN_PATHS.map((d) => (
         <path key={d} d={d} />

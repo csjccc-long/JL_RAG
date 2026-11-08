@@ -149,7 +149,7 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
       >
         {/* deck surface */}
         <div
-          className="absolute inset-0 overflow-hidden rounded-[16px]"
+          className="absolute inset-0 overflow-hidden rounded-t-[16px]"
           style={{
             background:
               'linear-gradient(156deg,#4d555e 0%,#2d333b 40%,#1d2127 78%,#16191d 100%)',
@@ -165,6 +165,11 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
                 'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px)',
             }}
           />
+
+          {/* half a brain is etched into the plinth, the record hides the rest */}
+          <div className="pointer-events-none absolute bottom-[-90px] right-[-170px] h-[320px] w-[320px]">
+            <MemoryBrainWatermark size={320} opacity={0.19} color="#a9e3e6" />
+          </div>
 
           {/* platter recess */}
           <div
@@ -303,14 +308,14 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
           />
 
           {/* bevel: a lit left edge and a shadowed right one read as thickness */}
-          <div className="pointer-events-none absolute inset-0 rounded-[16px] shadow-[inset_2px_0_0_rgba(255,255,255,0.06),inset_-2px_0_0_rgba(0,0,0,0.6)]" />
+          <div className="pointer-events-none absolute inset-0 rounded-t-[16px] shadow-[inset_2px_0_0_rgba(255,255,255,0.06),inset_-2px_0_0_rgba(0,0,0,0.6)]" />
         </div>
 
         {/* front fascia: silk-screened with the memory's name and date */}
         <div
-          className="absolute bottom-0 left-0 h-[56px] w-[236px] origin-bottom overflow-hidden rounded-b-[12px] px-3.5 pt-2.5"
+          className="absolute bottom-0 left-[-19px] h-[72px] w-[274px] origin-bottom overflow-hidden rounded-b-[12px] px-[33px] pt-3.5"
           style={{
-            transform: 'translateZ(-56px) rotateX(-90deg)',
+            transform: 'translateZ(-72px) rotateX(-90deg)',
             transformOrigin: 'bottom center',
             backfaceVisibility: 'hidden',
             willChange: 'transform',
@@ -320,14 +325,14 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
               'inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -10px 16px rgba(0,0,0,0.45)',
           }}
         >
-          {/* faint print, so the brain motif survives on the new deck */}
-          <div className="pointer-events-none absolute -right-4 -top-3 h-[92px] w-[92px] opacity-[0.07]">
-            <MemoryBrainWatermark size={92} />
+          {/* half a brain is silk-screened onto the fascia, cropped by the panel */}
+          <div className="pointer-events-none absolute right-[-26px] top-[-18px] h-[120px] w-[120px]">
+            <MemoryBrainWatermark size={120} opacity={0.32} color="#a9e3e6" />
           </div>
           <div className="relative flex items-center gap-2">
             <TruncatedText
               as="h3"
-              className="min-w-0 flex-1 truncate text-[15px] font-bold leading-tight text-white/90"
+              className="min-w-0 flex-1 truncate text-[16px] font-bold leading-tight text-white/90"
               testId="memory-name"
               tooltip={data?.name}
             >
@@ -341,7 +346,7 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
             </span>
             <SharedBadge>{data?.owner_name}</SharedBadge>
           </div>
-          <span className="pointer-events-none absolute bottom-[9px] right-3.5 text-[7px] tracking-[0.16em] text-white/40">
+          <span className="pointer-events-none absolute bottom-[11px] right-[33px] text-[7px] tracking-[0.16em] text-white/40">
             33⅓
           </span>
         </div>
