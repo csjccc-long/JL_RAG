@@ -1177,6 +1177,8 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
       applyModelConfigs: 'Apply model configs',
       conversations: 'Conversations',
       chatApps: 'Chat apps',
+      thinkingLabel: 'Thinking',
+      thoughtFor: 'Thought for',
       newConversation: 'New conversation',
       createAssistant: 'Create an assistant',
       assistantSetting: 'Assistant settings',
@@ -3839,6 +3841,7 @@ Important structured information may include: names, dates, locations, events, k
     },
     search: {
       searchApps: 'Search apps',
+      startSearch: 'Start search',
       createSearch: 'Create search',
       hiThere: 'Hi there',
       searchGreeting: 'How can I help you today ？',
