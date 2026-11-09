@@ -1,0 +1,179 @@
+/*
+ * Holo foil: the print is part of the card, under the copy, and only exists
+ * inside the wiped window - the mask opens exactly where the curtain is lifted,
+ * and the whole layer is invisible while the card rests. The print itself is a
+ * single white ink (dark theme) / single dark ink (light theme), never coloured.
+ */
+.holo-foil {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 260ms ease,
+    -webkit-mask-position 0ms linear;
+  /* the print only exists inside the logo-shaped window the curtain opens */
+  -webkit-mask-image: url("/logo-mask-soft.png");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: var(--halftone-logo, 0px) var(--halftone-logo, 0px);
+  -webkit-mask-position: calc(
+      var(--halftone-x, 50%) - var(--halftone-logo, 0px) * 0.5
+    )
+    calc(var(--halftone-y, 50%) - var(--halftone-logo, 0px) * 0.5);
+
+  mask-image: url("/logo-mask-soft.png");
+  mask-repeat: no-repeat;
+  mask-size: var(--halftone-logo, 0px) var(--halftone-logo, 0px);
+  mask-position: calc(var(--halftone-x, 50%) - var(--halftone-logo, 0px) * 0.5)
+    calc(var(--halftone-y, 50%) - var(--halftone-logo, 0px) * 0.5);
+}
+
+.halftone-card:hover .holo-foil,
+.halftone-card:focus-visible .holo-foil {
+  opacity: 0.92;
+}
+
+/* A single white-ink plate, printed once per card: fine etched scratches, no
+   repeated motif, no circle. Angle and direction are per card (see
+   search-card.tsx), so no two cards are printed the same way. */
+.holo-foil__print {
+  position: absolute;
+  inset: -24%;
+  background-image: url("/holo-print-white.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  transform: rotate(var(--print-rot, 0deg)) scaleX(var(--print-flip, 1));
+  opacity: 0.5;
+}
+
+/* the light theme prints the same plate in dark ink, or it would vanish on paper */
+:root:not(.dark) .holo-foil__print {
+  filter: invert(1);
+  opacity: 0.38;
+}
+
+.holo-foil__burst {
+  position: absolute;
+  inset: -30%;
+  background: repeating-conic-gradient(
+    from var(--holo-angle, 0deg) at 86% 8%,
+    rgb(255 255 255 / 45%) 0deg 1deg,
+    transparent 1deg 7deg
+  );
+  opacity: 0.1;
+  mask-image: radial-gradient(circle at 86% 8%, #000 0%, transparent 58%);
+}
+
+.holo-foil__sheen {
+  position: absolute;
+  inset: -35%;
+  background: linear-gradient(
+    var(--holo-sweep, 115deg),
+    transparent 41%,
+    rgb(255 255 255 / 65%) 47%,
+    rgb(255 255 255 / 98%) 50%,
+    rgb(255 255 255 / 25%) 54%,
+    transparent 60%
+  );
+  opacity: 0.3;
+}
+
+.holo-foil__sparkle {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(
+      circle at 22% 28%,
+      rgb(255 255 255 / 95%) 1.5px,
+      transparent 1.9px
+    ),
+    radial-gradient(
+      circle at 68% 60%,
+      rgb(255 255 255 / 80%) 1.2px,
+      transparent 1.7px
+    ),
+    radial-gradient(
+      circle at 46% 84%,
+      rgb(255 255 255 / 90%) 1.1px,
+      transparent 1.5px
+    );
+  background-size:
+    71px 83px,
+    94px 67px,
+    137px 121px;
+  opacity: 0.35;
+}
+
+.holo-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 14;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: calc(0.1 + var(--holo-awake, 0) * 0.16);
+  mix-blend-mode: soft-light;
+  background: linear-gradient(
+    var(--holo-sweep, 115deg),
+    transparent 42%,
+    rgb(255 255 255 / 90%) 50%,
+    transparent 60%
+  );
+  transition: opacity 340ms ease;
+}
+
+@keyframes holo-sparkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo-foil,
+  .holo-foil__print,
+  .holo-sheen {
+    transition: none;
+  }
+
+  .holo-foil__sparkle {
+    animation: none;
+  }
+}
+/* Tilt: the pointer position drives a small 3D rotation plus a light lift. */
+.holo-card {
+  transform: perspective(1200px) rotateX(var(--holo-rx, 0deg))
+    rotateY(var(--holo-ry, 0deg)) scale(var(--holo-scale, 1));
+  transition:
+    transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms ease,
+    box-shadow 340ms ease;
+  contain: paint;
+  /* keep the blend layers inside the card so the page backdrop is never read */
+  isolation: isolate;
+}
+
+/* a layer that is merely present must not be pinned to the GPU forever */
+.holo-card:hover,
+.holo-card:focus-visible {
+  will-change: transform;
+}
+
+/* copy sits above the print (z 6) but below the pixel curtain (z 10) */
+.holo-card__content {
+  position: relative;
+  z-index: 8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .holo-card {
+    transform: none;
+    transition: none;
+  }
+}
