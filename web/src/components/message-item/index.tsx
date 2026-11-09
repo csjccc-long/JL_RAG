@@ -14,29 +14,31 @@
  *  limitations under the License.
  */
 
-import { MessageType } from '@/constants/chat';
-import { IRegenerateMessage, IRemoveMessageById } from '@/hooks/logic-hooks';
+import { MessageType } from "@/constants/chat";
+import { IRegenerateMessage, IRemoveMessageById } from "@/hooks/logic-hooks";
 import {
   IMessage,
   IReference,
   IReferenceChunk,
   UploadResponseDataType,
-} from '@/interfaces/database/chat';
-import { cn } from '@/lib/utils';
-import classNames from 'classnames';
-import { isEmpty } from 'lodash';
-import { memo, useCallback, useMemo } from 'react';
-import { DocumentDownloadButton } from '../document-download-button';
-import { LoadingDots } from '../loading-dots';
-import MarkdownContent from '../markdown-content';
-import { ReferenceDocumentList } from '../next-message-item/reference-document-list';
-import { ReferenceImageList } from '../next-message-item/reference-image-list';
-import { UploadedMessageFiles } from '../next-message-item/uploaded-message-files';
-import { AgentAvatar } from '../agent-avatar';
-import { RAGFlowAvatar } from '../ragflow-avatar';
-import { useTheme } from '../theme-provider';
-import { AssistantGroupButton, UserGroupButton } from './group-button';
-import styles from './index.module.less';
+} from "@/interfaces/database/chat";
+import { cn } from "@/lib/utils";
+import classNames from "classnames";
+import { isEmpty } from "lodash";
+import { memo, useCallback, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import { DocumentDownloadButton } from "../document-download-button";
+import MarkdownContent from "../markdown-content";
+import { ReferenceDocumentList } from "../next-message-item/reference-document-list";
+import { ReferenceImageList } from "../next-message-item/reference-image-list";
+import { UploadedMessageFiles } from "../next-message-item/uploaded-message-files";
+import { AgentAvatar } from "../agent-avatar";
+import { RAGFlowAvatar } from "../ragflow-avatar";
+import { ThinkingAvatar } from "../thinking-orbs/avatar";
+import { ThoughtLine } from "../thought-line";
+import { useTheme } from "../theme-provider";
+import { AssistantGroupButton, UserGroupButton } from "./group-button";
+import styles from "./index.module.less";
 
 interface IProps extends Partial<IRemoveMessageById>, IRegenerateMessage {
   item: IMessage;
@@ -73,6 +75,7 @@ const MessageItem = ({
   nickname,
 }: IProps) => {
   const { theme } = useTheme();
+  const { t } = useTranslation();
   const isAssistant = item.role === MessageType.Assistant;
   const isUser = item.role === MessageType.User;
 
@@ -89,6 +92,15 @@ const MessageItem = ({
     [item.downloads],
   );
   const messageContent = item.content;
+  // Waiting for the first token: the avatar shows a thinking orb, the bubble a thought line.
+  // Only the message being answered carries `loading`; the line is latched so it settles into
+  // "Thought for 1.2s" once the first token lands instead of vanishing.
+  const waiting = isAssistant && loading && isEmpty(messageContent);
+  const thinking = useRef(false);
+  if (waiting) thinking.current = true;
+  // Stays latched once the answer starts, so the line can settle and fade instead of vanishing
+  // the moment the stream ends; a message replayed from history never latches.
+  const showThinking = isAssistant && thinking.current;
 
   const handleRegenerateMessage = useCallback(() => {
     regenerateMessage?.(item);
@@ -108,7 +120,7 @@ const MessageItem = ({
         })}
       >
         <div
-          className={classNames(styles.messageItemContent, 'group', {
+          className={classNames(styles.messageItemContent, "group", {
             [styles.messageItemContentReverse]: item.role === MessageType.User,
           })}
         >
@@ -116,10 +128,12 @@ const MessageItem = ({
             (item.role === MessageType.User ? (
               <RAGFlowAvatar
                 className="size-10"
-                avatar={avatar ?? '/logo.svg'}
+                avatar={avatar ?? "/logo.svg"}
                 isPerson
                 name={nickname}
               />
+            ) : waiting ? (
+              <ThinkingAvatar size={40} className="text-accent-primary" />
             ) : avatarDialog ? (
               <RAGFlowAvatar
                 className="size-10"
@@ -156,16 +170,25 @@ const MessageItem = ({
               <div
                 className={cn(
                   isAssistant
-                    ? theme === 'dark'
+                    ? theme === "dark"
                       ? styles.messageTextDark
                       : styles.messageText
                     : styles.messageUserText,
-                  { '!bg-bg-card': !isAssistant },
+                  { "!bg-bg-card": !isAssistant },
                 )}
               >
-                {sendLoading && isEmpty(messageContent) ? (
-                  <LoadingDots className="text-text-secondary" />
-                ) : (
+                {showThinking && (
+                  <ThoughtLine
+                    working={waiting}
+                    label={`${t("chat.thinkingLabel")}…`}
+                    doneLabel={t("chat.thoughtFor")}
+                    glyphColor="rgb(var(--accent-primary))"
+                    fontSize={13}
+                    lingerAfterSettle={3}
+                    className="mb-1.5 text-text-secondary"
+                  />
+                )}
+                {waiting ? null : (
                   <MarkdownContent
                     loading={loading}
                     content={messageContent}
