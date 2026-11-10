@@ -1,7 +1,7 @@
-import { isDarkTheme, watchTheme } from '@/components/live-orb';
-import { useTranslate } from '@/hooks/common-hooks';
-import { cn } from '@/lib/utils';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { isDarkTheme, watchTheme } from "@/components/live-orb";
+import { useTranslate } from "@/hooks/common-hooks";
+import { cn } from "@/lib/utils";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildBrainGeometry,
   buildLayout,
@@ -9,9 +9,10 @@ import {
   Neuron,
   TYPE_COLORS,
   Vec3,
-} from './brain-model';
-import { IMemory } from './interface';
-import { NEURON_SOMA, neuronSprite } from './neuron-shape';
+} from "./brain-model";
+import { IMemory } from "./interface";
+import { buildNeuron3D, Neuron3D } from "./neuron3d";
+import { createBrainSurface } from "./brain-surface";
 
 interface IProps {
   memories: IMemory[];
@@ -40,8 +41,9 @@ let VIEW = { cosY: 1, sinY: 0, cosP: 1, sinP: 0, zoom: 1 };
  * and the pulses travelling along those wires are the "relations".
  */
 export function MemoryBrain({ memories, onOpen, className }: IProps) {
-  const { t } = useTranslate('memories');
+  const { t } = useTranslate("memories");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const surfaceRef = useRef<HTMLCanvasElement>(null);
   const geometry = useMemo(() => buildBrainGeometry(), []);
 
   const graph = useMemo<Graph>(() => {
@@ -85,7 +87,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
 
   // start from the lateral profile — the view everyone recognises as a brain —
   // and let it breathe around that angle instead of spinning away from it
-  const camera = useRef({ yaw: 1.5, pitch: -0.04, zoom: 1 });
+  const camera = useRef({ yaw: 1.5, pitch: -0.24, zoom: 1 });
   const sway = useRef(true);
   const drag = useRef<{ x: number; y: number; moved: number } | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
@@ -96,11 +98,11 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const reduced = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
+      "(prefers-reduced-motion: reduce)",
     ).matches;
 
     const resize = () => {
@@ -112,6 +114,9 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
     resize();
+    const surface = surfaceRef.current
+      ? createBrainSurface(surfaceRef.current)
+      : null;
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
 
@@ -120,7 +125,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       const next = camera.current.zoom * (event.deltaY > 0 ? 0.94 : 1.06);
       camera.current.zoom = Math.min(1.8, Math.max(0.7, next));
     };
-    canvas.addEventListener('wheel', wheel, { passive: false });
+    canvas.addEventListener("wheel", wheel, { passive: false });
 
     let raf = 0;
 
@@ -154,6 +159,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       const base = Math.min(w * 0.32, h * 0.42);
       const { neurons, edges } = graphRef.current;
 
+      const strokeCortex = false as boolean;
       const cam = camera.current;
       VIEW = {
         cosY: Math.cos(cam.yaw),
@@ -163,10 +169,13 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         zoom: cam.zoom,
       };
 
+      // the cortex itself is a raymarched SDF surface on the canvas underneath
+      surface?.draw(camera.current, isDark, cx, cy, base);
+
       ctx.clearRect(0, 0, w, h);
-      ctx.lineCap = 'round';
-      ctx.textBaseline = 'middle';
-      ctx.textAlign = 'left';
+      ctx.lineCap = "round";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "left";
 
       // ambient glow so the brain floats instead of sitting on a flat page
       const halo = ctx.createRadialGradient(
@@ -179,9 +188,9 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       );
       halo.addColorStop(
         0,
-        isDark ? 'rgba(0, 190, 180, 0.13)' : 'rgba(0, 150, 145, 0.07)',
+        isDark ? "rgba(0, 190, 180, 0.13)" : "rgba(0, 150, 145, 0.07)",
       );
-      halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      halo.addColorStop(1, "rgba(0, 0, 0, 0)");
       ctx.fillStyle = halo;
       ctx.fillRect(0, 0, w, h);
 
@@ -190,14 +199,14 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       const focus = enterRef.current;
       const focusNeuron = focus ? neurons[focus.index] : undefined;
       let focusEase = 0;
-      let focusColour = '#54e3d6';
+      let focusColour = "#54e3d6";
       if (focus && focusNeuron) {
         const span = Math.min(
           1,
           Math.max(0, (time * 1000 - focus.start) / 620),
         );
         focusEase = span * span * (3 - 2 * span);
-        focusColour = TYPE_COLORS[focusNeuron.type][isDark ? 'dark' : 'light'];
+        focusColour = neuronTint(focusNeuron.type, isDark);
         const fp = project(
           focusNeuron.pos.x,
           focusNeuron.pos.y,
@@ -229,10 +238,20 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       let hovered = -1;
       let hoveredDist = 26;
       for (const neuron of neurons) {
-        const p = project(neuron.pos.x, neuron.pos.y, neuron.pos.z, cx, cy, base);
+        const p = project(
+          neuron.pos.x,
+          neuron.pos.y,
+          neuron.pos.z,
+          cx,
+          cy,
+          base,
+        );
         projected.push({ x: p[0], y: p[1], z: p[2] });
         if (pointer.current && !drag.current && !enterRef.current) {
-          const d = Math.hypot(p[0] - pointer.current.x, p[1] - pointer.current.y);
+          const d = Math.hypot(
+            p[0] - pointer.current.x,
+            p[1] - pointer.current.y,
+          );
           if (d < hoveredDist) {
             hoveredDist = d;
             hovered = projected.length - 1;
@@ -247,7 +266,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       // ---- wires, drawn first so neurons read as sitting in front of them.
       // Each wire fades out at both ends, so the net reads as tendrils rather
       // than as a wireframe cage.
-      const wireRgb = isDark ? '124, 226, 216' : '10, 120, 112';
+      const wireRgb = isDark ? "124, 226, 216" : "10, 120, 112";
       ctx.lineWidth = 1;
       for (const edge of edges) {
         const a = neurons[edge.a].pos;
@@ -283,8 +302,9 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       // points are the silhouette, so the outline always hugs the cloud.
       const buckets: number[][] = Array.from({ length: 14 }, () => []);
       const OUTLINE_BINS = 300;
-      const hull: ({ x: number; y: number; r: number } | null)[] =
-        new Array(OUTLINE_BINS).fill(null);
+      const hull: ({ x: number; y: number; r: number } | null)[] = new Array(
+        OUTLINE_BINS,
+      ).fill(null);
       const pushPoints = (pts: Float32Array) => {
         for (let i = 0; i < pts.length; i += 3) {
           const p = project(pts[i], pts[i + 1], pts[i + 2], cx, cy, base);
@@ -314,12 +334,21 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       pushPoints(geometry.cerebellum);
 
       const ring: { x: number; y: number }[] = [];
-      for (const q of hull) {
-        if (q) ring.push({ x: q.x, y: q.y });
+      // the lateral profile is used as the silhouette: a convex hull would fill
+      // in the Sylvian notch and turn the brain into an egg
+      for (let i = 0; i < geometry.outline.length; i += 3) {
+        const p = project(
+          geometry.outline[i],
+          geometry.outline[i + 1],
+          geometry.outline[i + 2],
+          cx,
+          cy,
+          base,
+        );
+        ring.push({ x: p[0], y: p[1] });
       }
-      // neighbour averaging: removes the scallops the folds leave on the hull,
-      // leaving a clean marked contour
-      for (let pass = 0; pass < 3; pass += 1) {
+      // one light smoothing pass takes the facets off the sampled profile
+      for (let pass = 0; pass < 1; pass += 1) {
         const n = ring.length;
         if (n < 6) break;
         const smoothed = ring.map((q, i) => {
@@ -352,16 +381,16 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         return true;
       };
 
-      // the body of the brain: a soft volume under the point cloud
-      if (traceOutline()) {
+      // legacy stroke cortex, kept behind a flag while the shader takes over
+      if (strokeCortex && traceOutline()) {
         const body = ctx.createLinearGradient(0, cy - base, 0, cy + base);
         body.addColorStop(
           0,
-          isDark ? 'rgba(38, 120, 116, 0.16)' : 'rgba(190, 235, 230, 0.3)',
+          isDark ? "rgba(38, 120, 116, 0.16)" : "rgba(190, 235, 230, 0.3)",
         );
         body.addColorStop(
           1,
-          isDark ? 'rgba(12, 44, 44, 0.14)' : 'rgba(220, 246, 243, 0.22)',
+          isDark ? "rgba(12, 44, 44, 0.14)" : "rgba(220, 246, 243, 0.22)",
         );
         ctx.fillStyle = body;
         ctx.fill();
@@ -379,69 +408,42 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         );
         shade.addColorStop(
           0,
-          isDark ? 'rgba(168, 248, 238, 0.055)' : 'rgba(255, 255, 255, 0.5)',
+          isDark ? "rgba(168, 248, 238, 0.055)" : "rgba(255, 255, 255, 0.5)",
         );
-        shade.addColorStop(0.55, 'rgba(0, 0, 0, 0)');
+        shade.addColorStop(0.55, "rgba(0, 0, 0, 0)");
         shade.addColorStop(
           1,
-          isDark ? 'rgba(2, 12, 12, 0.42)' : 'rgba(150, 205, 200, 0.42)',
+          isDark ? "rgba(2, 12, 12, 0.42)" : "rgba(150, 205, 200, 0.42)",
         );
         ctx.fillStyle = shade;
         ctx.fillRect(cx - base * 1.4, cy - base * 1.4, base * 2.8, base * 2.8);
         ctx.restore();
       }
 
+      // additive light: the near cortex burns brighter than the far shell, the
+      // way a backlit hologram does, instead of simply being drawn later
+      if (isDark) ctx.globalCompositeOperation = "lighter";
       for (let b = 0; b < buckets.length; b += 1) {
         const list = buckets[b];
         if (!list.length) continue;
         const depth = b / (buckets.length - 1);
         ctx.fillStyle = isDark
-          ? `rgba(140, 236, 228, ${0.035 + 0.19 * depth * depth})`
+          ? `rgba(150, 242, 234, ${0.045 + 0.26 * depth * depth})`
           : `rgba(16, 96, 92, ${0.03 + 0.17 * depth * depth})`;
-        const s = 1.1 + depth * 1.1;
+        const s = 1.2 + depth * 1.5;
         ctx.beginPath();
         for (let i = 0; i < list.length; i += 2) {
           ctx.rect(list[i] - s / 2, list[i + 1] - s / 2, s, s);
         }
         ctx.fill();
       }
+      if (isDark) ctx.globalCompositeOperation = "source-over";
 
       // ---- cortical mesh: latitudes and meridians, faded by depth. This is
       // what makes the shape read as a modelled 3D brain.
-      ctx.lineWidth = 0.8;
-      for (const line of geometry.mesh) {
-        const screen: number[] = [];
-        for (let i = 0; i < line.length; i += 3) {
-          const p = project(line[i], line[i + 1], line[i + 2], cx, cy, base);
-          screen.push(p[0], p[1], p[2]);
-        }
-        for (let i = 3; i < screen.length; i += 3) {
-          const z = (screen[i - 1] + screen[i + 2]) / 2;
-          const depth = Math.min(1, Math.max(0, (z + 1) / 2));
-          const alpha = 0.05 + 0.2 * depth * depth;
-          ctx.strokeStyle = isDark
-            ? `rgba(146, 234, 226, ${alpha})`
-            : `rgba(12, 104, 98, ${alpha})`;
-          ctx.beginPath();
-          ctx.moveTo(screen[i - 3], screen[i - 2]);
-          ctx.lineTo(screen[i], screen[i + 1]);
-          ctx.stroke();
-        }
-      }
-
-      // ---- folds: front-to-back gyri. The sulcus (a dark trough) and its
-      // crest sit side by side and both fade with depth, so the surface reads
-      // as folded cortex rather than as a ruled grid.
-      const drawFolds = (
-        lines: Float32Array[],
-        darkColour: string,
-        lightColour: string,
-        width: number,
-        floor: number,
-        gain: number,
-      ) => {
-        ctx.lineWidth = width;
-        for (const line of lines) {
+      if (strokeCortex) {
+        ctx.lineWidth = 0.8;
+        for (const line of geometry.mesh) {
           const screen: number[] = [];
           for (let i = 0; i < line.length; i += 3) {
             const p = project(line[i], line[i + 1], line[i + 2], cx, cy, base);
@@ -450,36 +452,138 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
           for (let i = 3; i < screen.length; i += 3) {
             const z = (screen[i - 1] + screen[i + 2]) / 2;
             const depth = Math.min(1, Math.max(0, (z + 1) / 2));
-            const alpha = floor + gain * depth * depth;
+            const alpha = 0.05 + 0.2 * depth * depth;
             ctx.strokeStyle = isDark
-              ? `rgba(${darkColour}, ${alpha})`
-              : `rgba(${lightColour}, ${alpha})`;
+              ? `rgba(146, 234, 226, ${alpha})`
+              : `rgba(12, 104, 98, ${alpha})`;
             ctx.beginPath();
             ctx.moveTo(screen[i - 3], screen[i - 2]);
             ctx.lineTo(screen[i], screen[i + 1]);
             ctx.stroke();
           }
         }
-      };
-      drawFolds(geometry.folds, '3, 22, 24', '10, 62, 60', 2.6, 0.08, 0.42);
-      drawFolds(
-        geometry.crests,
-        '150, 246, 236',
-        '255, 255, 255',
-        1,
-        0.04,
-        0.3,
-      );
 
-      // ---- silhouette: the same ring, stroked on top so the contour is crisp
-      if (traceOutline()) {
-        ctx.strokeStyle = isDark
-          ? 'rgba(158, 244, 234, 0.55)'
-          : 'rgba(9, 118, 110, 0.45)';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
+        // ---- folds: front-to-back gyri. The sulcus (a dark trough) and its
+        // crest sit side by side and both fade with depth, so the surface reads
+        // as folded cortex rather than as a ruled grid.
+        const drawFolds = (
+          lines: Float32Array[],
+          darkColour: string,
+          lightColour: string,
+          width: number,
+          floor: number,
+          gain: number,
+          halo = 0,
+        ) => {
+          ctx.lineWidth = width;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          for (const line of lines) {
+            const screen: number[] = [];
+            let zsum = 0;
+            for (let i = 0; i < line.length; i += 3) {
+              const p = project(
+                line[i],
+                line[i + 1],
+                line[i + 2],
+                cx,
+                cy,
+                base,
+              );
+              screen.push(p[0], p[1], p[2]);
+              zsum += p[2];
+            }
+            if (screen.length < 6) continue;
+            const meanZ = zsum / (screen.length / 3);
+            const depth = Math.min(1, Math.max(0, (meanZ + 1) / 2));
+            const alpha = floor + gain * depth * depth;
+            ctx.strokeStyle = isDark
+              ? `rgba(${darkColour}, ${alpha})`
+              : `rgba(${lightColour}, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(screen[0], screen[1]);
+            for (let i = 3; i < screen.length; i += 3) {
+              ctx.lineTo(screen[i], screen[i + 1]);
+            }
+            // a gyral crest glows: two wide, faint passes under the filament give
+            // the neon bloom of a lit hologram without a blur filter's cost
+            if (halo > 0) {
+              ctx.strokeStyle = isDark
+                ? "rgba(" +
+                  lightColour +
+                  ", " +
+                  (alpha * 0.16 * halo).toFixed(3) +
+                  ")"
+                : "rgba(" +
+                  lightColour +
+                  ", " +
+                  (alpha * 0.1 * halo).toFixed(3) +
+                  ")";
+              ctx.lineWidth = width * 4.2;
+              ctx.stroke();
+              ctx.strokeStyle = isDark
+                ? "rgba(" +
+                  lightColour +
+                  ", " +
+                  (alpha * 0.3 * halo).toFixed(3) +
+                  ")"
+                : "rgba(" +
+                  lightColour +
+                  ", " +
+                  (alpha * 0.18 * halo).toFixed(3) +
+                  ")";
+              ctx.lineWidth = width * 2;
+              ctx.stroke();
+              ctx.lineWidth = width;
+            }
+            ctx.stroke();
+          }
+        };
+        // ---- the deep fissures go down first: wider and darker, so the lateral
+        // and central clefts read as real lobes instead of one more wrinkle
+        drawFolds(geometry.deepFolds, "2, 16, 18", "4, 42, 40", 3.8, 0.2, 0.55);
+        drawFolds(
+          geometry.deepCrests,
+          "182, 252, 244",
+          "255, 255, 255",
+          1.7,
+          0.16,
+          0.62,
+          1,
+        );
+
+        // gyri read as ribbons, not hairlines: a wide lit band riding on a wider
+        // dark sulcus, exactly the raised-ridge / sunken-groove alternation
+        drawFolds(geometry.folds, "1, 8, 10", "10, 62, 60", 3.2, 0.32, 0.34);
+        drawFolds(
+          geometry.crests,
+          "150, 240, 232",
+          "255, 255, 255",
+          1.2,
+          0.26,
+          0.5,
+          0.9,
+        );
+
+        // ---- silhouette: the same ring, stroked on top so the contour is crisp.
+        // Two wide passes under it turn the outline into the membrane of a lit
+        // object rather than a pencil line.
+        if (traceOutline()) {
+          if (isDark) {
+            ctx.strokeStyle = "rgba(96, 240, 228, 0.14)";
+            ctx.lineWidth = 10;
+            ctx.stroke();
+            ctx.strokeStyle = "rgba(150, 252, 240, 0.26)";
+            ctx.lineWidth = 3.6;
+            ctx.stroke();
+          }
+          ctx.strokeStyle = isDark
+            ? "rgba(176, 250, 241, 0.66)"
+            : "rgba(9, 118, 110, 0.45)";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
       }
-
       // ---- neurons, sorted back to front
       const order = neurons
         .map((_, index) => ({ index, z: projected[index].z }))
@@ -489,7 +593,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         const neuron = neurons[index];
         const p = projected[index];
         const isHover = index === hoverRef.current;
-        const colour = TYPE_COLORS[neuron.type][isDark ? 'dark' : 'light'];
+        const colour = neuronTint(neuron.type, isDark);
         const pulse = reduced
           ? 0.5
           : Math.sin(time * 1.8 + (neuron.seed % 6.28)) * 0.5 + 0.5;
@@ -505,18 +609,19 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
         ctx.fill();
 
-        // the neuron itself: a cached morphology sprite, so the dendrites,
-        // spines and boutons keep their detail at 3px as well as at 300px
-        const sprite = neuronSprite(neuron.seed, colour, isDark);
-        const unit = (r * (isHover ? 1.28 : 1)) / NEURON_SOMA;
-        const drawSize = sprite.width * (unit / 22);
-        ctx.drawImage(
-          sprite,
-          p.x - drawSize / 2,
-          p.y - drawSize / 2,
-          drawSize,
-          drawSize,
-        );
+        // the neuron itself is a real three-axis cell: a lit soma with dendrites
+        // that fork through space, so it turns with the brain instead of being a
+        // flat decal pinned to the screen
+        drawNeuron3D(ctx, {
+          x: p.x,
+          y: p.y,
+          z: p.z,
+          radius: r,
+          colour,
+          isDark,
+          strong: isHover,
+          seed: neuron.seed,
+        });
 
         if (isHover) {
           ctx.beginPath();
@@ -548,7 +653,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
               ? `rgba(170, 255, 246, ${alpha})`
               : `rgba(8, 130, 122, ${alpha})`,
           );
-          dot.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          dot.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.fillStyle = dot;
           ctx.beginPath();
           ctx.arc(p[0], p[1], 5, 0, Math.PI * 2);
@@ -564,7 +669,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         const p = projected[index];
         const isHover = index === hoverRef.current;
         if (!isHover && !alwaysLabel) continue;
-        const colour = TYPE_COLORS[neuron.type][isDark ? 'dark' : 'light'];
+        const colour = neuronTint(neuron.type, isDark);
         // labels must not stack on top of each other: nudge down, then give up
         let ly = p.y + 14;
         let placed = false;
@@ -610,7 +715,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
         );
         flash.addColorStop(0, hexToRgba(focusColour, 0.5 * focusEase));
         flash.addColorStop(0.5, hexToRgba(focusColour, 0.18 * focusEase));
-        flash.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        flash.addColorStop(1, "rgba(0, 0, 0, 0)");
         ctx.fillStyle = flash;
         ctx.fillRect(0, 0, w, h);
       }
@@ -620,7 +725,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
       raf = requestAnimationFrame(frame);
       if (document.hidden) return;
       if (!reduced && sway.current && !enterRef.current) {
-        camera.current.yaw = 1.5 + Math.sin(now / 1000 * 0.16) * 0.42;
+        camera.current.yaw = 1.5 + Math.sin((now / 1000) * 0.16) * 0.42;
       }
       draw(now / 1000);
     };
@@ -628,21 +733,27 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
     raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
+      surface?.dispose();
       observer.disconnect();
-      canvas.removeEventListener('wheel', wheel);
+      canvas.removeEventListener("wheel", wheel);
       window.clearTimeout(enterTimer.current);
     };
   }, [geometry, t]);
 
   return (
-    <div className={cn('relative min-h-0', className)}>
+    <div className={cn("relative min-h-0", className)}>
+      <canvas
+        ref={surfaceRef}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 h-full w-full"
+      />
       <canvas
         ref={canvasRef}
         role="img"
-        aria-label={t('brainView')}
+        aria-label={t("brainView")}
         className={cn(
-          'absolute inset-0 h-full w-full touch-none select-none',
-          entering ? 'cursor-wait' : hoverId ? 'cursor-pointer' : 'cursor-grab',
+          "absolute inset-0 h-full w-full touch-none select-none",
+          entering ? "cursor-wait" : hoverId ? "cursor-pointer" : "cursor-grab",
         )}
         onPointerDown={(event) => {
           if (enterRef.current) return;
@@ -698,17 +809,17 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
 
       <div className="pointer-events-none absolute left-4 top-3 flex flex-col gap-1">
         <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-text-secondary/70">
-          {t('brainView')}
+          {t("brainView")}
         </p>
         <p className="text-xs text-text-secondary">
           <span className="text-sm font-semibold text-text-primary">
             {graph.neurons.length}
-          </span>{' '}
-          {t('neurons')} ·{' '}
+          </span>{" "}
+          {t("neurons")} ·{" "}
           <span className="text-sm font-semibold text-text-primary">
             {graph.edges.length}
-          </span>{' '}
-          {t('synapses')}
+          </span>{" "}
+          {t("synapses")}
         </p>
       </div>
 
@@ -724,7 +835,7 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
               style={{
                 backgroundColor:
                   TYPE_COLORS[type as keyof typeof TYPE_COLORS][
-                    dark ? 'dark' : 'light'
+                    dark ? "dark" : "light"
                   ],
               }}
             />
@@ -734,15 +845,170 @@ export function MemoryBrain({ memories, onOpen, className }: IProps) {
 
       {!entering && (
         <p className="pointer-events-none absolute bottom-2 left-1/2 max-w-full -translate-x-1/2 px-4 text-center text-[11px] text-text-secondary/60">
-          {t('brainHint')}
+          {t("brainHint")}
         </p>
       )}
     </div>
   );
 }
 
+/** morphology is deterministic per seed, so build each cell once */
+const NEURON_GEOMETRY = new Map<number, Neuron3D>();
+
+function neuronGeometry(seed: number) {
+  let geometry = NEURON_GEOMETRY.get(seed);
+  if (!geometry) {
+    geometry = buildNeuron3D(seed, "low");
+    NEURON_GEOMETRY.set(seed, geometry);
+  }
+  return geometry;
+}
+
+function mixHex(a: string, b: string, t: number) {
+  const pa = a.replace("#", "");
+  const pb = b.replace("#", "");
+  const channel = (i: number) =>
+    Math.round(
+      parseInt(pa.slice(i, i + 2), 16) * (1 - t) +
+        parseInt(pb.slice(i, i + 2), 16) * t,
+    )
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(0)}${channel(2)}${channel(4)}`;
+}
+
+/** the cell keeps the cortical teal; its memory type only tints that teal */
+function neuronTint(type: keyof typeof TYPE_COLORS, isDark: boolean) {
+  return mixHex(
+    isDark ? "#54e3d6" : "#0a8f88",
+    TYPE_COLORS[type][isDark ? "dark" : "light"],
+    0.3,
+  );
+}
+
+interface NeuronDrawOptions {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  colour: string;
+  isDark: boolean;
+  strong: boolean;
+  seed: number;
+}
+
+/**
+ * Paints one neuron in 3D: the dendrites are projected through the same camera
+ * as the cortex, so they swing and foreshorten as the brain turns, and the soma
+ * is a sphere lit from the upper left rather than a flat disc.
+ */
+function drawNeuron3D(
+  ctx: CanvasRenderingContext2D,
+  options: NeuronDrawOptions,
+) {
+  const { x, y, z, radius, colour, isDark, strong, seed } = options;
+  const geometry = neuronGeometry(seed);
+  const { cosY, sinY, cosP, sinP } = VIEW;
+  const soma = Math.max(1.6, radius) * (strong ? 1.95 : 1.6);
+  const k = soma / geometry.somaR;
+  const depth = Math.min(1, Math.max(0, (z + 1) / 2));
+  const fade = 0.4 + 0.6 * depth;
+
+  const toScreen = (px: number, py: number, pz: number) => {
+    const x1 = px * cosY + pz * sinY;
+    const z1 = -px * sinY + pz * cosY;
+    const y1 = py * cosP - z1 * sinP;
+    const z2 = py * sinP + z1 * cosP;
+    return { x: x + x1 * k, y: y - y1 * k, z: z2 };
+  };
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  const strokeBranch = (pts: number[], width: number, alpha: number) => {
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i += 3) {
+      const p = toScreen(pts[i], pts[i + 1], pts[i + 2]);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    const tip = toScreen(
+      pts[pts.length - 3],
+      pts[pts.length - 2],
+      pts[pts.length - 1],
+    );
+    const near = 0.55 + 0.45 * Math.min(1, Math.max(0, (tip.z + 1) / 2));
+    // a wide, faint pass under the filament gives the branch a glassy sheath
+    ctx.strokeStyle = hexToRgba(colour, alpha * 0.24 * fade * near);
+    ctx.lineWidth = Math.max(1.3, width * 2.6);
+    ctx.stroke();
+    ctx.strokeStyle = hexToRgba(
+      mixHex(colour, "#ffffff", 0.35),
+      alpha * 0.85 * fade * near,
+    );
+    ctx.lineWidth = Math.max(0.5, width);
+    ctx.stroke();
+  };
+
+  for (const branch of geometry.branches) {
+    strokeBranch(branch.pts, soma * 0.17, 0.62);
+  }
+  strokeBranch(geometry.axon.pts, soma * 0.19, 0.8);
+
+  // boutons at the axon tips: tiny lit beads, the synapse points
+  for (const bead of geometry.axon.boutons ?? []) {
+    const p = toScreen(bead.x, bead.y, bead.z);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(0.7, soma * 0.16), 0, Math.PI * 2);
+    ctx.fillStyle = hexToRgba(mixHex(colour, "#ffffff", 0.5), 0.7 * fade);
+    ctx.fill();
+  }
+
+  // the soma: a sphere with a highlight up-left and a dark limb, so it reads
+  // as a body with volume instead of a dot
+  const light = soma * 0.42;
+  const body = ctx.createRadialGradient(
+    x - light,
+    y - light,
+    soma * 0.1,
+    x,
+    y,
+    soma * 1.15,
+  );
+  body.addColorStop(0, mixHex(colour, "#ffffff", isDark ? 0.72 : 0.6));
+  body.addColorStop(0.42, mixHex(colour, "#ffffff", 0.18));
+  body.addColorStop(0.8, colour);
+  body.addColorStop(1, mixHex(colour, "#000000", isDark ? 0.52 : 0.32));
+  ctx.beginPath();
+  ctx.arc(x, y, soma, 0, Math.PI * 2);
+  ctx.fillStyle = body;
+  ctx.fill();
+
+  // rim light along the lower right keeps the sphere legible on dark ground
+  ctx.beginPath();
+  ctx.arc(x, y, soma * 0.88, Math.PI * 0.1, Math.PI * 0.74);
+  ctx.strokeStyle = hexToRgba(mixHex(colour, "#ffffff", 0.75), 0.45);
+  ctx.lineWidth = Math.max(0.6, soma * 0.2);
+  ctx.stroke();
+
+  // nucleus: a darker core glimpsed through the lit shell
+  ctx.beginPath();
+  ctx.arc(
+    x + soma * 0.16,
+    y + soma * 0.14,
+    Math.max(0.5, soma * 0.34),
+    0,
+    Math.PI * 2,
+  );
+  ctx.fillStyle = hexToRgba(mixHex(colour, "#000000", 0.35), 0.35);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function hexToRgba(hex: string, alpha: number) {
-  const value = hex.replace('#', '');
+  const value = hex.replace("#", "");
   const r = parseInt(value.slice(0, 2), 16);
   const g = parseInt(value.slice(2, 4), 16);
   const b = parseInt(value.slice(4, 6), 16);
@@ -786,8 +1052,8 @@ function drawLabel(
     ctx.beginPath();
     ctx.roundRect(bx, by, boxWidth, boxHeight, 8);
     ctx.fillStyle = isDark
-      ? 'rgba(14, 17, 19, 0.9)'
-      : 'rgba(255, 255, 255, 0.94)';
+      ? "rgba(14, 17, 19, 0.9)"
+      : "rgba(255, 255, 255, 0.94)";
     ctx.fill();
     ctx.strokeStyle = hexToRgba(colour, 0.45);
     ctx.lineWidth = 1;
@@ -799,9 +1065,11 @@ function drawLabel(
   }
 
   // legibility over the mesh: a soft shadow instead of an opaque chip
-  ctx.shadowColor = isDark ? 'rgba(3, 10, 10, 0.85)' : 'rgba(255, 255, 255, 0.9)';
+  ctx.shadowColor = isDark
+    ? "rgba(3, 10, 10, 0.85)"
+    : "rgba(255, 255, 255, 0.9)";
   ctx.shadowBlur = strong ? 0 : 5;
-  ctx.fillStyle = isDark ? '#eaf7f4' : '#12312f';
+  ctx.fillStyle = isDark ? "#eaf7f4" : "#12312f";
   ctx.font = titleFont;
   ctx.fillText(title, bx + (strong ? 22 : 9), by + 13);
   ctx.shadowBlur = 0;
@@ -810,8 +1078,8 @@ function drawLabel(
     ctx.font =
       '400 11px "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
     ctx.fillStyle = isDark
-      ? 'rgba(198, 218, 215, 0.72)'
-      : 'rgba(38, 74, 72, 0.66)';
+      ? "rgba(198, 218, 215, 0.72)"
+      : "rgba(38, 74, 72, 0.66)";
     ctx.fillText(date, bx + (strong ? 22 : 9), by + 29);
   }
 }

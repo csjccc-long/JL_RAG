@@ -1,4 +1,4 @@
-import { makeRng } from './brain-model';
+import { makeRng } from "./brain-model";
 
 /**
  * A neuron in three dimensions. The flat shape in neuron-shape.ts drives the
@@ -20,11 +20,32 @@ export interface Tip3D {
   w: number;
 }
 
+export interface MyelinSeg {
+  /** the two ends of the sheath, in unit space */
+  a: Vec3;
+  b: Vec3;
+  /** radius of the sheath, in unit space */
+  r: number;
+}
+
+export interface Bouton {
+  x: number;
+  y: number;
+  z: number;
+  /** radius in unit space */
+  r: number;
+}
+
 export interface Branch3D {
   /** flat x, y, z triples */
   pts: number[];
   /** stroke width at each point, in unit space */
   w: number[];
+  kind?: "dendrite" | "axon";
+  /** myelin sheaths wrapped round an axon, with the nodes of Ranvier between */
+  myelin?: MyelinSeg[];
+  /** terminal boutons at the end of an axonal twig */
+  boutons?: Bouton[];
 }
 
 export interface Neuron3D {
@@ -33,6 +54,8 @@ export interface Neuron3D {
   lobes: number;
   lobePhase: number;
   branches: Branch3D[];
+  /** the single long process that leaves the soma and ends in boutons */
+  axon: Branch3D;
   /** flat x, y, z triples */
   spines: number[];
   tips: Tip3D[];
@@ -63,7 +86,7 @@ const perpendicular = (dir: Vec3, rng: () => number): Vec3 => {
 
 export function buildNeuron3D(
   seed: number,
-  detail: 'low' | 'high' = 'high',
+  detail: "low" | "high" = "high",
 ): Neuron3D {
   const rng = makeRng(seed);
   const somaR = SOMA_R + (rng() - 0.5) * 0.05;
@@ -75,8 +98,8 @@ export function buildNeuron3D(
   const tips: Tip3D[] = [];
   let reach = somaR;
 
-  const primaries = detail === 'high' ? 9 + Math.floor(rng() * 2) : 6;
-  const maxDepth = detail === 'high' ? 2 : 1;
+  const primaries = detail === "high" ? 9 + Math.floor(rng() * 2) : 6;
+  const maxDepth = detail === "high" ? 2 : 1;
 
   // a strand keeps the path of its parent, so a primary dendrite is one
   // continuous curve with its forks rather than a chain of short sausages
@@ -103,13 +126,17 @@ export function buildNeuron3D(
       const step = len / steps;
       p = [p[0] + dir[0] * step, p[1] + dir[1] * step, p[2] + dir[2] * step];
       pts.push(p[0], p[1], p[2]);
-      ws.push(width * (1 - ((s + 1) / steps) * 0.38));
+      ws.push(width * (1 - ((s + 1) / steps) * 0.52));
       reach = Math.max(reach, Math.hypot(p[0], p[1], p[2]));
 
       // dendritic spines: stubs off the shaft, so the surface reads as living
       const perp = perpendicular(dir, rng);
       const off = 0.03 + rng() * 0.028;
-      spines.push(p[0] + perp[0] * off, p[1] + perp[1] * off, p[2] + perp[2] * off);
+      spines.push(
+        p[0] + perp[0] * off,
+        p[1] + perp[1] * off,
+        p[2] + perp[2] * off,
+      );
     }
     branches.push({ pts, w: ws });
 
@@ -124,7 +151,7 @@ export function buildNeuron3D(
           dir[1] + perp[1] * side * spread + (rng() - 0.5) * 0.16,
           dir[2] + perp[2] * side * spread + (rng() - 0.5) * 0.16,
         ]);
-        grow(p, child, len * 0.62, width * 0.58, depth + 1, pts, ws);
+        grow(p, child, len * 0.62, width * 0.46, depth + 1, pts, ws);
       }
       return;
     }
@@ -152,10 +179,88 @@ export function buildNeuron3D(
       [dir[0] * somaR * 0.86, dir[1] * somaR * 0.86, dir[2] * somaR * 0.86],
       dir,
       0.62 + rng() * 0.22,
-      0.075 + rng() * 0.016,
+      0.15 + rng() * 0.03,
       0,
     );
   }
+
+  // the axon: one long, gently wandering process that leaves the soma low and
+  // to the left, wrapped in myelin sheaths and finishing in a spray of boutons
+  const axonDir = normalize([-0.74, 0.42, 0.5]);
+  let ap: Vec3 = [
+    axonDir[0] * somaR * 0.92,
+    axonDir[1] * somaR * 0.92,
+    axonDir[2] * somaR * 0.92,
+  ];
+  let adir = axonDir;
+  const axonPts: number[] = [ap[0], ap[1], ap[2]];
+  const axonW: number[] = [0.064];
+  const AXON_STEPS = 10;
+  const AXON_LEN = 1.3;
+  for (let s = 1; s <= AXON_STEPS; s += 1) {
+    const t = s / AXON_STEPS;
+    adir = normalize([
+      adir[0] + (rng() - 0.5) * 0.16 - 0.04,
+      adir[1] + (rng() - 0.5) * 0.14 + 0.14 * Math.sin(t * 2.6),
+      adir[2] + (rng() - 0.5) * 0.18,
+    ]);
+    const step = AXON_LEN / AXON_STEPS;
+    ap = [
+      ap[0] + adir[0] * step,
+      ap[1] + adir[1] * step,
+      ap[2] + adir[2] * step,
+    ];
+    axonPts.push(ap[0], ap[1], ap[2]);
+    axonW.push(0.058 - 0.022 * t);
+    reach = Math.max(reach, Math.hypot(ap[0], ap[1], ap[2]));
+  }
+  const lerp3 = (a: number[], b: number[], k: number): Vec3 => [
+    a[0] + (b[0] - a[0]) * k,
+    a[1] + (b[1] - a[1]) * k,
+    a[2] + (b[2] - a[2]) * k,
+  ];
+  const myelin: MyelinSeg[] = [];
+  for (let s = 1; s < AXON_STEPS - 1; s += 1) {
+    const i = s * 3;
+    const a = [axonPts[i - 3], axonPts[i - 2], axonPts[i - 1]];
+    const b = [axonPts[i], axonPts[i + 1], axonPts[i + 2]];
+    myelin.push({
+      a: lerp3(a, b, 0.16),
+      b: lerp3(a, b, 0.84),
+      r: 0.036 - 0.006 * (s / AXON_STEPS) + rng() * 0.004,
+    });
+  }
+  // the terminal arbor: short twigs, each ending in a synaptic bouton
+  const boutons: Bouton[] = [];
+  for (let k = 0; k < 3; k += 1) {
+    const perp = perpendicular(adir, rng);
+    const side = k - 1;
+    const twig = normalize([
+      adir[0] + perp[0] * side * 0.55,
+      adir[1] + perp[1] * side * 0.55 + 0.18,
+      adir[2] + perp[2] * side * 0.55,
+    ]);
+    const len = 0.18 + rng() * 0.06;
+    const end: Vec3 = [
+      ap[0] + twig[0] * len,
+      ap[1] + twig[1] * len,
+      ap[2] + twig[2] * len,
+    ];
+    branches.push({
+      pts: [ap[0], ap[1], ap[2], end[0], end[1], end[2]],
+      w: [0.03, 0.022],
+      kind: "axon",
+    });
+    boutons.push({ x: end[0], y: end[1], z: end[2], r: 0.032 + rng() * 0.008 });
+    reach = Math.max(reach, Math.hypot(end[0], end[1], end[2]));
+  }
+  const axon: Branch3D = {
+    pts: axonPts,
+    w: axonW,
+    kind: "axon",
+    myelin,
+    boutons,
+  };
 
   // a few lobes on the soma surface: they slide across the body as it turns,
   // which is what makes the middle read as a volume rather than a disc
@@ -177,6 +282,7 @@ export function buildNeuron3D(
     lobes,
     lobePhase,
     branches,
+    axon,
     spines,
     tips,
     reach: Math.max(reach, 1),
