@@ -1,25 +1,29 @@
-import { HomeCard } from '@/components/home-card';
-import { MoreButton } from '@/components/more-button';
-import { SharedBadge } from '@/components/shared-badge';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { RAGFlowAvatar } from "@/components/ragflow-avatar";
+import { MoreButton } from "@/components/more-button";
+import { SharedBadge } from "@/components/shared-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { AgentCategory } from '@/constants/agent';
-import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
-import { AgentListItemType, IFlow } from '@/interfaces/database/agent';
-import { CanvasCategoryToFlowType, FlowType, FlowTypeConfig } from './constant';
-import { AgentDropdown } from './agent-dropdown';
-import { useRenameAgent } from './use-rename-agent';
-import { useRef, useState } from 'react';
-import { Tag } from 'lucide-react';
+} from "@/components/ui/tooltip";
+import { AgentCategory } from "@/constants/agent";
+import { useNavigatePage } from "@/hooks/logic-hooks/navigate-hooks";
+import { AgentListItemType, IFlow } from "@/interfaces/database/agent";
+import { cn } from "@/lib/utils";
+import { formatDate } from "@/utils/date";
+import { Tag } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import "./agent-card.css";
+import { AgentDropdown } from "./agent-dropdown";
+import { CanvasCategoryToFlowType, FlowType, FlowTypeConfig } from "./constant";
+import { useRenameAgent } from "./use-rename-agent";
 
 export type DatasetCardProps = {
   data: IFlow & { type?: AgentListItemType };
-} & Pick<ReturnType<typeof useRenameAgent>, 'showAgentRenameModal'>;
+} & Pick<ReturnType<typeof useRenameAgent>, "showAgentRenameModal">;
 
 function AgentTypeIcon({
   data,
@@ -29,7 +33,7 @@ function AgentTypeIcon({
   const flowType =
     data.type === AgentListItemType.CompilationTemplateGroup
       ? FlowType.Compiler
-      : CanvasCategoryToFlowType[data.canvas_category ?? ''];
+      : CanvasCategoryToFlowType[data.canvas_category ?? ""];
 
   const config = flowType ? FlowTypeConfig[flowType] : null;
 
@@ -40,15 +44,15 @@ function AgentTypeIcon({
   const Icon = config.icon;
 
   return (
-    <Button variant={'ghost'} size={'sm'}>
+    <Button variant={"ghost"} size={"sm"} aria-label={config.labelKey}>
       <Icon style={{ color: config.color }} />
     </Button>
   );
 }
 
 function AgentTags({ tags }: { tags?: string }) {
-  const list = (tags || '')
-    .split(',')
+  const list = (tags || "")
+    .split(",")
     .map((t) => t.trim())
     .filter(Boolean);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,7 +72,7 @@ function AgentTags({ tags }: { tags?: string }) {
   return (
     <Tooltip open={open} onOpenChange={handleOpenChange}>
       <TooltipTrigger asChild>
-        <div ref={containerRef} className="line-clamp-2 leading-6 mt-1">
+        <div ref={containerRef} className="liquid-agent__tags">
           {list.map((tag) => (
             <Badge
               key={tag}
@@ -99,33 +103,148 @@ function AgentTags({ tags }: { tags?: string }) {
   );
 }
 
+const WAVES = [
+  "liquid-agent__wave--1",
+  "liquid-agent__wave--2",
+  "liquid-agent__wave--3",
+  "liquid-agent__wave--4",
+  "liquid-agent__wave--5",
+];
+
+const DRIPS = [
+  "liquid-agent__drip--1",
+  "liquid-agent__drip--2",
+  "liquid-agent__drip--3",
+];
+
+const DROPS = [
+  "liquid-agent__drop--1",
+  "liquid-agent__drop--2",
+  "liquid-agent__drop--3",
+  "liquid-agent__drop--4",
+  "liquid-agent__drop--5",
+];
+
+function LiquidFilter({ filterId }: { filterId: string }) {
+  return (
+    <svg aria-hidden className="absolute h-0 w-0">
+      <filter id={filterId} x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
+        <feColorMatrix
+          in="blur"
+          type="matrix"
+          values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10"
+        />
+      </filter>
+    </svg>
+  );
+}
+
 export function AgentCard({ data, showAgentRenameModal }: DatasetCardProps) {
   const { navigateToAgent } = useNavigatePage();
+  const { t } = useTranslation();
+  const filterId = useId();
+  const title = data.title || "";
+  const hasDesc = Boolean(data.description);
+  const hasTags = Boolean(data.tags);
+  const cardClassName = cn(
+    "liquid-agent group",
+    !hasDesc && "liquid-agent--no-desc",
+    !hasTags && "liquid-agent--no-tags",
+    !hasDesc && !hasTags && "liquid-agent--compact",
+  );
+
+  const handleClick = () => {
+    // navigateToAgent is curried: it returns the handler, so it has to be called
+    navigateToAgent(data?.id, data.canvas_category as AgentCategory)();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleClick();
+    }
+  };
 
   return (
-    <HomeCard
-      testId="agent-card"
-      data={{
-        ...data,
-        name: data.title,
-        description: data.description || '',
-        release_time: data.release_time,
-      }}
-      moreDropdown={
-        <AgentDropdown showAgentRenameModal={showAgentRenameModal} agent={data}>
-          <MoreButton></MoreButton>
-        </AgentDropdown>
-      }
-      sharedBadge={<SharedBadge>{data.nickname}</SharedBadge>}
-      onClick={
-        // data.canvas_category === AgentCategory.DataflowCanvas
-        //   ? navigateToDataflow(data.id)
-        //   :
-        navigateToAgent(data?.id, data.canvas_category as AgentCategory)
-      }
-      icon={<AgentTypeIcon data={data} />}
-      extra={<AgentTags tags={data.tags} />}
-      showReleaseTime
-    />
+    <article
+      data-testid="agent-card"
+      data-agent-name={title}
+      tabIndex={0}
+      role="button"
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      className={cardClassName}
+    >
+      <LiquidFilter filterId={`liquid-goo-${filterId}`} />
+
+      <div
+        className="liquid-agent__goo"
+        style={{ filter: `url(#liquid-goo-${filterId})` }}
+      >
+        <i className="liquid-agent__blob liquid-agent__blob--avatar" />
+        <i className="liquid-agent__blob liquid-agent__blob--title" />
+        <i className="liquid-agent__blob liquid-agent__blob--time" />
+        <i className="liquid-agent__blob liquid-agent__blob--desc" />
+        <i className="liquid-agent__blob liquid-agent__blob--tags" />
+        <i className="liquid-agent__blob liquid-agent__blob--action" />
+        {DROPS.map((drop) => (
+          <i key={drop} className={`liquid-agent__drop ${drop}`} />
+        ))}
+        <span className="liquid-agent__fill">
+          {WAVES.map((wave) => (
+            <i key={wave} className={`liquid-agent__wave ${wave}`} />
+          ))}
+        </span>
+        <i className="liquid-agent__splash" />
+        {DRIPS.map((drip) => (
+          <i key={drip} className={`liquid-agent__drip ${drip}`} />
+        ))}
+      </div>
+
+      <div className="liquid-agent__plate" />
+      <div className="liquid-agent__rim" />
+
+      <div className="liquid-agent__content">
+        <div className="liquid-agent__avatar">
+          <RAGFlowAvatar
+            className="h-10 w-10"
+            avatar={data.avatar}
+            name={title}
+          />
+        </div>
+
+        <h3 className="liquid-agent__title truncate" title={title}>
+          <span data-testid="agent-name" className="truncate">
+            {title}
+          </span>
+        </h3>
+
+        <p className="liquid-agent__time">
+          {t("flow.lastSavedAt")}: {formatDate(data.update_time)}
+        </p>
+
+        <p className="liquid-agent__desc">{data.description}</p>
+
+        <AgentTags tags={data.tags} />
+
+        <div className="liquid-agent__action">
+          <AgentTypeIcon data={data} />
+        </div>
+
+        <div className="liquid-agent__more">
+          <AgentDropdown
+            showAgentRenameModal={showAgentRenameModal}
+            agent={data}
+          >
+            <MoreButton />
+          </AgentDropdown>
+        </div>
+
+        <div className="liquid-agent__badge">
+          <SharedBadge>{data.nickname}</SharedBadge>
+        </div>
+      </div>
+    </article>
   );
 }
