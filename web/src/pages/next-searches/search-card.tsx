@@ -108,7 +108,7 @@ export function SearchCard({ data, showSearchRenameModal }: IProps) {
           "--print-flip": plate.current.flip,
         } as CSSProperties
       }
-      className="halftone-card holo-card group relative flex aspect-[1.16/1] w-full cursor-pointer flex-col overflow-hidden rounded-[18px] border-[1.5px] border-border-default bg-bg-component p-5 text-left outline-none transition-[border-color,box-shadow] duration-300 hover:border-text-secondary/45 hover:shadow-[0_18px_36px_-28px_rgba(0,0,0,.8)] focus-visible:border-accent-primary"
+      className="halftone-card holo-card group relative flex aspect-[1.48/1] w-full cursor-pointer flex-col overflow-hidden rounded-[18px] border-[1.5px] border-border-default bg-bg-component p-5 text-left outline-none transition-[border-color,box-shadow] duration-300 hover:border-text-secondary/45 hover:shadow-[0_18px_36px_-28px_rgba(0,0,0,.8)] focus-visible:border-accent-primary"
     >
       <div className="relative z-20 flex items-start gap-3">
         <RAGFlowAvatar
