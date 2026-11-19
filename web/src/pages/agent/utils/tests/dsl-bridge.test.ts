@@ -272,7 +272,7 @@ describe('dsl-bridge round-trip stability', () => {
   // contract as of 2026-06: the bridge has one wire shape and
   // import accepts only the canonical graph block.
   describe('importDsl strict-graph contract', () => {
-    it('components-only payload → empty seed (no fallback derivation)', () => {
+    it('components-only payload → empty seed at import time (dslToGraph lays it out later)', () => {
       const componentsOnly = {
         components: {
           begin: {
@@ -286,9 +286,10 @@ describe('dsl-bridge round-trip stability', () => {
       expect(out.graph.nodes).toEqual([]);
       expect(out.graph.edges).toEqual([]);
       // components-only payload (no `graph.nodes`) falls through
-      // to the empty seed; components from the input are NOT
-      // propagated because the strict-graph contract only
-      // renders what comes in via `graph`.
+      // to the seed at import time; components from the input are NOT
+      // propagated because the strict-graph contract only reads what
+      // comes in via `graph`. Server-returned components-only DSLs
+      // are laid out by `dslToGraph` instead (see the fallback suite).
       expect(out.components).toEqual(bridge.initialEmptyDsl(true).components);
     });
 
@@ -321,6 +322,85 @@ describe('dsl-bridge round-trip stability', () => {
       const out = bridge.importDsl({}, true) as any;
       expect(out.graph.nodes).toEqual([]);
       expect(out.graph.edges).toEqual([]);
+    });
+  });
+
+  describe('dslToGraph components-only fallback', () => {
+    const componentsOnlyDsl = {
+      graph: { nodes: [], edges: [] },
+      components: {
+        begin: {
+          obj: { component_name: 'Begin', params: {} },
+          downstream: ['AgentTeam:Desk'],
+          upstream: [],
+        },
+        'AgentTeam:Desk': {
+          obj: {
+            component_name: 'AgentTeam',
+            params: { process: 'parallel', workers: [] },
+          },
+          downstream: ['Message:Out'],
+          upstream: ['begin'],
+        },
+        'Message:Out': {
+          obj: { component_name: 'Message', params: { content: [] } },
+          downstream: [],
+          upstream: ['AgentTeam:Desk'],
+        },
+      },
+    };
+
+    it('lays out one node per component, with node types from the operator map', () => {
+      const { nodes } = bridge.dslToGraph(componentsOnlyDsl as any);
+      expect(nodes.map((n: any) => n.id)).toEqual([
+        'begin',
+        'AgentTeam:Desk',
+        'Message:Out',
+      ]);
+      const byId = new Map(nodes.map((n: any) => [n.id, n]));
+      expect(byId.get('AgentTeam:Desk').type).toBe('agentTeamNode');
+      expect(byId.get('AgentTeam:Desk').data.label).toBe('AgentTeam');
+      expect(byId.get('AgentTeam:Desk').data.name).toBe('Desk');
+      expect(byId.get('AgentTeam:Desk').data.form.process).toBe('parallel');
+      expect(byId.get('begin').type).toBe('beginNode');
+    });
+
+    it('lays the components out left-to-right along downstream edges', () => {
+      const { nodes, edges } = bridge.dslToGraph(componentsOnlyDsl as any);
+      const x = (id: string) =>
+        nodes.find((n: any) => n.id === id)?.position.x as number;
+      expect(x('begin')).toBeLessThan(x('AgentTeam:Desk'));
+      expect(x('AgentTeam:Desk')).toBeLessThan(x('Message:Out'));
+      expect(edges.map((e: any) => [e.source, e.target])).toEqual([
+        ['begin', 'AgentTeam:Desk'],
+        ['AgentTeam:Desk', 'Message:Out'],
+      ]);
+    });
+
+    it('still prefers the stored graph when it carries nodes', () => {
+      const withGraph = {
+        graph: {
+          nodes: [
+            {
+              id: 'begin',
+              type: 'beginNode',
+              position: { x: 7, y: 9 },
+              data: { label: 'Begin', name: 'begin', form: {} },
+            },
+          ],
+          edges: [],
+        },
+        components: componentsOnlyDsl.components,
+      };
+      const { nodes } = bridge.dslToGraph(withGraph as any);
+      expect(nodes).toHaveLength(1);
+      expect(nodes[0].position).toEqual({ x: 7, y: 9 });
+    });
+
+    it('keeps a truly empty canvas empty', () => {
+      expect(
+        bridge.dslToGraph({ graph: { nodes: [], edges: [] }, components: {} } as any),
+      ).toEqual({ nodes: [], edges: [] });
     });
   });
 

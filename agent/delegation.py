@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import re
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -140,12 +141,26 @@ class WorkerRegistry:
     def _normalize(value: str) -> str:
         return value.strip().lower()
 
+    # 模型经常把工具描述里的整行抄回来：id=quick、id=quick; role=critic、"worker": quick。
+    # 直接按原文比对 id 会全部落空，导致 manager 明明选了正确的 worker
+    # 却收到 "worker 'id=quick' is not registered"。
+    _SELECTOR_KEY = re.compile(r"^\s*(?:worker[\s_-]?id|worker|id)\s*[:=]\s*", re.IGNORECASE)
+    _SELECTOR_SEPARATOR = re.compile(r"[;,|\n]")
+
+    @classmethod
+    def _selector_needle(cls, selector: str) -> str:
+        needle = str(selector or "").strip().strip("`'\"")
+        needle = cls._SELECTOR_KEY.sub("", needle)
+        needle = cls._SELECTOR_SEPARATOR.split(needle, maxsplit=1)[0]
+        needle = needle.strip().strip("`'\"").rstrip(".:").strip()
+        return cls._normalize(needle)
+
     @property
     def workers(self) -> tuple[WorkerSpec, ...]:
         return tuple(self._workers.values())
 
     def resolve(self, selector: str) -> WorkerSpec:
-        needle = self._normalize(selector)
+        needle = self._selector_needle(selector)
         if not needle:
             raise DelegationError("delegate_task requires a worker")
 

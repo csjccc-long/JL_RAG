@@ -1340,6 +1340,23 @@ async def get_agent_logs(agent_id, message_id, tenant_id):
         return server_error_response(exc)
 
 
+@manager.route("/agents/team-progress/<task_id>", methods=["GET"])  # noqa: F821
+@login_required
+def get_agent_team_progress(task_id):
+    """读取一次多智能体协作运行的"任务分发"进度（Redis 临时数据，只读）。
+
+    条目由 agent/team_progress.py 在每次分派子任务时写入：
+    开始（status=running）→ 结束（status=ok/error），供前端分发看板实时渲染。
+    """
+    try:
+        from agent.team_progress import read_progress
+
+        return get_json_result(data=read_progress(task_id))
+    except Exception as exc:
+        logging.exception(exc)
+        return server_error_response(exc)
+
+
 @manager.route("/agents/<agent_id>", methods=["DELETE"])  # noqa: F821
 @login_required
 @add_tenant_id_to_kwargs

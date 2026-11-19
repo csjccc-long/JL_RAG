@@ -17,7 +17,7 @@ import { useFetchAgentListByPage } from '@/hooks/use-agent-request';
 import { useDeleteCompilationTemplateGroup } from '@/hooks/use-compilation-template-group-request';
 import { Routes } from '@/routes';
 import { pick } from 'lodash';
-import { Clipboard, ClipboardPlus, FileInput, Plus } from 'lucide-react';
+import { Clipboard, ClipboardPlus, FileInput, Plus, UsersRound } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -92,6 +92,10 @@ export default function Agents() {
     [navigate],
   );
 
+  const handleOpenAgentTeam = useCallback(() => {
+    navigate(Routes.AgentTeam);
+  }, [navigate]);
+
   const handleDeleteCompilation = useCallback(
     async (id: string) => {
       await deleteGroup(id);
@@ -126,6 +130,15 @@ export default function Agents() {
             onChange={handleFilterSubmit}
             value={filterValue}
           >
+            <Button
+              variant="transparent"
+              className="mr-2"
+              data-testid="open-agent-team"
+              onClick={handleOpenAgentTeam}
+            >
+              <UsersRound className="size-[1em]" />
+              {t('flow.agentTeam.page.entry')}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger data-testid="create-agent" asChild>
                 <Button>

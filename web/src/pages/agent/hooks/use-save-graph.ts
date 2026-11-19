@@ -9,9 +9,10 @@ import {
 } from '@/interfaces/database/agent';
 import { formatDate } from '@/utils/date';
 import { useDebounceEffect } from 'ahooks';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import useGraphStore from '../store';
+import { shouldSkipAgentAutosave } from '../utils/autosave-guard';
 import { useBuildDslData } from './use-build-dsl';
 
 export const useSaveGraph = (
@@ -86,12 +87,29 @@ export const useWatchAgentChange = (chatDrawerVisible: boolean) => {
     setSaveTime(flowDetail?.update_time);
   }, [flowDetail, setSaveTime]);
 
-  const saveAgent = useCallback(async () => {
-    if (!chatDrawerVisible) {
-      const ret = await saveGraph();
-      setSaveTime(ret.data.update_time ?? Date.now());
+  // The detail request must resolve before the first save; otherwise
+  // the empty initial store is written back over the stored DSL.
+  const detailLoadedRef = useRef(false);
+  useEffect(() => {
+    if (flowDetail?.id) {
+      detailLoadedRef.current = true;
     }
-  }, [chatDrawerVisible, saveGraph, setSaveTime]);
+  }, [flowDetail?.id]);
+
+  const saveAgent = useCallback(async () => {
+    if (
+      shouldSkipAgentAutosave({
+        chatDrawerVisible,
+        detailLoaded: detailLoadedRef.current,
+        nodeCount: nodes.length,
+        storedDsl: flowDetail?.dsl,
+      })
+    ) {
+      return;
+    }
+    const ret = await saveGraph();
+    setSaveTime(ret.data.update_time ?? Date.now());
+  }, [chatDrawerVisible, saveGraph, setSaveTime, nodes.length, flowDetail?.dsl]);
 
   useDebounceEffect(
     () => {

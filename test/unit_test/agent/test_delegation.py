@@ -44,6 +44,14 @@ def test_registry_resolves_worker_by_capability():
     assert resolved.id == "researcher"
 
 
+def test_registry_resolves_selector_copied_from_tool_description():
+    # 小模型会把工具描述里的整行当成 worker 名回填，见 hierarchical 端到端用例
+    # "delegate_task worker 'id=quick' is not registered"。
+    registry = WorkerRegistry([_worker("quick", role="critic")])
+
+    for selector in ("id=quick", "id=quick; role=critic", "`quick`", "worker: quick", "QUICK", "quick."):
+        assert registry.resolve(selector).id == "quick", selector
+
 def test_registry_rejects_ambiguous_capability():
     registry = WorkerRegistry(
         [

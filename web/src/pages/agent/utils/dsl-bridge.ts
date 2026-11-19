@@ -28,7 +28,7 @@
 // `_layout` but no `graph` (or with neither) falls through to the
 // empty seed.
 
-import { Edge } from '@xyflow/react';
+import { Edge, Position } from '@xyflow/react';
 
 import { EmptyDsl, Operator } from '@/constants/agent';
 import {
@@ -40,6 +40,7 @@ import {
 } from '@/interfaces/database/agent';
 import { DataflowEmptyDsl } from '@/pages/agent/empty-dsl';
 
+import { NodeMap } from '../constant';
 import { buildDslComponentsByGraph, buildDslGlobalVariables } from '../utils';
 
 const LEGACY_ITERATION_NODE_TYPE = 'group';
@@ -128,22 +129,113 @@ export const importDsl = (
   } as unknown as DSL;
 };
 
+const COMPONENT_COLUMN_GAP = 320;
+const COMPONENT_ROW_GAP = 180;
+
+/** Display name of a component node: the part after the `:` in its id. */
+const componentNodeName = (componentId: string): string => {
+  const [, name] = componentId.split(':');
+  return name || componentId;
+};
+
+/**
+ * Rebuild a React-Flow graph from a components-only DSL.
+ *
+ * Rows written by the canvas always carry `graph` (React-Flow layout)
+ * *and* `components` (execution topology), but topology can also
+ * arrive alone — a canvas created through the HTTP API, an imported
+ * file produced by a third-party tool, or a row seeded straight into
+ * the database. Without a graph such a canvas rendered blank and the
+ * debounced autosave then persisted that blank canvas, destroying the
+ * team definition. This reconstructs a left-to-right layout from the
+ * topology so the canvas shows (and can still re-save) those rows.
+ */
+export const componentsToGraph = (
+  components: DSLComponents | undefined,
+): { nodes: RAGFlowNodeType[]; edges: Edge[] } => {
+  const componentIds = Object.keys(components ?? {});
+  if (componentIds.length === 0) {
+    return { nodes: [], edges: [] };
+  }
+
+  // Breadth-first layering from the roots (components with no upstream
+  // inside this DSL) keeps the layout readable left-to-right.
+  const layerOf = new Map<string, number>();
+  const roots = componentIds.filter((id) => {
+    const upstream = components?.[id]?.upstream ?? [];
+    return upstream.every((parent) => !components?.[parent]);
+  });
+  const queue = roots.length > 0 ? [...roots] : [componentIds[0]];
+  queue.forEach((id) => layerOf.set(id, 0));
+  while (queue.length > 0) {
+    const id = queue.shift() as string;
+    const layer = layerOf.get(id) ?? 0;
+    for (const next of components?.[id]?.downstream ?? []) {
+      if (!components?.[next] || layerOf.has(next)) continue;
+      layerOf.set(next, layer + 1);
+      queue.push(next);
+    }
+  }
+  // Unreachable components (cycles, or upstream pointing at a missing
+  // id) each get their own column instead of piling onto column 0.
+  let spillColumn = layerOf.size > 0 ? Math.max(...layerOf.values()) + 1 : 0;
+  for (const id of componentIds) {
+    if (!layerOf.has(id)) layerOf.set(id, spillColumn++);
+  }
+
+  const rowCursor = new Map<number, number>();
+  const nodes = componentIds.map((id) => {
+    const layer = layerOf.get(id) ?? 0;
+    const row = rowCursor.get(layer) ?? 0;
+    rowCursor.set(layer, row + 1);
+    const obj = components?.[id]?.obj;
+    const label = obj?.component_name ?? id.split(':')[0];
+    return {
+      id,
+      type: NodeMap[label as Operator] || 'ragNode',
+      position: { x: layer * COMPONENT_COLUMN_GAP, y: row * COMPONENT_ROW_GAP },
+      data: {
+        label,
+        name: componentNodeName(id),
+        form: obj?.params ?? {},
+      },
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left,
+    } as RAGFlowNodeType;
+  });
+
+  const edges: Edge[] = [];
+  for (const id of componentIds) {
+    for (const target of components?.[id]?.downstream ?? []) {
+      if (!components?.[target]) continue;
+      edges.push({
+        id: `xy-edge__${id}start-${target}end`,
+        source: id,
+        sourceHandle: 'start',
+        target,
+        targetHandle: 'end',
+      } as Edge);
+    }
+  }
+
+  return { nodes, edges };
+};
+
 /**
  * Convert a server-returned DSL into the React-Flow `{nodes, edges}`
- * shape the store consumes. Reads `dsl.graph` only; absent
- * `graph.nodes` returns an empty canvas (see function body for
- * the rationale).
+ * shape the store consumes. Reads `dsl.graph` first; a DSL that
+ * carries only `components` is laid out from its topology by
+ * `componentsToGraph` so those rows render instead of opening blank.
  */
 export const dslToGraph = (
   dsl: DSL,
 ): { nodes: RAGFlowNodeType[]; edges: Edge[] } => {
-  // Single source of truth: server always populates `graph`, so a
-  // server-returned dsl that lacks `graph.nodes` is treated as
-  // empty (the back-end should never produce such a payload;
-  // treating it as empty keeps the canvas from blowing up if a
-  // historical row slips through). No components-only fallback —
-  // the strict-graph import contract in `importDsl` ensures the
-  // top-level DSL always carries `graph`.
+  // Canvas-saved rows always carry `graph` (layout) and
+  // `components` (topology). A components-only row — created through
+  // the HTTP API, imported from a third-party file, or seeded straight
+  // into the database — used to fall through to an empty canvas; the
+  // debounced autosave then persisted that empty graph and wiped the
+  // definition. Fall back to the topology so those rows render.
   const graphNodes = dsl?.graph?.nodes;
   if (Array.isArray(graphNodes) && graphNodes.length > 0) {
     const rawEdges = dsl?.graph?.edges;
@@ -152,7 +244,7 @@ export const dslToGraph = (
       edges: (Array.isArray(rawEdges) ? rawEdges : []) as Edge[],
     };
   }
-  return { nodes: [], edges: [] };
+  return componentsToGraph(dsl?.components as DSLComponents | undefined);
 };
 
 /**

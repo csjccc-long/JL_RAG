@@ -18,7 +18,7 @@ import json
 
 import pytest
 
-from agent.component.agent_team import AgentTeam, AgentTeamParam, DelegateTaskTool, DelegateTaskToolParam
+from agent.component.agent_team import AgentTeam, AgentTeamParam, DelegateTask, DelegateTaskParam
 from agent.component.agent_team import MANAGER_DELEGATION_PROMPT
 from agent.delegation import DelegationBudget, TeamTaskSpec, WorkerRegistry, WorkerSpec, delegation_scope
 from agent.tools.base import LLMToolPluginCallSession
@@ -43,15 +43,15 @@ def _worker() -> dict:
     }
 
 
-def _tool() -> DelegateTaskTool:
-    param = DelegateTaskToolParam()
+def _tool() -> DelegateTask:
+    param = DelegateTaskParam()
     param.workers = [_worker()]
     param.manager_id = "manager"
     param.max_delegations = 2
     param.max_depth = 2
     param.worker_timeout = 5
 
-    tool = DelegateTaskTool.__new__(DelegateTaskTool)
+    tool = DelegateTask.__new__(DelegateTask)
     tool._canvas = _Canvas()
     tool._id = "manager-->delegate_task"
     tool._param = param
@@ -228,7 +228,9 @@ def test_delegate_task_returns_budget_error_as_observation():
     payload = json.loads(response)
     assert payload["status"] == "error"
     assert "max_delegations" in payload["error"]
-    assert tool.delegations[-1]["status"] == "error"
+    # 预算用尽的调用没有真正派出 worker，不应该在看板上多出一张失败卡片。
+    assert len(tool.delegations) == tool._param.max_delegations
+    assert tool.delegations[-1]["status"] == "ok"
 
 
 def test_delegate_task_rejects_delegation_beyond_max_depth():
@@ -249,6 +251,69 @@ def test_delegate_task_rejects_delegation_beyond_max_depth():
     assert payload["status"] == "error"
     assert "max_depth" in payload["error"]
     assert invoked is False
+
+
+def test_delegate_task_reassigns_repeated_worker_to_an_idle_one():
+    tool = _tool()
+    tool._param.max_delegations = 3
+    tool._budget = DelegationBudget(3)
+    tool._param.workers = [
+        _worker(),
+        {
+            "id": "analyst",
+            "name": "Analyst",
+            "role": "analyst",
+            "description": "Quantifies the numbers.",
+            "agent": {"llm_id": "test-model"},
+        },
+    ]
+    tool._registry = WorkerRegistry(tool._param.workers, manager_id="manager")
+
+    async def fake_run(worker: WorkerSpec, *, task: str, context: str, expected_output: str) -> str:
+        return f"{worker.id} handled {task}"
+
+    tool._run_worker = fake_run
+    first = asyncio.run(tool._invoke_async(worker="researcher", task="first", context="", expected_output="x"))
+    second = asyncio.run(tool._invoke_async(worker="researcher", task="second", context="", expected_output="x"))
+
+    assert json.loads(first)["worker_id"] == "researcher"
+    assert json.loads(second)["worker_id"] == "analyst"
+    assert tool.delegations[1]["worker_id"] == "analyst"
+    assert tool.delegations[1]["metadata"]["reassigned_from"] == "researcher"
+
+
+def test_delegate_task_reserves_workers_across_concurrent_delegations():
+    tool = _tool()
+    tool._param.max_delegations = 3
+    tool._budget = DelegationBudget(3)
+    tool._param.workers = [
+        _worker(),
+        {
+            "id": "analyst",
+            "name": "Analyst",
+            "role": "analyst",
+            "description": "Quantifies the numbers.",
+            "agent": {"llm_id": "test-model"},
+        },
+    ]
+    tool._registry = WorkerRegistry(tool._param.workers, manager_id="manager")
+
+    async def fake_run(worker: WorkerSpec, *, task: str, context: str, expected_output: str) -> str:
+        await asyncio.sleep(0.05)
+        return f"{worker.id} handled {task}"
+
+    tool._run_worker = fake_run
+
+    async def run_both():
+        return await asyncio.gather(
+            tool._invoke_async(worker="researcher", task="first", context="", expected_output="x"),
+            tool._invoke_async(worker="researcher", task="second", context="", expected_output="x"),
+        )
+
+    first, second = asyncio.run(run_both())
+    worker_ids = sorted([json.loads(first)["worker_id"], json.loads(second)["worker_id"]])
+
+    assert worker_ids == ["analyst", "researcher"]
 
 
 def test_delegate_task_reset_clears_budget_and_history():
@@ -331,13 +396,13 @@ def test_agent_team_injects_delegate_task_into_manager(monkeypatch):
         def check(self):
             return True
 
-    class FakeDelegate(DelegateTaskTool):
+    class FakeDelegate(DelegateTask):
         pass
 
     class FakeAgent:
         def __init__(self, _canvas, _id, param):
             delegate = object.__new__(FakeDelegate)
-            delegate._param = DelegateTaskToolParam()
+            delegate._param = DelegateTaskParam()
             delegate._param.update(param.conf["tools"][-1]["params"])
             self.tools = {"delegate_task_0": delegate}
 
@@ -364,6 +429,8 @@ def test_agent_team_injects_delegate_task_into_manager(monkeypatch):
     assert captured["custom_header"] == {"X-Tenant": "tenant-a"}
     assert manager is team._manager_agent
     assert delegate is team._delegate_tool
+    assert delegate.team_task_id == "task"
+    assert delegate.team_component_id == "team"
 
 
 def test_delegate_task_handles_missing_custom_header(monkeypatch):
@@ -436,6 +503,173 @@ def test_agent_team_writes_manager_result_and_delegation_trace():
     assert team.output("structured") == {"answer": "final answer"}
     assert team.output("delegations") == [{"sequence": 1, "worker_id": "researcher", "status": "ok"}]
     assert delegate.reset_count == 1
+
+class _ScriptedDelegate:
+    def __init__(self):
+        self.delegations = []
+        self.reset_count = 0
+
+    def reset(self, only_output=False):
+        self.reset_count += 1
+        self.delegations = []
+
+
+class _ScriptedManager:
+    def __init__(self, delegate, delegate_on_call=1):
+        self.delegate = delegate
+        self.delegate_on_call = delegate_on_call
+        self.prompts = []
+        self.reset_count = 0
+        self._outputs = {}
+
+    async def _invoke_async(self, **kwargs):
+        self.prompts.append(kwargs.get("user_prompt"))
+        if len(self.prompts) >= self.delegate_on_call:
+            self.delegate.delegations = [{"sequence": 1, "worker_id": "researcher", "status": "ok"}]
+        self._outputs["content"] = "final answer"
+        self._outputs["structured"] = {"answer": "final answer"}
+
+    def reset(self, only_output=False):
+        self.reset_count += 1
+        self._outputs = {}
+
+    def error(self):
+        return None
+
+    def output(self, key=None):
+        return self._outputs if key is None else self._outputs.get(key)
+
+
+def _hierarchical_team(manager):
+    team = AgentTeam.__new__(AgentTeam)
+    team._canvas = _Canvas()
+    team._id = "team"
+    team._param = AgentTeamParam()
+    team._param.process = "hierarchical"
+    team._param.manager = {"params": {"llm_id": "manager-model"}}
+    team._param.workers = [_worker()]
+    team._param.tasks = []
+    team._param.max_delegations = 2
+    team._param.max_depth = 2
+    team._param.worker_timeout = 5
+    team._param.outputs = {}
+    team._param.inputs = {}
+    team._registry = WorkerRegistry(team._param.workers)
+    team._budget = DelegationBudget(team._param.max_delegations)
+    team._delegations = []
+    team._manager_agent = None
+    team._delegate_tool = None
+    return team
+
+
+def test_hierarchical_manager_without_delegation_is_nudged_once():
+    delegate = _ScriptedDelegate()
+    manager = _ScriptedManager(delegate, delegate_on_call=2)
+    team = _hierarchical_team(manager)
+    team._build_manager_agent = lambda: (manager, delegate)
+
+    result = asyncio.run(team._invoke_async(user_prompt="question"))
+
+    assert result == "final answer"
+    assert len(manager.prompts) == 2
+    assert manager.reset_count == 1
+    assert delegate.reset_count == 2
+    assert manager.prompts[0] == "question"
+    assert manager.prompts[1].startswith("question")
+    assert "delegate_task" in manager.prompts[1]
+    assert team.output("delegations") == [{"sequence": 1, "worker_id": "researcher", "status": "ok"}]
+
+
+def test_hierarchical_flags_workers_the_manager_never_used():
+    delegate = _ScriptedDelegate()
+    manager = _ScriptedManager(delegate, delegate_on_call=1)
+    team = _hierarchical_team(manager)
+    second = dict(_worker(), id="analyst", name="Analyst", role="analyst")
+    team._param.workers = [_worker(), second]
+    team._registry = WorkerRegistry(team._param.workers)
+    team._build_manager_agent = lambda: (manager, delegate)
+
+    asyncio.run(team._invoke_async(user_prompt="question"))
+
+    structured = team.output("structured")
+    assert structured["status"] == "partial"
+    assert "1 of 2 workers" in structured["warning"]
+    assert "Analyst" in structured["warning"]
+
+
+def test_hierarchical_direct_dispatch_when_manager_never_delegates():
+    delegate = _ScriptedDelegate()
+    manager = _ScriptedManager(delegate, delegate_on_call=99)
+    team = _hierarchical_team(manager)
+    team._build_manager_agent = lambda: (manager, delegate)
+    captured = {}
+
+    async def fake_batch(tasks, **kwargs):
+        captured["tasks"] = tasks
+        captured["kwargs"] = kwargs
+        return [
+            {
+                "task_index": task.index,
+                "worker_id": task.worker.id,
+                "status": "ok",
+                "content": f"answer from {task.worker.id}",
+                "error": "",
+            }
+            for task in tasks
+        ]
+
+    team._run_task_batch = fake_batch
+
+    result = asyncio.run(team._invoke_async(user_prompt="question"))
+
+    structured = team.output("structured")
+    assert structured["process"] == "hierarchical"
+    assert structured["status"] == "ok"
+    assert structured["manager_fallback"] is True
+    assert "did not delegate" in structured["warning"]
+    assert structured["results"] == [
+        {
+            "task_index": 0,
+            "worker_id": "researcher",
+            "status": "ok",
+            "result": "answer from researcher",
+            "error": "",
+        }
+    ]
+    assert captured["kwargs"]["process"] == "hierarchical"
+    assert captured["kwargs"]["round_index"] == 1
+    assert captured["kwargs"]["user_prompt"] == "question"
+    assert [task.worker.id for task in captured["tasks"]] == ["researcher"]
+    assert json.loads(result)["manager_fallback"] is True
+    assert team.output("_ERROR") in (None, "")
+
+
+def test_hierarchical_direct_dispatch_reports_partial_when_a_worker_fails():
+    delegate = _ScriptedDelegate()
+    manager = _ScriptedManager(delegate, delegate_on_call=99)
+    team = _hierarchical_team(manager)
+    team._build_manager_agent = lambda: (manager, delegate)
+
+    async def fake_batch(tasks, **kwargs):
+        return [
+            {
+                "task_index": 0,
+                "worker_id": "researcher",
+                "status": "error",
+                "content": "",
+                "error": "worker unavailable",
+            }
+        ]
+
+    team._run_task_batch = fake_batch
+
+    asyncio.run(team._invoke_async(user_prompt="question"))
+
+    structured = team.output("structured")
+    assert structured["manager_fallback"] is True
+    assert structured["status"] == "error"
+    assert structured["results"][0]["error"] == "worker unavailable"
+    assert "no successful worker output" in team.output("_ERROR")
 
 
 def test_agent_team_reset_clears_outputs_and_runtime_agents():
@@ -656,8 +890,11 @@ def test_sequential_process_records_runtime_budget_error():
 
     assert result is None
     assert "max_delegations" in team.output("_ERROR")
-    assert team.output("delegations")[-1]["status"] == "error"
-    assert team.output("delegations")[-1]["sequence"] == 0
+    # 只记录真正派出去的步骤：第二段因为预算用尽没派出去，就不该在分发看板上
+    # 多出一张失败的卡片。
+    assert len(team.output("delegations")) == 1
+    assert team.output("delegations")[-1]["status"] == "ok"
+    assert team.output("delegations")[-1]["sequence"] == 1
 
 
 @pytest.mark.parametrize(

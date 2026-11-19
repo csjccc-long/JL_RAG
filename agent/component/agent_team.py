@@ -53,6 +53,7 @@ from agent.delegation import (
     delegation_scope,
 )
 
+from agent.team_progress import record_finish, record_start, reset_progress
 from agent.tools.base import ToolBase, ToolParamBase
 """
 AgentTeamParam 定义了这个组件的配置面，支持多个流程模式：
@@ -79,13 +80,19 @@ _logger = logging.getLogger(__name__)
 
 MANAGER_DELEGATION_PROMPT = """You manage a team of registered specialist agents.
 Follow any caller-provided manager instructions; they take precedence when more specific.
-1. Decompose the request only when a specialist can add material value.
+1. Decompose the request only when a specialist can add material value. When the
+   request names several angles, perspectives, or deliverables, delegate each one
+   to a distinct worker before you answer.
 2. Select a worker from the available roster by id, role, or capability.
 3. Call the delegation tool exposed in your tool schema. Its function name may carry an index suffix.
    Provide a self-contained task, relevant context, and concrete expected_output.
 4. Review each Observation before deciding whether to delegate again or answer.
 5. If a worker fails, choose another worker, narrow the task, or continue with available evidence.
 6. Synthesize the final answer yourself. Do not concatenate worker responses or invent missing evidence."""
+
+
+# manager 漏填 expected_output 时的兜底期望，保证 worker 至少拿到一个明确的产出要求。
+DEFAULT_EXPECTED_OUTPUT = "A concise, directly usable answer to the task."
 
 
 def _agent_params_from_spec(spec: Mapping[str, Any], *, component: str) -> dict[str, Any]:
@@ -216,7 +223,10 @@ def _required_delegations(process: str, task_count: int, rounds: int, has_judge:
     return task_count
 
 
-class DelegateTaskToolParam(ToolParamBase):
+class DelegateTaskParam(ToolParamBase):
+    # 命名必须严格是 <component_name>Param：Agent._load_tool_obj() 通过
+    # component_class(cpn["component_name"] + "Param") 反射加载工具，名字不符会
+    # 直接 assert False: Can't import DelegateTaskParam，hierarchical 团队整条链路不可用。
     def __init__(self):
         self.meta = {
             "name": "delegate_task",
@@ -252,6 +262,10 @@ class DelegateTaskToolParam(ToolParamBase):
         self.max_depth = 3
         self.worker_timeout = 300
         self.custom_header = {}
+        # 小模型常把多个角度的任务全派给同一个成员，导致团队只剩一个人说话。
+        # 开启后：若选中的成员已经接过活、而还有成员一次都没被用过，就自动改派
+        # 给闲置成员（结果里带 metadata.reassigned_from，便于追溯）。
+        self.prefer_unused_workers = True
 
     def check(self):
         self.check_empty(self.workers, "[DelegateTask] Workers")
@@ -264,17 +278,26 @@ class DelegateTaskToolParam(ToolParamBase):
             raise ValueError("[DelegateTask] Max depth must be at least 1")
         if not isinstance(self.worker_timeout, (int, float)) or self.worker_timeout <= 0:
             raise ValueError("[DelegateTask] Worker timeout must be positive")
+        if not isinstance(self.prefer_unused_workers, bool):
+            raise ValueError("[DelegateTask] Prefer unused workers must be a boolean")
         return True
 
 
-class DelegateTaskTool(ToolBase):
+class DelegateTask(ToolBase):
     component_name = "DelegateTask"
 
-    def __init__(self, canvas, component_id, param: DelegateTaskToolParam):
+    def __init__(self, canvas, component_id, param: DelegateTaskParam):
         super().__init__(canvas, component_id, param)
         self._registry = WorkerRegistry(param.workers, manager_id=param.manager_id)
         self._budget = DelegationBudget(param.max_delegations)
         self._delegations: list[DelegationRecord] = []
+        # manager 可能在同一轮里并发发起多个 delegate_task（qwen2.5:3b 就会把
+        # 三个角度一次全发出去）。只看已完成的 _delegations 会让三个请求都
+        # 认领同一个成员，所以这里额外记下"已认领"的成员 id。
+        self._claimed_workers: set[str] = set()
+        # 由 AgentTeam 注入：让每次分派都能写进所属团队的运行看板。
+        self.team_task_id = ""
+        self.team_component_id = ""
 
     @property
     def delegations(self) -> list[dict[str, Any]]:
@@ -297,16 +320,20 @@ class DelegateTaskTool(ToolBase):
         expected_output = str(kwargs.get("expected_output") or "").strip()
         if not task:
             return self._error_observation(selector, task, context, expected_output, "task can not be empty")
-        if not expected_output:
-            return self._error_observation(selector, task, context, expected_output, "expected_output can not be empty")
+        # 小模型（qwen2.5:3b 这类）经常只填 task 漏填 expected_output，
+        # 直接拒绝会让整次 hierarchical 运行零分派，这里退化成通用期望。
+        expected_output = expected_output or DEFAULT_EXPECTED_OUTPUT
 
         sequence = 0
         worker_id = selector
+        entry_id = ""
         started = time.perf_counter()
         try:
             worker = self._registry.resolve(selector)
+            worker, reassigned_from = self._prefer_unused_worker(worker)
             worker_id = worker.id
             sequence = self._budget.claim()
+            entry_id = self._progress_start(worker, task=task, context=context, sequence=sequence)
             with delegation_scope(self._param.max_depth):
                 result = await asyncio.wait_for(
                     self._run_worker(
@@ -329,8 +356,18 @@ class DelegateTaskTool(ToolBase):
                     status="ok",
                     result=result_text,
                     duration_ms=elapsed_ms,
+                    # 与其它五种策略保持同一套 metadata：分发看板靠 round/task_index
+                    # 排序并和"待分发"任务去重，缺字段会落到 round=0、task_index=index。
+                    metadata={
+                        "process": HIERARCHICAL_PROCESS,
+                        "round": 1,
+                        "task_index": max(sequence - 1, 0),
+                        "role": worker.role or "participant",
+                        **({"reassigned_from": reassigned_from} if reassigned_from else {}),
+                    },
                 )
             )
+            self._progress_finish(entry_id, status="ok", result=result_text, elapsed_ms=elapsed_ms)
             self.set_output("delegations", self.delegations)
             return json.dumps(
                 {
@@ -342,9 +379,25 @@ class DelegateTaskTool(ToolBase):
                 },
                 ensure_ascii=False,
             )
+        except asyncio.CancelledError:
+            # 会话被用户中止时 CancelledError 不是 Exception，若不在这里收尾，
+            # 分发看板会把这条记录一直显示成"分发中"。
+            self._progress_finish(
+                entry_id,
+                status="error",
+                error="cancelled",
+                elapsed_ms=int((time.perf_counter() - started) * 1000),
+            )
+            raise
         except Exception as exc:
             if not isinstance(exc, DelegationError):
                 _logger.exception("[DelegateTask] worker %s failed", worker_id)
+            self._progress_finish(
+                entry_id,
+                status="error",
+                error=str(exc),
+                elapsed_ms=int((time.perf_counter() - started) * 1000),
+            )
             return self._error_observation(
                 selector,
                 task,
@@ -355,6 +408,31 @@ class DelegateTaskTool(ToolBase):
                 sequence=sequence,
                 duration_ms=int((time.perf_counter() - started) * 1000),
             )
+
+    def _prefer_unused_worker(self, worker: WorkerSpec) -> tuple[WorkerSpec, str]:
+        """把重复派给同一成员的后续任务改派给还没被用过的成员。
+
+        3B 级别的 manager 经常把"财务/合规/技术三个角度"三次都派给同一个
+        worker，表面上派了 3 单，实际团队里只有一个成员在工作。这里只做
+        "同一成员已被用过 + 仍有闲置成员"时的改派，不影响 manager 正常的分工。
+        """
+        claimed = getattr(self, "_claimed_workers", None)
+        if claimed is None:
+            claimed = set()
+            self._claimed_workers = claimed
+        if not getattr(self._param, "prefer_unused_workers", True):
+            claimed.add(worker.id)
+            return worker, ""
+        used = {record.worker_id for record in self._delegations} | claimed
+        if worker.id not in used:
+            claimed.add(worker.id)
+            return worker, ""
+        for candidate in self._registry.workers:
+            if candidate.id not in used:
+                claimed.add(candidate.id)
+                return candidate, worker.id
+        claimed.add(worker.id)
+        return worker, ""
 
     async def _run_worker(self, worker: WorkerSpec, *, task: str, context: str, expected_output: str) -> str:
         return await _execute_worker_agent(
@@ -368,6 +446,30 @@ class DelegateTaskTool(ToolBase):
             reasoning=f"Manager selected worker {worker.id} for this task.",
             worker_agent=self._build_worker_agent(worker),
         )
+
+    def _progress_start(self, worker: WorkerSpec, *, task: str, context: str, sequence: int) -> str:
+        task_id = getattr(self, "team_task_id", "")
+        if not task_id:
+            return ""
+        return record_start(
+            task_id,
+            component_id=self.team_component_id,
+            worker_id=worker.id,
+            worker_name=worker.name or worker.id,
+            role=worker.role or "participant",
+            task=task,
+            context=context,
+            process=HIERARCHICAL_PROCESS,
+            round_index=1,
+            task_index=max(sequence - 1, 0),
+            sequence=sequence,
+        )
+
+    def _progress_finish(self, entry_id: str, *, status: str, result: str = "", error: str = "", elapsed_ms: int = 0) -> None:
+        task_id = getattr(self, "team_task_id", "")
+        if not entry_id or not task_id:
+            return
+        record_finish(task_id, entry_id, status=status, result=result, error=error, elapsed_ms=elapsed_ms)
 
     def _build_worker_agent(self, worker: WorkerSpec):
         return _create_worker_agent(self._canvas, self._id, self._param.custom_header, worker)
@@ -384,6 +486,19 @@ class DelegateTaskTool(ToolBase):
         sequence: int = 0,
         duration_ms: int = 0,
     ) -> str:
+        # sequence 为 0 表示这次调用没有真正派出 worker（参数校验失败、worker
+        # 解析失败、预算用尽），不写进 delegations，否则看板会出现"从未分发"的
+        # 红色卡片。
+        if not sequence:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "sequence": sequence,
+                    "worker_id": worker_id or selector,
+                    "error": error,
+                },
+                ensure_ascii=False,
+            )
         self._delegations.append(
             DelegationRecord(
                 sequence=sequence,
@@ -394,6 +509,12 @@ class DelegateTaskTool(ToolBase):
                 status="error",
                 error=error,
                 duration_ms=duration_ms,
+                metadata={
+                    "process": HIERARCHICAL_PROCESS,
+                    "round": 1,
+                    "task_index": max(sequence - 1, 0),
+                    "role": "participant",
+                },
             )
         )
         self.set_output("delegations", self.delegations)
@@ -411,6 +532,7 @@ class DelegateTaskTool(ToolBase):
         super().reset(only_output)
         self._budget.reset()
         self._delegations = []
+        self._claimed_workers = set()
 
 
 class AgentTeamParam(ComponentParamBase):
@@ -499,8 +621,49 @@ class AgentTeam(ComponentBase):
     def _invoke(self, **kwargs):
         return asyncio.run(self._invoke_async(**kwargs))
 
+    def thoughts(self) -> str:
+        # Canvas 在每个节点 node_started 时都会调用 thoughts()，ComponentBase 的默认
+        # 实现是 raise NotImplementedError，缺这个方法会直接中断整张画布的运行。
+        workers = len(self._param.workers) if isinstance(self._param.workers, list) else 0
+        tasks = len(self._param.tasks) if isinstance(self._param.tasks, list) else 0
+        if self._param.process == HIERARCHICAL_PROCESS:
+            return f"Managing {workers} worker(s) and deciding who to delegate to next."
+        return f"Dispatching {tasks} task(s) to {workers} worker(s) with the {self._param.process} process."
+
+    @property
+    def _progress_task_id(self) -> str:
+        # 进度通道是旁路：缺 canvas（单测里直接 __new__ 出来的实例）或 canvas
+        # 没有 task_id 时返回空串，由 team_progress 自行跳过，绝不打断团队运行。
+        return str(getattr(getattr(self, "_canvas", None), "task_id", "") or "")
+
+    def _start_progress(self, *, worker, task: str, process: str, round_index: int, task_index: int, role: str = "participant", context: str = "", sequence: int = 0) -> str:
+        return record_start(
+            self._progress_task_id,
+            component_id=self._id,
+            worker_id=worker.id,
+            worker_name=worker.name or worker.id,
+            role=role,
+            task=task,
+            context=context,
+            process=process,
+            round_index=round_index,
+            task_index=task_index,
+            sequence=sequence,
+        )
+
+    def _finish_progress(self, entry_id: str, *, status: str, result: str = "", error: str = "", elapsed_ms: int = 0) -> None:
+        record_finish(self._progress_task_id, entry_id, status=status, result=result, error=error, elapsed_ms=elapsed_ms)
+
     async def _invoke_async(self, **kwargs):
+        # ComponentBase.invoke_async 先把 _created_time 写进 outputs，再调用本方法。
+        # 清空 outputs 时若把 _created_time 一并清掉，收尾计算 _elapsed_time 会抛
+        # TypeError: unsupported operand type(s) for -: 'float' and 'NoneType'，
+        # 整张画布随之崩溃，所以这里必须保留计时字段。
+        created_time = self.output("_created_time")
         self.reset(only_output=True)
+        if created_time is not None:
+            self.set_output("_created_time", created_time)
+        reset_progress(self._progress_task_id)
         if self._param.process == SEQUENTIAL_PROCESS:
             return await self._invoke_sequential_async(**kwargs)
         if self._param.process == PARALLEL_PROCESS:
@@ -517,15 +680,115 @@ class AgentTeam(ComponentBase):
         manager, delegate_tool = self._build_manager_agent()
         delegate_tool.reset()
         await manager._invoke_async(**kwargs)
-        self.set_output("delegations", delegate_tool.delegations)
         if manager.error():
             self.set_output("_ERROR", manager.error())
             return
+        if not delegate_tool.delegations:
+            # 小参数模型经常"只描述计划、不调用工具"，看起来像跑完了，实际上一个
+            # 子任务都没派出去（看板全空）。这里用一次显式指令重试，把"必须调用
+            # delegate_task"写进这一轮的 query 里。
+            manager.reset(only_output=True)
+            delegate_tool.reset()
+            nudge = dict(kwargs)
+            nudge["user_prompt"] = (
+                str(kwargs.get("user_prompt") or "").strip()
+                + "\n\nIMPORTANT: You have not delegated any work yet. You MUST call the "
+                "delegate_task tool now, one call per specialist, before producing the final "
+                "answer. Do not answer with a plan or a description of what you would do."
+            )
+            await manager._invoke_async(**nudge)
+            if manager.error():
+                self.set_output("_ERROR", manager.error())
+                return
+        self.set_output("delegations", delegate_tool.delegations)
         content = manager.output("content")
-        if "structured" in manager.output():
-            self.set_output("structured", manager.output("structured"))
+        structured = manager.output("structured")
+        if structured is not None or "structured" in manager.output():
+            self.set_output("structured", structured)
         self.set_output("content", content)
+        if not delegate_tool.delegations:
+            # 重试后仍然没有委派：退化为"直接把请求分发给每个成员并汇总"，用户至少
+            # 能看到任务确实分发到了成员手里，而不是主管自说自话。
+            return await self._hierarchical_direct_dispatch(**kwargs)
+        self._flag_hierarchical_coverage(structured, delegate_tool.delegations)
         return content
+
+    def _flag_hierarchical_coverage(self, structured, delegations) -> None:
+        # 小模型主管常常只派一个成员就收尾，用户看到的是"三个角度只答了一个"。
+        # 这里不改写主管的答复，只把覆盖情况标出来，让看板显示"部分完成 + 未分派成员"。
+        registry = getattr(self, "_registry", None)
+        if registry is None:
+            return
+        workers = registry.workers
+        delegated = {
+            record.worker_id if hasattr(record, "worker_id") else record.get("worker_id", "")
+            for record in delegations
+        }
+        missing = [worker.name or worker.id for worker in workers if worker.id not in delegated]
+        if not missing:
+            return
+        payload = dict(structured) if isinstance(structured, Mapping) else {}
+        payload["status"] = "partial"
+        payload["warning"] = (
+            f"The manager dispatched {len(delegated)} of {len(workers)} workers; "
+            f"not delegated: {', '.join(missing)}."
+        )
+        self.set_output("structured", payload)
+
+    async def _hierarchical_direct_dispatch(self, **kwargs):
+        user_prompt = str(kwargs.get("user_prompt") or "").strip()
+        runtime_context = str(kwargs.get("context") or "").strip()
+        try:
+            if self._param.tasks:
+                tasks = _resolve_team_tasks(self._registry, self._param.tasks, HIERARCHICAL_PROCESS)
+            else:
+                tasks = tuple(
+                    TeamTaskSpec(
+                        index=index,
+                        worker=worker,
+                        task=user_prompt,
+                        context="",
+                        expected_output=DEFAULT_EXPECTED_OUTPUT,
+                    )
+                    for index, worker in enumerate(self._registry.workers)
+                )
+        except Exception as exc:
+            self.set_output("_ERROR", str(exc))
+            return
+
+        results = await self._run_task_batch(
+            tasks,
+            process=HIERARCHICAL_PROCESS,
+            round_index=1,
+            previous_context="",
+            user_prompt=user_prompt,
+            runtime_context=runtime_context,
+        )
+        succeeded = sum(result["status"] == "ok" for result in results)
+        status = "ok" if succeeded == len(results) else "partial" if succeeded else "error"
+        if not succeeded:
+            self.set_output("_ERROR", "hierarchical process produced no successful worker output")
+        payload = {
+            "process": HIERARCHICAL_PROCESS,
+            "status": status,
+            "manager_fallback": True,
+            "warning": "The manager did not delegate; the request was dispatched to every worker directly.",
+            "results": [
+                {
+                    "task_index": result["task_index"],
+                    "worker_id": result["worker_id"],
+                    "status": result["status"],
+                    "result": result["content"],
+                    "error": result["error"],
+                }
+                for result in results
+            ],
+            "votes": [],
+            "rounds": [{"round": 1, "responses": results}],
+            "consensus": False,
+            "winner": None,
+        }
+        return self._write_collaboration_output(payload)
 
     def _write_collaboration_output(self, payload: dict[str, Any]) -> str:
         content = json.dumps(payload, ensure_ascii=False)
@@ -784,9 +1047,24 @@ class AgentTeam(ComponentBase):
                 previous_output=previous_output,
             )
             started = time.perf_counter()
-            sequence = 0
             try:
                 sequence = self._budget.claim()
+            except DelegationError as exc:
+                # 预算用尽属于"没有派出去"，不该在看板上留下一张卡片。
+                self.set_output("_ERROR", str(exc))
+                return
+            # 顺序执行同样要把每一步写进进度通道，否则分发看板对 sequential
+            # 完全没有卡片可显示（PROGRESS N 0）。
+            entry_id = self._start_progress(
+                worker=task.worker,
+                task=task.task,
+                process=SEQUENTIAL_PROCESS,
+                round_index=1,
+                task_index=task.index,
+                context=context,
+                sequence=sequence,
+            )
+            try:
                 with delegation_scope(self._param.max_depth):
                     result = await asyncio.wait_for(
                         self._run_worker(
@@ -798,10 +1076,26 @@ class AgentTeam(ComponentBase):
                         timeout=self._param.worker_timeout,
                     )
                 result_text = _require_worker_content(task.worker.id, result)
+            except asyncio.CancelledError:
+                # 中止运行时 CancelledError 不是 Exception，不在这里收尾，看板上的
+                # 卡片会永远停在"分发中"。
+                self._finish_progress(
+                    entry_id,
+                    status="error",
+                    error="cancelled",
+                    elapsed_ms=int((time.perf_counter() - started) * 1000),
+                )
+                raise
             except Exception as exc:
                 if not isinstance(exc, DelegationError):
                     _logger.exception("[AgentTeam] sequential worker %s failed", task.worker.id)
                 error = str(exc)
+                self._finish_progress(
+                    entry_id,
+                    status="error",
+                    error=error,
+                    elapsed_ms=int((time.perf_counter() - started) * 1000),
+                )
                 self._delegations.append(
                     DelegationRecord(
                         sequence=sequence,
@@ -812,13 +1106,14 @@ class AgentTeam(ComponentBase):
                         status="error",
                         error=error,
                         duration_ms=int((time.perf_counter() - started) * 1000),
-                        metadata={"process": SEQUENTIAL_PROCESS, "task_index": task.index},
+                        metadata={"process": SEQUENTIAL_PROCESS, "round": 1, "task_index": task.index},
                     )
                 )
                 self.set_output("delegations", [record.as_dict() for record in self._delegations])
                 self.set_output("_ERROR", error)
                 return
 
+            duration_ms = int((time.perf_counter() - started) * 1000)
             self._delegations.append(
                 DelegationRecord(
                     sequence=sequence,
@@ -828,10 +1123,11 @@ class AgentTeam(ComponentBase):
                     expected_output=task.expected_output,
                     status="ok",
                     result=result_text,
-                    duration_ms=int((time.perf_counter() - started) * 1000),
-                    metadata={"process": SEQUENTIAL_PROCESS, "task_index": task.index},
+                    duration_ms=duration_ms,
+                    metadata={"process": SEQUENTIAL_PROCESS, "round": 1, "task_index": task.index},
                 )
             )
+            self._finish_progress(entry_id, status="ok", result=result_text, elapsed_ms=duration_ms)
             self.set_output("delegations", [record.as_dict() for record in self._delegations])
             previous_output = result_text
 
@@ -894,6 +1190,14 @@ class AgentTeam(ComponentBase):
             expected_output += "\n\n" + expected_output_instruction
         started = time.perf_counter()
         sequence = 0
+        entry_id = self._start_progress(
+            worker=task.worker,
+            task=task.task,
+            process=process,
+            round_index=round_index,
+            task_index=task.index,
+            context=context,
+        )
         try:
             sequence = self._budget.claim()
             with delegation_scope(self._param.max_depth):
@@ -926,6 +1230,7 @@ class AgentTeam(ComponentBase):
                     },
                 )
             )
+            self._finish_progress(entry_id, status="ok", result=content, elapsed_ms=duration_ms)
             return {
                 "task_index": task.index,
                 "worker_id": task.worker.id,
@@ -935,6 +1240,15 @@ class AgentTeam(ComponentBase):
                 "error": "",
                 "duration_ms": duration_ms,
             }
+        except asyncio.CancelledError:
+            # 中止运行时要给进度通道收尾，否则看板上的卡片永远停在"分发中"。
+            self._finish_progress(
+                entry_id,
+                status="error",
+                error="cancelled",
+                elapsed_ms=int((time.perf_counter() - started) * 1000),
+            )
+            raise
         except Exception as exc:
             if not isinstance(exc, DelegationError):
                 _logger.exception("[AgentTeam] %s worker %s failed", process, task.worker.id)
@@ -958,6 +1272,7 @@ class AgentTeam(ComponentBase):
                     },
                 )
             )
+            self._finish_progress(entry_id, status="error", error=error, elapsed_ms=duration_ms)
             return {
                 "task_index": task.index,
                 "worker_id": task.worker.id,
@@ -980,6 +1295,15 @@ class AgentTeam(ComponentBase):
         worker = self._registry.resolve(self._param.judge)
         started = time.perf_counter()
         sequence = 0
+        entry_id = self._start_progress(
+            worker=worker,
+            task=task,
+            process=process,
+            round_index=round_index,
+            task_index=-1,
+            role="judge",
+            context=context,
+        )
         try:
             sequence = self._budget.claim()
             with delegation_scope(self._param.max_depth):
@@ -1002,7 +1326,16 @@ class AgentTeam(ComponentBase):
                     metadata={"process": process, "round": round_index, "task_index": -1, "role": "judge"},
                 )
             )
+            self._finish_progress(entry_id, status="ok", result=content, elapsed_ms=duration_ms)
             return {"status": "ok", "content": content, "error": "", "worker_id": worker.id, "duration_ms": duration_ms}
+        except asyncio.CancelledError:
+            self._finish_progress(
+                entry_id,
+                status="error",
+                error="cancelled",
+                elapsed_ms=int((time.perf_counter() - started) * 1000),
+            )
+            raise
         except Exception as exc:
             if not isinstance(exc, DelegationError):
                 _logger.exception("[AgentTeam] %s judge failed", process)
@@ -1021,6 +1354,7 @@ class AgentTeam(ComponentBase):
                     metadata={"process": process, "round": round_index, "task_index": -1, "role": "judge"},
                 )
             )
+            self._finish_progress(entry_id, status="error", error=error, elapsed_ms=duration_ms)
             return {"status": "error", "content": "", "error": error, "worker_id": worker.id, "duration_ms": duration_ms}
 
     def _sort_delegations(self):
@@ -1075,7 +1409,12 @@ class AgentTeam(ComponentBase):
         param.update(manager_params)
         param.check()
         self._manager_agent = component_class("Agent")(self._canvas, f"{self._id}-->manager", param)
-        self._delegate_tool = next((tool for tool in self._manager_agent.tools.values() if isinstance(tool, DelegateTaskTool)), None)
+        self._delegate_tool = next((tool for tool in self._manager_agent.tools.values() if isinstance(tool, DelegateTask)), None)
+        if self._delegate_tool is not None:
+            # 进度通道靠 DelegateTask 自己写，但它拿不到团队的 task_id；
+            # 不在这里接线，hierarchical 的分派在看板上永远是空的。
+            self._delegate_tool.team_task_id = self._progress_task_id
+            self._delegate_tool.team_component_id = self._id
         if self._delegate_tool is None:
             raise RuntimeError("[AgentTeam] failed to attach DelegateTask to the manager")
         return self._manager_agent, self._delegate_tool

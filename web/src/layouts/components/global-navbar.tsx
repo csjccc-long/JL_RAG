@@ -17,6 +17,7 @@ const PathMap = {
   [Routes.Chats]: [Routes.Chats, Routes.Chat],
   [Routes.Searches]: [Routes.Searches, Routes.Search],
   [Routes.Agents]: [Routes.Agents, Routes.AgentTemplates],
+  [Routes.AgentTeam]: [Routes.AgentTeam],
   [Routes.Memories]: [Routes.Memories, Routes.Memory, Routes.MemoryMessage],
   [Routes.Files]: [Routes.Files],
 } as const;
@@ -64,6 +65,13 @@ const menuItems = [
     icon: MenuItemsIcon,
     icon_name: 'agents',
     'data-testid': 'nav-agent',
+  },
+  {
+    path: Routes.AgentTeam,
+    name: 'flow.agentTeam.page.entry',
+    icon: MenuItemsIcon,
+    icon_name: 'agents',
+    'data-testid': 'nav-agent-team',
   },
   {
     path: Routes.Memories,

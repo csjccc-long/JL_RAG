@@ -251,6 +251,29 @@ export interface IAgentTeamForm {
   outputs: Record<string, { type: string; value?: unknown }>;
 }
 
+// 运行期"任务分发"看板的一条记录，由后端 agent/team_progress.py 写入 Redis。
+export type AgentTeamProgressStatus = 'running' | 'ok' | 'error';
+
+export interface IAgentTeamProgressEntry {
+  id: string;
+  component_id: string;
+  worker_id: string;
+  worker_name: string;
+  role: string;
+  task: string;
+  context: string;
+  process: string;
+  round: number;
+  task_index: number;
+  sequence: number;
+  status: AgentTeamProgressStatus;
+  started_at: number;
+  finished_at: number | null;
+  elapsed_ms: number | null;
+  error: string;
+  result: string;
+}
+
 export type BaseNodeData<TForm = any> = {
   label: string; // operator type
   name: string; // operator name

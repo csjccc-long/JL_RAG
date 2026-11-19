@@ -111,6 +111,10 @@ const methods = {
       trace(config.agentId, config.messageId),
     method: 'get',
   },
+  teamProgress: {
+    url: (config: { taskId: string }) => api.teamProgress(config.taskId),
+    method: 'get',
+  },
   inputForm: {
     url: (config: { agentId: string; componentId: string }) =>
       api.inputForm(config.agentId, config.componentId),
@@ -184,6 +188,11 @@ export const fetchTrace = (data: { canvas_id: string; message_id: string }) => {
 
 // Used by the shared/embedded chat page where the only credential available
 // is the share (beta) APIToken (fixes #14985).
+// 一次多智能体协作运行的任务分发进度：按开始时间升序返回分派记录。
+export const fetchTeamProgress = (data: { task_id: string }) => {
+  return request.get(methods.teamProgress.url({ taskId: data.task_id }));
+};
+
 export const fetchSharedTrace = (data: {
   shared_id: string;
   message_id: string;
