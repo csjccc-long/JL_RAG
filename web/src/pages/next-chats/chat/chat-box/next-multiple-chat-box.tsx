@@ -422,6 +422,7 @@ export function MultipleChatBox({
           onUpload={handleUploadFile}
           showReasoning
           showInternet={showInternet}
+          showMemoryMode
           removeFile={removeFile}
           isUploading={isUploading}
         />

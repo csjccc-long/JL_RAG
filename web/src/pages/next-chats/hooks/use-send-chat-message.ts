@@ -6,12 +6,13 @@ import {
 } from '@/hooks/logic-hooks';
 import { useGetChatSearchParams } from '@/hooks/use-chat-request';
 import { buildMessageListWithUuid } from '@/utils/chat';
+import { resolveChatMemoryMode } from '@/stores/chat-memory-mode';
 import { IMessage, Message } from '@/interfaces/database/chat';
 import notification from '@/utils/notification';
 import { trim } from 'lodash';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { v4 as uuid } from 'uuid';
 import { runChatCompletionStream } from '../chat-stream/run-stream';
 import {
@@ -20,6 +21,10 @@ import {
   useChatStreamStore,
   useIsChatStreaming,
 } from '../chat-stream/store';
+import {
+  buildAgentTeamUrl,
+  shouldRouteToAgentTeam,
+} from '@/utils/collaboration-intent';
 import { resolveResendOptions } from '../utils';
 import { useCreateConversationBeforeSendMessage } from './use-chat-url';
 import { useFindPrologueFromDialogList } from './use-select-conversation-list';
@@ -121,6 +126,9 @@ export const useSendMessage = () => {
         ],
         enableThinking,
         enableInternet,
+        // The composer's per-conversation pick wins over the assistant setting
+        // for this turn; a brand new conversation reads the pending value.
+        memoryMode: resolveChatMemoryMode(sessionId),
       });
 
       if (!ok && !aborted) {
@@ -173,6 +181,8 @@ export const useSendMessage = () => {
     [conversationId, isStreaming, appendQuestion, sendMessage],
   );
 
+  const navigate = useNavigate();
+
   const { createConversationBeforeSendMessage } =
     useCreateConversationBeforeSendMessage();
 
@@ -182,6 +192,15 @@ export const useSendMessage = () => {
       enableInternet,
     }: NextMessageInputOnPressEnterParameter) => {
       if (trim(value) === '' || isStreaming) return;
+
+      // 任务明显需要多人分工（对比、调研、多个子问题……）时，不在单轮问答里
+      // 硬塞，而是带着任务跳到多智能体协作台，让团队去分发执行。
+      if (shouldRouteToAgentTeam(value)) {
+        navigate(buildAgentTeamUrl(value.trim()));
+        setValue('');
+        clearFiles();
+        return;
+      }
 
       const data = await createConversationBeforeSendMessage(value);
 
@@ -278,6 +297,7 @@ export const useSendMessage = () => {
       setValue,
       sendMessage,
       messageContainerRef,
+      navigate,
     ],
   );
 

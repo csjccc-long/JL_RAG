@@ -289,7 +289,7 @@ class DialogService(CommonService):
         return list(objs)
 
 
-async def async_chat_solo(dialog, messages, stream=True, session_id=None):
+async def async_chat_solo(dialog, messages, stream=True, session_id=None, memory_context=""):
     if dialog.llm_id:
         if dialog.tenant_llm_id:
             try:
@@ -330,6 +330,8 @@ async def async_chat_solo(dialog, messages, stream=True, session_id=None):
         convert_last_user_msg_to_multimodal(msg, image_attachments, factory)
     sys_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     system_prompt = prompt_config.get("system", "").replace("{date}", sys_date)
+    if memory_context:
+        system_prompt = f"{system_prompt}\n\n{memory_context}"
     if stream:
         if model_config["model_type"] == "chat":
             stream_iter = chat_mdl.async_chat_streamly_delta(system_prompt, msg, dialog.llm_setting)
@@ -584,7 +586,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     use_web_search = _should_use_web_search(dialog.prompt_config, kwargs.get("internet"))
     logging.debug("web_search kb=%s configured=%s internet=%r enabled=%s", bool(dialog.kb_ids), has_web_search_provider(dialog.prompt_config), kwargs.get("internet"), use_web_search)
     if not dialog.kb_ids and not use_web_search:
-        async for ans in async_chat_solo(dialog, messages, stream, session_id=session_id):
+        async for ans in async_chat_solo(dialog, messages, stream, session_id=session_id, memory_context=kwargs.get("memory_context", "")):
             yield ans
         return
 
@@ -829,6 +831,9 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
     gen_conf = dialog.llm_setting
 
     system_content = prompt_config["system"].format(**kwargs)
+    memory_context = kwargs.get("memory_context") or ""
+    if memory_context:
+        system_content = f"{system_content}\n\n{memory_context}"
     # If knowledge was retrieved but the template has no {knowledge}
     # placeholder, auto-append it so the LLM still sees the context.
     if knowledges and "{knowledge}" not in prompt_config.get("system", ""):
@@ -1963,6 +1968,10 @@ async def rag_agent(dialog, messages, stream=True, **kwargs):
     # small models mangle or drop, so the client receives nothing.
     if getattr(chat_mdl, "mdl", None) is not None:
         chat_mdl.mdl.terminal_tools = {"rag"}
+    # Recall is spliced into the outer system prompt; the inner graph composes
+    # its own prompt and is not touched.
+    memory_context = kwargs.get("memory_context") or ""
+    agent_sys_prompt = rag_tools.sys_prompt() + (f"\n\n{memory_context}" if memory_context else "")
     if stream:
         # Surface the outer model's reasoning, agent progress logs, and the
         # final-answer model's reasoning as one continuous think block. The
@@ -1992,9 +2001,9 @@ async def rag_agent(dialog, messages, stream=True, **kwargs):
         async def _drive_stream():
             try:
                 if model_type == "chat":
-                    stream_iter = chat_mdl.async_chat_streamly_delta(rag_tools.sys_prompt(), agent_messages, gen_conf)
+                    stream_iter = chat_mdl.async_chat_streamly_delta(agent_sys_prompt, agent_messages, gen_conf)
                 else:
-                    stream_iter = chat_mdl.async_chat_streamly_delta(rag_tools.sys_prompt(), agent_messages, gen_conf, images=image_files)
+                    stream_iter = chat_mdl.async_chat_streamly_delta(agent_sys_prompt, agent_messages, gen_conf, images=image_files)
                 async for kind, value, state in _stream_with_think_delta(stream_iter):
                     event_queue.put_nowait(("stream", kind, value, state.in_think if state is not None else False))
             except Exception:
@@ -2107,9 +2116,9 @@ async def rag_agent(dialog, messages, stream=True, **kwargs):
         yield final
     else:
         if model_type == "chat":
-            answer = await chat_mdl.async_chat(rag_tools.sys_prompt(), agent_messages, gen_conf)
+            answer = await chat_mdl.async_chat(agent_sys_prompt, agent_messages, gen_conf)
         else:
-            answer = await chat_mdl.async_chat(rag_tools.sys_prompt(), agent_messages, gen_conf, images=image_files)
+            answer = await chat_mdl.async_chat(agent_sys_prompt, agent_messages, gen_conf, images=image_files)
         user_content = agent_messages[-1].get("content", "[content not available]")
         logging.debug("User: {}|Assistant: {}".format(user_content, answer))
         res = await decorate_answer(answer)

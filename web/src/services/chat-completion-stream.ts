@@ -22,6 +22,8 @@ export type ChatCompletionStreamParams = {
   messages: IMessage[];
   enableThinking?: string;
   enableInternet?: boolean;
+  /** Per-conversation long-term memory backend; omitted means "inherit". */
+  memoryMode?: string;
 };
 
 export type CompletionChunk = {
@@ -33,7 +35,14 @@ export type CompletionChunk = {
 };
 
 export function requestChatCompletionStream(
-  { chatId, sessionId, messages, enableThinking, enableInternet }: ChatCompletionStreamParams,
+  {
+    chatId,
+    sessionId,
+    messages,
+    enableThinking,
+    enableInternet,
+    memoryMode,
+  }: ChatCompletionStreamParams,
   signal: AbortSignal,
 ) {
   return fetch(api.completionUrl, {
@@ -49,6 +58,11 @@ export function requestChatCompletionStream(
       pass_all_history_messages: true,
       reasoning: Number(enableThinking),
       internet: enableInternet,
+      // "auto" is the default and must stay off the wire: the backend then
+      // falls back to the assistant's prompt_config.memory_mode.
+      ...(memoryMode && memoryMode !== 'auto'
+        ? { memory_mode: memoryMode }
+        : {}),
     }),
     signal,
   });

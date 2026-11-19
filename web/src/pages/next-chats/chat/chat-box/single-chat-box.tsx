@@ -130,6 +130,7 @@ export function SingleChatBox({ conversation }: IProps) {
           removeFile={removeFile}
           showReasoning
           showInternet={showInternet}
+          showMemoryMode
         />
         {visible && (
           <PdfSheet

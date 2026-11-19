@@ -1,0 +1,40 @@
+# Self-hosted Mem0 for RAGFlow chat memory.
+#
+#   docker compose -f docker/docker-compose-mem0.yml up -d
+#
+# Then point RAGFlow at it:
+#   memory:
+#     mem0:
+#       base_url: 'http://127.0.0.1:8888'
+# (or set MEM0_BASE_URL in the RAGFlow container environment)
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: ragflow-mem0-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  mem0:
+    build: ./mem0
+    container_name: ragflow-mem0
+    restart: unless-stopped
+    depends_on:
+      - qdrant
+    environment:
+      OPENAI_API_KEY: ${MEM0_OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${MEM0_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      MEM0_LLM_MODEL: ${MEM0_LLM_MODEL:-gpt-4o-mini}
+      MEM0_EMBED_MODEL: ${MEM0_EMBED_MODEL:-text-embedding-3-small}
+      MEM0_EMBED_DIMS: ${MEM0_EMBED_DIMS:-1536}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      MEM0_COLLECTION: ragflow_chat
+    ports:
+      - "8888:8000"
+
+volumes:
+  qdrant_data:

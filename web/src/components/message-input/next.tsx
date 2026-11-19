@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import storage from '@/utils/authorization-util';
 import { AudioButton } from '../ui/audio-button';
 import { EffortSlider } from '../effort-slider';
+import { MemoryModeChip } from './memory-mode-chip';
 
 const ComposerDivider = () => (
   <div
@@ -75,6 +76,8 @@ interface NextMessageInputProps {
   removeFile?(file: File): void;
   showReasoning?: boolean;
   showInternet?: boolean;
+  /** Shows the per-conversation long-term memory switch in the composer. */
+  showMemoryMode?: boolean;
   resize?: 'none' | 'vertical' | 'horizontal' | 'both';
 }
 
@@ -93,6 +96,8 @@ export function NextMessageInput({
   removeFile,
   showReasoning = false,
   showInternet = false,
+  showMemoryMode = false,
+  conversationId,
 }: NextMessageInputProps) {
   const { t } = useTranslation();
   const [files, setFiles] = React.useState<File[]>([]);
@@ -344,6 +349,16 @@ export function NextMessageInput({
                 disabled={isUploading || sendLoading}
                 testId="chat-detail-thinking-toggle"
               />
+            )}
+
+            {showMemoryMode && (
+              <>
+                <ComposerDivider />
+                <MemoryModeChip
+                  conversationId={conversationId}
+                  disabled={isUploading || sendLoading}
+                />
+              </>
             )}
 
             {showInternet && (

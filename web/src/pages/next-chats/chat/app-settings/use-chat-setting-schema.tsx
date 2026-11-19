@@ -21,6 +21,9 @@ export function useChatSettingSchema() {
     keyword: z.boolean(),
     tts: z.boolean(),
     empty_response: z.string().optional(),
+    memory_mode: z
+      .enum(['auto', 'work', 'chat', 'off'])
+      .optional(),
     prologue: z.string().optional(),
     system: z.string().min(1, { message: t('systemMessage') }),
     refine_multiturn: z.boolean(),

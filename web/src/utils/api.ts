@@ -358,6 +358,9 @@ export default {
     `${restAPIv1}/agents/${agentId}/components/${componentId}/debug`,
   trace: (agentId: string, messageId: string) =>
     `${restAPIv1}/agents/${agentId}/logs/${messageId}`,
+  // 多智能体团队运行期的"任务分发"进度（Redis 临时数据）
+  teamProgress: (taskId: string) =>
+    `${restAPIv1}/agents/team-progress/${taskId}`,
   sharedTrace: (sharedId: string, messageId: string) =>
     `${restAPIv1}/agentbots/${sharedId}/logs/${messageId}`,
   cancelCanvas: (taskId: string) => `${restAPIv1}/tasks/${taskId}/cancel`,
@@ -454,6 +457,109 @@ export default {
     `${restAPIv1}/messages/${data.memory_id}:${data.message_id}/content`,
   updateMessageState: (data: { memory_id: string; message_id: string }) =>
     `${restAPIv1}/messages/${data.memory_id}:${data.message_id}`,
+
+  // hindsight — optional, explicit memory mode. Every call is scoped to a bank.
+  hindsightStatus: `${restAPIv1}/hindsight/status`,
+  hindsightBanks: `${restAPIv1}/hindsight/banks`,
+  hindsightBank: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}`,
+  hindsightConfig: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/config`,
+  hindsightStats: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/stats`,
+  hindsightGraph: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/graph`,
+  hindsightTags: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/tags`,
+  hindsightRetain: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/memories`,
+  hindsightMemoryList: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/memories/list`,
+  hindsightRecall: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/memories/recall`,
+  hindsightDryRunExtract: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/memories/dry-run-extract`,
+  hindsightMemory: (bank: string, memoryId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/memories/${encodeURIComponent(memoryId)}`,
+  hindsightMemoryHistory: (bank: string, memoryId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/memories/${encodeURIComponent(memoryId)}/history`,
+  hindsightPromptPreview: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/prompts/preview`,
+  hindsightReflect: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/reflect`,
+  hindsightObservationsTree: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/observations/tree`,
+  hindsightObservationScopes: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/observations/scopes`,
+  hindsightConsolidate: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/consolidate`,
+  hindsightConsolidationPreview: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/consolidation-strategies/preview`,
+  hindsightMentalModels: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/mental-models`,
+  hindsightMentalModel: (bank: string, modelId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/mental-models/${encodeURIComponent(modelId)}`,
+  hindsightMentalModelRefresh: (bank: string, modelId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/mental-models/${encodeURIComponent(modelId)}/refresh`,
+  hindsightMentalModelClear: (bank: string, modelId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/mental-models/${encodeURIComponent(modelId)}/clear`,
+  hindsightMentalModelHistory: (bank: string, modelId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/mental-models/${encodeURIComponent(modelId)}/history`,
+  hindsightPages: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/pages`,
+  hindsightPagesTree: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/pages/tree`,
+  hindsightPagesSearch: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/pages/search`,
+  hindsightPagesExport: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/pages/export`,
+  hindsightPage: (bank: string, pageId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/pages/${encodeURIComponent(pageId)}`,
+  hindsightDirectives: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/directives`,
+  hindsightDirective: (bank: string, directiveId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/directives/${encodeURIComponent(directiveId)}`,
+  hindsightDocuments: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/documents`,
+  hindsightDocument: (bank: string, documentId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/documents/${encodeURIComponent(documentId)}`,
+  hindsightDocumentChunks: (bank: string, documentId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/documents/${encodeURIComponent(documentId)}/chunks`,
+  hindsightEntities: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/entities`,
+  hindsightOperations: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/operations`,
+  hindsightOperationCancel: (bank: string, operationId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/operations/${encodeURIComponent(operationId)}/cancel`,
+  hindsightOperationRetry: (bank: string, operationId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/operations/${encodeURIComponent(operationId)}/retry`,
+  hindsightAuditLogs: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/audit-logs`,
+  hindsightLlmRequests: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/llm-requests`,
+  hindsightExport: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/export`,
+  hindsightImport: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/import`,
+  hindsightIngest: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/ingest`,
+  hindsightPrune: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/prune`,
+  hindsightAliases: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/aliases`,
+  hindsightAlias: (bank: string, alias: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/aliases/${encodeURIComponent(alias)}`,
+  hindsightWebhooks: (bank: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/webhooks`,
+  hindsightWebhook: (bank: string, webhookId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/webhooks/${encodeURIComponent(webhookId)}`,
+  hindsightWebhookDeliveries: (bank: string, webhookId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/webhooks/${encodeURIComponent(webhookId)}/deliveries`,
+  hindsightWebhookTest: (bank: string, webhookId: string) =>
+    `${restAPIv1}/hindsight/banks/${encodeURIComponent(bank)}/webhooks/${encodeURIComponent(webhookId)}/test`,
+  hindsightWorker: `${restAPIv1}/hindsight/worker`,
+  hindsightWorkerStart: `${restAPIv1}/hindsight/worker/start`,
+  hindsightMaintenance: `${restAPIv1}/hindsight/maintenance`,
 
   // data pipeline
   fetchDataflow: (id: string) => `${webAPI}/dataflow/get/${id}`,

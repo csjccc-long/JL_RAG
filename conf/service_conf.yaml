@@ -140,4 +140,35 @@ user_default_llm:
 
 #  secret_id: 'tencent_secret_id'
 #  secret_key: 'tencent_secret_key'
-#  region: 'tencent_region'
+
+# 双记忆路由（memory router）
+#   work → 内置 Hindsight 引擎（源码级移植，按项目分库 work-<sha1(项目路径)[:12]>）
+#   chat → 自托管 Mem0（HTTP；base_url 为空时召回为空、写入静默跳过）
+#   off  → 不注入也不写回（RAGFlow 原有记忆库与 Memory 页面不受影响）
+# 判定顺序：请求 memory_mode > 助理 prompt_config.memory_mode > 此处 default_mode
+# auto：一律按 chat（免费）；work 会用当前租户的对话/嵌入模型抽事实，逐轮有 token 成本，
+#       因此只能显式选择（助理设置或输入框「记忆」芯片），auto 永远不会选中它。
+memory:
+  default_mode: auto
+  prompt_chars: 900          # 注入提示词的记忆块上限（字符）
+  recall_limit: 5
+  mem0:
+    base_url: ""             # 例：http://127.0.0.1:8888
+    api_key: ""
+    timeout: 6
+    top_k: 5
+    infer: true
+  # work 模式的引擎配置：记忆存本地 SQLite，事实抽取/巩固/反思用租户自己的模型。
+  hindsight:
+    db_path: ""              # 空 = ~/.ragflow/memory/hindsight.db
+    project: ""              # 空 = 服务器进程 cwd；决定 work 库名
+    bank_prefix: work        # work 库名 = <prefix>-<sha1(project)[:12]>
+    bank: ragflow            # /hindsight 控制台默认打开的共享库（不影响 work 库）
+    budget: mid              # low | mid | high
+    max_tokens: 1600
+    top_k: 5
+    async: true              # 写入异步执行，不阻塞回答
+    tags: ""                 # 逗号分隔，召回/写入时附加的标签
+    prefer_observations: true
+    defense: false           # 拦截疑似密钥/卡号等敏感事实
+    consolidate_after: 12    # 累计多少条新事实后自动跑一轮巩固

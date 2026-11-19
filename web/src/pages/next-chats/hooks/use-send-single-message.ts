@@ -7,6 +7,7 @@ import {
 } from '@/hooks/logic-hooks';
 import { useGetChatSearchParams } from '@/hooks/use-chat-request';
 import { IMessage } from '@/interfaces/database/chat';
+import { resolveChatMemoryMode } from '@/stores/chat-memory-mode';
 import api from '@/utils/api';
 import { trim } from 'lodash';
 import { useCallback, useEffect } from 'react';
@@ -69,6 +70,7 @@ export function useSendSingleMessage({
       messages?: IMessage[];
     } & NextMessageInputOnPressEnterParameter) => {
       const sessionId = currentConversationId ?? conversationId;
+      const memoryMode = resolveChatMemoryMode(sessionId);
       const res = await send(
         api.completionUrl,
         {
@@ -86,6 +88,8 @@ export function useSendSingleMessage({
           ...(storeHistoryMessages === undefined
             ? {}
             : { store_history_messages: storeHistoryMessages }),
+          // "auto" stays off the wire so the assistant setting still applies.
+          ...(memoryMode === 'auto' ? {} : { memory_mode: memoryMode }),
           pass_all_history_messages: true,
         },
         controller,

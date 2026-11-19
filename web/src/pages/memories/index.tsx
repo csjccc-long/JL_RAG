@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { RAGFlowPagination } from "@/components/ui/ragflow-pagination";
 import { useTranslate } from "@/hooks/common-hooks";
 import { useGoToPreviousPageOnEmpty } from "@/hooks/logic-hooks";
+import { Routes } from "@/routes";
 import { pick } from "lodash";
-import { Plus } from "lucide-react";
+import { BrainCircuit, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useTranslation } from "react-i18next";
+import { useNavigate, useSearchParams } from "react-router";
 import { AddOrEditModal } from "./add-or-edit-modal";
 import { defaultMemoryFields } from "./constants";
 import { useFetchMemoryList, useRenameMemory, useSelectFilters } from "./hooks";
@@ -19,6 +21,8 @@ import { MemoryCard } from "./memory-card";
 export default function MemoryList() {
   // const { data } = useFetchFlowList();
   const { t } = useTranslate("memories");
+  const { t: tHindsight } = useTranslation();
+  const navigate = useNavigate();
   const [addOrEditType, setAddOrEditType] = useState<"add" | "edit">("add");
   // const [isEdit, setIsEdit] = useState(false);
   const {
@@ -88,6 +92,10 @@ export default function MemoryList() {
               onChange={handleFilterSubmit}
               value={filterValue}
             >
+              <Button variant="outline" onClick={() => navigate(Routes.Hindsight)}>
+                <BrainCircuit className="size-[1em]" />
+                {tHindsight("hindsight.enterConsole")}
+              </Button>
               <Button onClick={() => openCreateModalFun()}>
                 <Plus className="size-[1em]" />
                 {t("createMemory")}

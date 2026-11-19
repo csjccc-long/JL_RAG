@@ -52,6 +52,7 @@ export function ChatSettings({ hasSingleChatBox }: ChatSettingsProps) {
         keyword: false,
         tts: false,
         refine_multiturn: true,
+        memory_mode: 'auto',
         system: '',
         parameters: [],
         reasoning: false,

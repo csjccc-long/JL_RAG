@@ -17,6 +17,7 @@ import {
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { MemoryModeFormField } from '@/components/memory-mode-form-field';
 import { WebSearchFormField } from '@/components/web-search-form-field';
 import { useFetchKnowledgeMetadataKeys } from '@/hooks/use-knowledge-request';
 import { prefixName } from '@/utils/form';
@@ -91,6 +92,7 @@ export function ChatPromptEngine({ prefix = '' }: ChatPromptEngineProps) {
   return (
     <Collapse title={t('flow.advancedSettings')}>
       <div className="space-y-8">
+        <MemoryModeFormField prefix={prefix} />
         <FormField
           control={form.control}
           name={prefixName(prefix, 'prompt_config.empty_response')}

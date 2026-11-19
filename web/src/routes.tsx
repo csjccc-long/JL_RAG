@@ -46,9 +46,11 @@ export enum Routes {
   Agent = '/agent',
   AgentTemplates = '/agent-templates',
   Agents = '/agents',
+  AgentTeam = '/agent-team',
   Explore = '/explore',
   AgentExplore = `${Routes.Agent}/:id/explore`,
   Memories = '/memories',
+  Hindsight = '/hindsight',
   Memory = '/memory',
   MemoryMessage = '/memory-message',
   MemorySetting = '/memory-setting',
@@ -255,6 +257,10 @@ const routeConfigOptions = [
         Component: () => import('@/pages/agents'),
       },
       {
+        path: Routes.AgentTeam,
+        Component: () => import('@/pages/agent-team'),
+      },
+      {
         path: Routes.AgentTemplates,
         layout: false,
         Component: () => import('@/pages/agents/agent-templates'),
@@ -262,6 +268,10 @@ const routeConfigOptions = [
       {
         path: Routes.Memories,
         Component: () => import('@/pages/memories'),
+      },
+      {
+        path: Routes.Hindsight,
+        Component: () => import('@/pages/hindsight'),
       },
       {
         path: `${Routes.Memory}`,

@@ -55,6 +55,8 @@ from api.utils.pagination_utils import validate_rest_api_ids, validate_rest_api_
 from common.constants import LLMType, RetCode, StatusEnum
 from common import settings
 from common.misc_utils import get_uuid, thread_pool_exec
+from memory.config import MODE_OFF
+from memory.router import get_memory_router
 from rag.prompts.generator import chunks_format
 from rag.prompts.template import load_prompt
 
@@ -1604,6 +1606,38 @@ async def session_completion(chat_id_in_arg=""):
         req.pop("messages", None)
         req.pop("question", None)
 
+        memory_router = get_memory_router()
+        memory_mode = memory_router.resolve_mode(explicit=req.pop("memory_mode", ""), dialog=dia)
+        memory_namespace = memory_router.namespace_for(mode=memory_mode, dialog=dia, user_id=current_user.id)
+        memory_user_text = (request_msg[-1].get("content") or "") if request_msg else ""
+        if not isinstance(memory_user_text, str):
+            memory_user_text = json.dumps(memory_user_text, ensure_ascii=False)
+
+        memory_context = ""
+        if memory_mode != MODE_OFF and store_history_messages and memory_user_text:
+            memory_context = await memory_router.context_block(
+                mode=memory_mode,
+                namespace=memory_namespace,
+                query=memory_user_text,
+                tenant_id=current_user.id,
+            )
+        req["memory_context"] = memory_context
+
+        def _remember_turn(answer_text: str) -> None:
+            """Persist the finished turn in the background (fire and forget)."""
+            if memory_mode == MODE_OFF or not store_history_messages:
+                return
+            if not (answer_text or "").strip() or not memory_user_text:
+                return
+            memory_router.remember(
+                mode=memory_mode,
+                namespace=memory_namespace,
+                user_text=memory_user_text,
+                assistant_text=answer_text,
+                session_id=session_id,
+                metadata={"chat_id": chat_id, "source": "ragflow", "tenant_id": current_user.id},
+            )
+
         if conv is not None:
             if not conv.reference:
                 conv.reference = []
@@ -1640,6 +1674,8 @@ async def session_completion(chat_id_in_arg=""):
         async def stream():
             """Yield SSE-formatted chunks from the async chat generator."""
             nonlocal dia, msg, req, conv
+            turn_answer: list[str] = []
+            in_think = False
             try:
                 if legacy:
                     #v0.23.0 风格的流式输出：发送累积的回答文本，并根据较新的 start_to_think/end_to_think 事件重建原始的 <think>...</think> 标记。
@@ -1651,6 +1687,7 @@ async def session_completion(chat_id_in_arg=""):
                             final_answer = ans
                             continue
                         if ans.get("start_to_think"):
+                            in_think = True
                             legacy_answer += "<think>"
                             legacy_chunk = {**ans, "answer": legacy_answer}
                             legacy_chunk.pop("start_to_think", None)
@@ -1659,6 +1696,7 @@ async def session_completion(chat_id_in_arg=""):
                             yield "data:" + json.dumps(payload, ensure_ascii=False) + "\n\n"
                             continue
                         if ans.get("end_to_think"):
+                            in_think = False
                             legacy_answer += "</think>"
                             legacy_chunk = {**ans, "answer": legacy_answer}
                             legacy_chunk.pop("start_to_think", None)
@@ -1670,6 +1708,8 @@ async def session_completion(chat_id_in_arg=""):
                         if not delta:
                             continue
                         legacy_answer += delta
+                        if not in_think:
+                            turn_answer.append(delta)
                         legacy_chunk = {**ans, "answer": legacy_answer}
                         legacy_chunk.pop("start_to_think", None)
                         legacy_chunk.pop("end_to_think", None)
@@ -1684,10 +1724,17 @@ async def session_completion(chat_id_in_arg=""):
                 else:
                     async for ans in rag_agent(dia, msg, True, session_id=session_id, **req):
                         ans = _format_answer(ans)
+                        if ans.get("start_to_think"):
+                            in_think = True
+                        elif ans.get("end_to_think"):
+                            in_think = False
+                        elif not ans.get("final") and not in_think:
+                            turn_answer.append(ans.get("answer") or "")
                         payload = _sanitize_json_floats({"code": 0, "message": "", "data": ans})
                         yield "data:" + json.dumps(payload, ensure_ascii=False) + "\n\n"
                 if conv is not None and store_history_messages:
                     await thread_pool_exec(ConversationService.update_by_id, conv.id, conv.to_dict())
+                _remember_turn("".join(turn_answer))
             except Exception as ex:
                 logging.exception(ex)
                 yield "data:" + json.dumps({"code": 500, "message": str(ex), "data": {"answer": "**ERROR**: " + str(ex), "reference": []}}, ensure_ascii=False) + "\n\n"
@@ -1707,6 +1754,7 @@ async def session_completion(chat_id_in_arg=""):
             if conv is not None and store_history_messages:
                 await thread_pool_exec(ConversationService.update_by_id, conv.id, conv.to_dict())
             break
+        _remember_turn((answer or {}).get("answer") or "")
         return get_json_result(data=_sanitize_json_floats(answer))
     except Exception as ex:
         return server_error_response(ex)
