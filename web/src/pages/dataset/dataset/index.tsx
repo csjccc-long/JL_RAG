@@ -41,6 +41,8 @@ export default function Dataset() {
     showDocumentUploadModal,
     onDocumentUploadOk,
     documentUploadLoading,
+    uploadProgresses,
+    uploadCompleted,
   } = useHandleUploadDocument();
   const { knowledgeBase } = useKnowledgeBaseContext();
   const {
@@ -205,6 +207,8 @@ export default function Dataset() {
             loading={documentUploadLoading}
             showParseOnCreation
             isTableParser={knowledgeBase?.chunk_method === 'table'}
+            progresses={uploadProgresses}
+            completed={uploadCompleted}
           ></FileUploadDialog>
         )}
         {createVisible && (

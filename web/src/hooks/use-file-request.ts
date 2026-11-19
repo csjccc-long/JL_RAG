@@ -29,6 +29,7 @@ import fileManagerService from '@/services/file-manager-service';
 import api from '@/utils/api';
 import { downloadFileFromBlob } from '@/utils/file-util';
 import request from '@/utils/request';
+import { postFormWithProgress } from '@/utils/upload-with-progress';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from 'ahooks';
 import { useCallback } from 'react';
@@ -74,34 +75,59 @@ export const useUploadFile = () => {
     mutationFn: async (params: {
       fileList: UploadFileInput[];
       parentId: string;
+      /** called per file, 0..100, as its bytes leave the browser */
+      onProgress?: (fileName: string, percent: number) => void;
     }) => {
-      const fileList = params.fileList;
-      const pathList = params.fileList.map((file) =>
-        file instanceof File ? (file as any).webkitRelativePath : file.path,
-      );
-      const formData = new FormData();
-      formData.append('parent_id', params.parentId);
-      fileList.forEach((item: UploadFileInput, index: number) => {
+      // One request per file: a batch is a single body, so it can only report
+      // one progress figure for all of them, and the tray wants one per file.
+      let code: number | undefined = 0;
+      let failed = false;
+
+      for (const item of params.fileList) {
         const file = item instanceof File ? item : item.file;
+        const path = item instanceof File ? (item as any).webkitRelativePath : '';
+        const formData = new FormData();
+        formData.append('parent_id', params.parentId);
         // Explicitly set filename to file.name (base name) to prevent the
         // browser from using webkitRelativePath (e.g. "folder/file.txt")
         // which would cause the backend to create an extra folder.
         formData.append('file', file, file.name);
-        formData.append('path', pathList[index]);
-      });
-      try {
-        const ret = await fileManagerService.uploadFile(formData);
-        if (ret?.data.code === 0) {
-          message.success(t('message.uploaded'));
-          setPaginationParams(1);
-          queryClient.invalidateQueries({
-            queryKey: [FileApiAction.FetchFileList],
+        formData.append('path', path ?? '');
+
+        // claim the box for this file before its first byte leaves, so the
+        // next row takes over the instant the previous one ticks
+        params.onProgress?.(file.name, 0);
+
+        try {
+          const body = await postFormWithProgress({
+            url: api.uploadFile,
+            formData,
+            onProgress: (percent) => params.onProgress?.(file.name, percent),
           });
+          code = body.code;
+          if (body.code !== 0) {
+            message.error(body.message ?? '');
+            failed = true;
+            break;
+          }
+        } catch (error) {
+          message.error((error as Error).message);
+          failed = true;
+          code = undefined;
+          break;
         }
-        return ret?.data?.code;
-      } catch {
-        return;
       }
+
+      setPaginationParams(1);
+      queryClient.invalidateQueries({
+        queryKey: [FileApiAction.FetchFileList],
+      });
+
+      if (!failed) {
+        message.success(t('message.uploaded'));
+      }
+
+      return code;
     },
   });
 

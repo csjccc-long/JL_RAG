@@ -41,10 +41,10 @@ import kbService, {
   documentFilter,
   listDocument,
   renameDocument,
-  uploadDocument,
 } from '@/services/knowledge-service';
 import { restAPIv1 } from '@/utils/api';
 import { buildChunkHighlights } from '@/utils/document-util';
+import { postFormWithProgress } from '@/utils/upload-with-progress';
 import {
   keepPreviousData,
   useMutation,
@@ -128,44 +128,80 @@ export const useUploadDocument = () => {
   } = useMutation<
     ResponseType<IDocumentInfo[]>,
     Error,
-    { fileList: File[]; parserConfig?: Record<string, any> }
+    {
+      fileList: File[];
+      parserConfig?: Record<string, any>;
+      onProgress?: (fileName: string, percent: number) => void;
+    }
   >({
     mutationKey: [DocumentApiAction.UploadDocument],
-    mutationFn: async ({ fileList, parserConfig }) => {
+    mutationFn: async ({ fileList, parserConfig, onProgress }) => {
       if (!id) {
-        return { code: 500, message: 'Dataset ID is required' };
-      }
-      const formData = new FormData();
-      fileList.forEach((file: any) => {
-        formData.append('file', file);
-      });
-      if (parserConfig) {
-        formData.append('parser_config', JSON.stringify(parserConfig));
-      }
-
-      try {
-        const ret = await uploadDocument(id, formData);
-        const code = get(ret, 'code');
-
-        if (code === 0 || code === 500) {
-          queryClient.invalidateQueries({
-            queryKey: [DocumentApiAction.FetchDocumentList],
-          });
-        }
-        return ret;
-      } catch (error) {
-        console.warn(error);
         return {
           code: 500,
-          message: error + '',
+          message: 'Dataset ID is required',
+          data: [],
+          status: 500,
         };
       }
+
+      // One request per file, so the tray can follow each one on its own; the
+      // batch version reported a single figure for the whole body.
+      const uploaded: IDocumentInfo[] = [];
+      const failures: string[] = [];
+
+      for (const file of fileList) {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (parserConfig) {
+          formData.append('parser_config', JSON.stringify(parserConfig));
+        }
+
+        // claim the box for this file before its first byte leaves, so the
+        // next row takes over the instant the previous one ticks
+        onProgress?.(file.name, 0);
+
+        try {
+          const body = await postFormWithProgress<IDocumentInfo[]>({
+            url: restAPIv1 + '/datasets/' + id + '/documents',
+            formData,
+            onProgress: (percent) => onProgress?.(file.name, percent),
+          });
+          if (body.code === 0) {
+            uploaded.push(...(body.data ?? []));
+          } else {
+            failures.push(body.message || file.name);
+          }
+        } catch (error) {
+          console.warn(error);
+          failures.push((error as Error).message || file.name);
+        }
+      }
+
+      const code = failures.length === 0 ? 0 : 500;
+      if (code === 0 || code === 500) {
+        queryClient.invalidateQueries({
+          queryKey: [DocumentApiAction.FetchDocumentList],
+        });
+      }
+
+      const result: ResponseType<IDocumentInfo[]> = {
+        code,
+        message: failures.join('\n'),
+        data: uploaded,
+        status: code === 0 ? 200 : 500,
+      };
+
+      return result;
     },
   });
 
   const upload = useCallback(
-    (fileList: File[], parserConfig?: Record<string, any>) =>
-      mutateAsync({ fileList, parserConfig }),
+    (
+      fileList: File[],
+      parserConfig?: Record<string, any>,
+      onProgress?: (fileName: string, percent: number) => void,
+    ) => mutateAsync({ fileList, parserConfig, onProgress }),
     [mutateAsync],
   );
 

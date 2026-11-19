@@ -68,6 +68,8 @@ export default function Files() {
     showFileUploadModal,
     fileUploadLoading,
     onFileUploadOk,
+    uploadProgresses,
+    uploadCompleted,
   } = useHandleUploadFile();
 
   const {
@@ -224,6 +226,8 @@ export default function Files() {
           hideModal={hideFileUploadModal}
           onOk={onFileUploadOk}
           loading={fileUploadLoading}
+          progresses={uploadProgresses}
+          completed={uploadCompleted}
         ></FileUploadDialog>
       )}
       {folderCreateModalVisible && (

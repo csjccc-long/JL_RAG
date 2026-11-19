@@ -91,11 +91,15 @@ type UploadFormProps = {
   submit: (values?: UploadFormSchemaType) => void;
   showParseOnCreation?: boolean;
   isTableParser?: boolean;
+  progresses?: Record<string, number>;
+  completed?: Record<string, boolean>;
 };
 function UploadForm({
   submit,
   showParseOnCreation,
   isTableParser,
+  progresses,
+  completed,
 }: UploadFormProps) {
   const { t } = useTranslation();
   const FormSchema = buildUploadFormSchema(t);
@@ -194,6 +198,8 @@ function UploadForm({
                 handleFilesChange(files);
               }}
               accept={{}}
+              progresses={progresses}
+              completed={completed}
               data-testid="dataset-upload-dropzone"
             />
           )}
@@ -276,13 +282,18 @@ function UploadForm({
 }
 
 type FileUploadDialogProps = IModalProps<UploadFormSchemaType> &
-  Pick<UploadFormProps, 'showParseOnCreation' | 'isTableParser'>;
+  Pick<
+    UploadFormProps,
+    'showParseOnCreation' | 'isTableParser' | 'progresses' | 'completed'
+  >;
 export function FileUploadDialog({
   hideModal,
   onOk,
   loading,
   showParseOnCreation = false,
   isTableParser = false,
+  progresses,
+  completed,
 }: FileUploadDialogProps) {
   const { t } = useTranslation();
 
@@ -299,6 +310,8 @@ export function FileUploadDialog({
           submit={onOk!}
           showParseOnCreation={showParseOnCreation}
           isTableParser={isTableParser}
+          progresses={progresses}
+          completed={completed}
         />
         <DialogFooter>
           <ButtonLoading type="submit" loading={loading} form={UploadFormId}>

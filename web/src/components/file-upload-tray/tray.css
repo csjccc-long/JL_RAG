@@ -1,0 +1,633 @@
+/* Upload tray: a box that swallows a file, a shelf that keeps it. */
+
+.upl {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+/* ---------- the stage keeps the box's slot steady ---------- */
+
+.upl-stage {
+  display: grid;
+  width: 100%;
+  /* the slot shrinks with the busy box and grows back when the box opens
+     out again: a floor of 13rem kept a 76px upload row floating in a
+     full-height hole long after the file had landed */
+  min-height: 6rem;
+  place-items: center;
+  transition: height 0.34s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+/* ---------- the box ---------- */
+
+.upl-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 13rem;
+  padding: 22px 20px;
+  overflow: hidden;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-component);
+  border: 1px solid transparent;
+  border-radius: 14px;
+  outline: none;
+  transition:
+    width 0.34s cubic-bezier(0.2, 0.9, 0.25, 1),
+    height 0.34s cubic-bezier(0.2, 0.9, 0.25, 1),
+    padding 0.28s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+.upl-box:hover {
+  background: var(--bg-card);
+}
+
+.upl-box:focus-visible {
+  border-color: rgb(var(--accent-primary));
+}
+
+.upl-box[data-disabled='true'] {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* the box inhales: the file carried over it is answered before it is let go */
+.upl-box[data-drag='true'] {
+  background: rgb(var(--accent-primary) / 0.08);
+  border-color: rgb(var(--accent-primary) / 0.55);
+  transform: scale(1.012);
+}
+
+.upl-box[data-drag='true'] .upl-icon {
+  transform: translateY(-3px);
+}
+
+/* it works: the row replaces everything the idle box says */
+.upl-box[data-busy='true'] {
+  min-height: 0;
+  padding: 14px 16px;
+  cursor: default;
+  background: var(--bg-card);
+}
+
+.upl-box[data-compact='true'] {
+  gap: 6px;
+  min-height: 0;
+  padding: 16px 20px;
+}
+
+.upl-box[data-compact='true'] .upl-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.upl-box[data-compact='true'] .upl-desc {
+  display: none;
+}
+
+.upl-box[data-gulp='true'] {
+  animation: upl-gulp 0.46s cubic-bezier(0.3, 1.4, 0.4, 1) both;
+}
+
+.upl-box[data-shake='true'] {
+  animation: upl-shake 0.48s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.upl-box[data-intaking='true']::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: '';
+  background: linear-gradient(
+    180deg,
+    rgb(var(--accent-primary) / 0.16),
+    rgb(var(--accent-primary) / 0) 72%
+  );
+  border-radius: inherit;
+  animation: upl-sweep 0.72s ease-out forwards;
+}
+
+.upl-icon {
+  width: 30px;
+  height: 30px;
+  color: rgb(var(--text-secondary));
+  transition:
+    color 0.18s ease,
+    transform 0.24s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+.upl-box:hover .upl-icon {
+  color: rgb(var(--text-primary));
+}
+
+.upl-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: rgb(var(--text-primary));
+}
+
+.upl-desc {
+  max-width: 34rem;
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: rgb(var(--text-secondary) / 0.9);
+}
+
+.upl-hint {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: rgb(var(--text-secondary));
+  background: rgb(var(--text-secondary) / 0.08);
+  border-radius: 999px;
+}
+
+/* the refusal lives in the box, where the file was let go */
+.upl-refuse {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: rgb(var(--state-error));
+  animation: upl-in 0.22s ease-out both;
+}
+
+/* ---------- the row the box holds while it works ---------- */
+
+.upl-now {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  animation: upl-in 0.22s ease-out both;
+}
+
+.upl-now-text {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 9rem;
+  max-width: 17rem;
+  text-align: left;
+}
+
+.upl-now-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: rgb(var(--text-primary));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upl-now-meta {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 11px;
+  line-height: 16px;
+  color: rgb(var(--text-secondary));
+}
+
+.upl-track {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  background: rgb(var(--text-secondary) / 0.18);
+  border-radius: 999px;
+}
+
+.upl-track > i {
+  display: block;
+  height: 100%;
+  background: rgb(var(--accent-primary));
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.upl-end {
+  display: grid;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+}
+
+.upl-tick {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  color: rgb(var(--state-success));
+  background: rgb(var(--state-success) / 0.14);
+  border-radius: 50%;
+  animation: upl-pop 0.28s ease-out both;
+}
+
+/* the odometer: one column per digit, a strip inside each */
+.upl-roll {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 16px;
+  color: rgb(var(--text-primary));
+}
+
+.upl-roll-col {
+  display: inline-block;
+  height: 16px;
+  overflow: hidden;
+}
+
+.upl-roll-strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.42s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+.upl-roll-strip > span {
+  display: block;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.upl-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- the shelf ---------- */
+
+.upl-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upl-tray-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+  font-size: 12px;
+  color: rgb(var(--text-secondary));
+}
+
+.upl-tray-actions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.upl-clear,
+.upl-sound {
+  padding: 0;
+  font-size: 12px;
+  color: rgb(var(--text-secondary));
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.upl-sound {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 5px;
+}
+
+.upl-clear:hover,
+.upl-sound:hover {
+  color: rgb(var(--accent-primary));
+}
+
+.upl-sound[aria-pressed='false'] {
+  color: rgb(var(--text-secondary) / 0.6);
+}
+
+.upl-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 11.5rem;
+  padding: 0 2px 2px 0;
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.upl-card {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 10px;
+  background: var(--bg-component);
+  border: 1px solid var(--border-button);
+  border-radius: 10px;
+  animation: upl-card 0.28s ease-out both;
+  transition:
+    border-color 0.16s ease,
+    background 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.upl-card:hover {
+  border-color: var(--border-default);
+}
+
+/* its file is in the box right now */
+.upl-card[data-state='lifting'] {
+  opacity: 0.35;
+}
+
+/* its file came back with a tick */
+.upl-card[data-state='done'] {
+  background: rgb(var(--state-success) / 0.06);
+  border-color: rgb(var(--state-success) / 0.4);
+}
+
+.upl-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.upl-card-name {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 17px;
+  color: rgb(var(--text-primary));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upl-card-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: rgb(var(--text-secondary));
+}
+
+/* a page with a folded corner; the fill is the file's colour */
+.upl-page {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  width: 34px;
+  height: 42px;
+  place-items: end center;
+  padding-bottom: 5px;
+  background: rgb(var(--upl-tone) / 0.12);
+  border: 1px solid rgb(var(--upl-tone) / 0.32);
+  border-radius: 5px;
+}
+
+.upl-page::before {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  content: '';
+  background: var(--bg-component);
+  border-bottom: 1px solid rgb(var(--upl-tone) / 0.32);
+  border-left: 1px solid rgb(var(--upl-tone) / 0.32);
+  border-bottom-left-radius: 3px;
+}
+
+.upl-ext {
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: rgb(var(--upl-tone));
+  letter-spacing: 0.02em;
+}
+
+.upl-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  width: 15px;
+  height: 15px;
+  place-items: center;
+  color: rgb(var(--state-success));
+  background: var(--bg-component);
+  border-radius: 50%;
+  animation: upl-pop 0.3s ease-out both;
+}
+
+.upl-remove {
+  display: grid;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  color: rgb(var(--text-secondary));
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  opacity: 0;
+  transition:
+    opacity 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.upl-card:hover .upl-remove,
+.upl-card:focus-within .upl-remove {
+  opacity: 1;
+}
+
+.upl-remove:hover {
+  color: rgb(var(--state-error));
+  background: rgb(var(--state-error) / 0.1);
+}
+
+/* the card in flight: a fixed copy of the tile on its way into the box */
+.upl-ghost {
+  /* it is a clone of a tray <li> parked on <body>: without this the body's
+     list marker prints a stray bullet beside the flying card */
+  list-style: none;
+  position: fixed;
+  z-index: 9999;
+  margin: 0;
+  pointer-events: none;
+  transform-origin: center center;
+}
+
+/* ---------- tones ---------- */
+
+.upl-tone-doc {
+  --upl-tone: 47 107 214;
+}
+.upl-tone-pdf {
+  --upl-tone: 216 73 75;
+}
+.upl-tone-sheet {
+  --upl-tone: 33 150 83;
+}
+.upl-tone-slide {
+  --upl-tone: 214 108 44;
+}
+.upl-tone-text {
+  --upl-tone: 110 116 128;
+}
+.upl-tone-image {
+  --upl-tone: 155 89 214;
+}
+.upl-tone-video {
+  --upl-tone: 176 66 176;
+}
+.upl-tone-audio {
+  --upl-tone: 20 160 160;
+}
+.upl-tone-code {
+  --upl-tone: 90 92 214;
+}
+.upl-tone-archive {
+  --upl-tone: 130 100 60;
+}
+.upl-tone-generic {
+  --upl-tone: 140 144 152;
+}
+
+/* ---------- keyframes ---------- */
+
+@keyframes upl-gulp {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.965);
+  }
+  70% {
+    transform: scale(1.015);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes upl-shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes upl-sweep {
+  from {
+    opacity: 0;
+    transform: translateY(-60%);
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(60%);
+  }
+}
+
+@keyframes upl-card {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes upl-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes upl-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 520px) {
+  .upl-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upl-stage,
+  .upl-box,
+  .upl-box[data-shake='true'],
+  .upl-box[data-gulp='true'],
+  .upl-box[data-intaking='true']::after,
+  .upl-card,
+  .upl-badge,
+  .upl-tick,
+  .upl-refuse,
+  .upl-now,
+  .upl-roll-strip {
+    animation: none !important;
+    transition: none !important;
+  }
+}

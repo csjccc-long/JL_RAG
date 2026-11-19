@@ -5,7 +5,11 @@ import {
   useUploadDocument,
 } from '@/hooks/use-document-request';
 import { getUnSupportedFilesCount } from '@/utils/document-util';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
+
+/* The upload is over the moment 100% is reported; hold the dialog open a
+   beat so the tick is actually seen landing on the file, then close. */
+const SETTLE_MS = 900;
 
 export const useHandleUploadDocument = () => {
   const {
@@ -15,6 +19,20 @@ export const useHandleUploadDocument = () => {
   } = useSetModalState();
   const { uploadDocument, loading } = useUploadDocument();
   const { runDocumentByIds } = useRunDocument();
+  const [progresses, setProgresses] = useState<Record<string, number>>({});
+  const [completed, setCompleted] = useState<Record<string, boolean>>({});
+
+  const trackProgress = useCallback((name: string, percent: number) => {
+    setProgresses((prev) => ({ ...prev, [name]: percent }));
+    if (percent >= 100) {
+      setCompleted((prev) => ({ ...prev, [name]: true }));
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setProgresses({});
+    setCompleted({});
+  }, []);
 
   const onDocumentUploadOk = useCallback(
     async ({
@@ -37,7 +55,13 @@ export const useHandleUploadDocument = () => {
           };
         }
 
-        const ret = await uploadDocument(fileList as File[], parserConfig);
+        reset();
+
+        const ret = await uploadDocument(
+          fileList as File[],
+          parserConfig,
+          trackProgress,
+        );
 
         // Check for success (code === 0) or partial success (code === 500 with some files)
         const isSuccess = ret?.code === 0;
@@ -50,8 +74,8 @@ export const useHandleUploadDocument = () => {
         // Trigger parsing for both full and partial success when parseOnCreation is enabled
         if (
           (isSuccess || isPartialSuccess) &&
-          parseOnCreation &&
-          ret.data?.length > 0
+          ret.data?.length > 0 &&
+          parseOnCreation
         ) {
           runDocumentByIds({
             documentIds: ret.data.map((x: any) => x.id),
@@ -60,21 +84,31 @@ export const useHandleUploadDocument = () => {
         }
 
         if (isSuccess) {
+          await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
           hideDocumentUploadModal();
+          reset();
           return 0;
         }
 
         // For partial success (code 500), check if any files were uploaded
         const count = getUnSupportedFilesCount(ret?.message);
         if (count !== fileList.length) {
+          await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
           hideDocumentUploadModal();
+          reset();
           return 0;
         }
 
         return ret?.code;
       }
     },
-    [uploadDocument, runDocumentByIds, hideDocumentUploadModal],
+    [
+      uploadDocument,
+      runDocumentByIds,
+      hideDocumentUploadModal,
+      trackProgress,
+      reset,
+    ],
   );
 
   return {
@@ -83,5 +117,7 @@ export const useHandleUploadDocument = () => {
     documentUploadVisible,
     hideDocumentUploadModal,
     showDocumentUploadModal,
+    uploadProgresses: progresses,
+    uploadCompleted: completed,
   };
 };
