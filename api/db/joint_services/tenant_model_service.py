@@ -481,9 +481,10 @@ def get_model_type_by_name(tenant_id: str, model_name: str):
     provider_obj = TenantModelProviderService.get_by_tenant_id_and_provider_name(tenant_id, provider_name)
     if not provider_obj:
         raise LookupError(f"Provider {provider_name} not found for model {model_name}.")
-    instance_obj = TenantModelInstanceService.get_by_provider_id_and_instance_name(provider_obj.id, instance_name)
-    if not instance_obj:
-        raise LookupError(f"Instance {instance_name} not found for model {model_name}.")
+    # 与 resolve_model_config 走同一套实例解析：历史引用 "model@Factory" 省略了实例名，
+    # 此时 split_model_name 给出 "default"，应回落到该 provider 唯一的活动实例，
+    # 否则同一份模型引用在“取配置”能成功、在“取类型”却报 Instance default not found。
+    instance_obj = _resolve_instance_for_model(provider_obj, instance_name, model_name)
     model_obj = TenantModelService.get_by_provider_id_and_instance_id_and_model_name(provider_obj.id, instance_obj.id, pure_model_name)
     if not model_obj:
         raise LookupError(f"Model {model_name} not found.")

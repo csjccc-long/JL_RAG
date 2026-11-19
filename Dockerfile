@@ -34,7 +34,11 @@ RUN --mount=type=cache,id=ragflow_uv,target=/root/.cache/uv,sharing=locked \
     # the locked version avoids serving a half-broken cached copy.
     uv sync --python 3.13 --frozen --refresh-package litellm && \
     # Ensure pip is available in the venv for runtime package installation (fixes #12651)
-    .venv/bin/python3 -m ensurepip --upgrade
+    .venv/bin/python3 -m ensurepip --upgrade && \
+    # peewee's MySQL backend needs pymysql at runtime. pyproject.toml only
+    # mentions it as an optional package, so uv.lock does not carry it and
+    # the server dies with "MySQL driver not installed!" without this line.
+    .venv/bin/python3 -m pip install --no-cache-dir "pymysql>=1.1.1,<2.0.0"
 
 # Install frontend dependencies — depends only on package manifests so
 # web source / docs changes don't invalidate this layer.
