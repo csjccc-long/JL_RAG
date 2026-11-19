@@ -14,6 +14,7 @@
  *  limitations under the License.
  */
 
+import { MemoryCard, PARTICLE_SHAPES } from '@/components/memory-card';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -24,14 +25,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spin } from '@/components/ui/spin';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import {
   useDeleteMemory,
@@ -267,41 +260,23 @@ const MemoriesTab = ({ bank }: MemoriesTabProps) => {
           {isLoading ? (
             <Spin />
           ) : memories?.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('hindsight.memoryText')}</TableHead>
-                  <TableHead className="w-28">{t('hindsight.memoryType')}</TableHead>
-                  <TableHead className="w-40">{t('hindsight.memoryTime')}</TableHead>
-                  <TableHead className="w-20 text-right">
-                    {t('hindsight.actions')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {memories.map((memory) => (
-                  <TableRow key={memory.id}>
-                    <TableCell className="max-w-2xl whitespace-pre-wrap break-words">
-                      {memoryText(memory) || '-'}
-                    </TableCell>
-                    <TableCell>{memory.type || '-'}</TableCell>
-                    <TableCell>
-                      {formatTime(memory.mentioned_at || memory.created_at)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => remove.mutate(memory.id)}
-                        disabled={remove.isPending}
-                      >
-                        {t('hindsight.delete')}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {memories.map((memory, index) => (
+                <MemoryCard
+                  key={memory.id}
+                  heading={'记忆' + String(index + 1).padStart(2, '0')}
+                  title={memoryText(memory) || '-'}
+                  meta={String(
+                    formatTime(memory.mentioned_at || memory.created_at) || '',
+                  )}
+                  badge={String(memory.type || 'memory').toUpperCase()}
+                  shape={PARTICLE_SHAPES[index % PARTICLE_SHAPES.length]}
+                  removeLabel={t('hindsight.delete')}
+                  onRemove={() => remove.mutate(memory.id)}
+                  removePending={remove.isPending}
+                />
+              ))}
+            </div>
           ) : (
             <p className="text-sm text-text-secondary">{t('hindsight.empty')}</p>
           )}

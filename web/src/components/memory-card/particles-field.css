@@ -1,0 +1,14 @@
+/* The field always fills whatever card hosts it. */
+
+.pfield {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.pfield canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: manipulation;
+}

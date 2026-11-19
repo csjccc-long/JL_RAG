@@ -1,0 +1,88 @@
+/* Memory tile on the memories page: the dot field is the artwork. */
+
+.mmem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 220px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 92% at 50% 0%, rgb(var(--accent-primary) / 0.1), transparent 62%),
+    #0e0f11;
+  box-shadow: 0 12px 30px -22px rgb(0 0 0 / 0.9);
+  cursor: pointer;
+  outline: none;
+  isolation: isolate;
+  transition:
+    transform 0.35s cubic-bezier(0.2, 0.7, 0.3, 1),
+    box-shadow 0.35s ease;
+}
+
+.mmem:hover,
+.mmem:focus-visible,
+.mmem:focus-within {
+  z-index: 20;
+  transform: translateY(-3px);
+  box-shadow:
+    0 28px 52px -28px rgb(0 0 0 / 0.95),
+    0 0 0 1px rgb(var(--accent-primary) / 0.18);
+}
+
+.mmem .pfield canvas {
+  cursor: pointer;
+  color: color-mix(in srgb, rgb(var(--accent-primary)) 76%, rgb(var(--state-success)));
+}
+
+.mmem-foot {
+  position: relative;
+  z-index: 1;
+  padding: 34px 14px 12px;
+  background: linear-gradient(180deg, transparent, rgb(8 9 11 / 0.72) 46%, rgb(8 9 11 / 0.92));
+  pointer-events: none;
+}
+
+.mmem-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.mmem-led {
+  height: 6px;
+  width: 6px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: #3ed9a0;
+  box-shadow: 0 0 9px #3ed9a0;
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.mmem:hover .mmem-led {
+  background: #78ffca;
+  box-shadow: 0 0 16px #78ffca;
+}
+
+.mmem-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mmem {
+    transition: none;
+  }
+}
