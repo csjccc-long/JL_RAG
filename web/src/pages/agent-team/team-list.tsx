@@ -1,9 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { IFlow } from '@/interfaces/database/agent';
+import TeamCard from './team-card';
 import { IAgentTeamSummary } from './utils/extract-teams';
 
 interface TeamListProps {
@@ -12,72 +11,16 @@ interface TeamListProps {
   selectedKey?: string;
   onSelect: (team: IAgentTeamSummary, key: string) => void;
   onOpenCanvas: (team: IAgentTeamSummary) => void;
+  /** the agents that already exist, offered as a team's crew */
+  roster: IFlow[];
+  onAssign: (team: IAgentTeamSummary, workerIds: string[]) => void;
+  assigningKey?: string;
+  assignFailedKey?: string;
+  assignFailure?: string;
 }
 
 export const teamKey = (team: IAgentTeamSummary) =>
   `${team.agentId}:${team.componentId}`;
-
-const TeamCard = ({
-  team,
-  active,
-  onSelect,
-  onOpenCanvas,
-}: {
-  team: IAgentTeamSummary;
-  active: boolean;
-  onSelect: (team: IAgentTeamSummary, key: string) => void;
-  onOpenCanvas: (team: IAgentTeamSummary) => void;
-}) => {
-  const { t } = useTranslation();
-
-  const handleSelect = useCallback(() => {
-    onSelect(team, teamKey(team));
-  }, [onSelect, team]);
-
-  const handleOpenCanvas = useCallback(
-    (event: React.MouseEvent) => {
-      event.stopPropagation();
-      onOpenCanvas(team);
-    },
-    [onOpenCanvas, team],
-  );
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={handleSelect}
-      onKeyDown={handleSelect}
-      className={cn(
-        'flex cursor-pointer flex-col gap-2 rounded-lg border border-border-button bg-bg-card p-3 transition-colors hover:bg-bg-base',
-        active && 'border-text-primary/40 bg-bg-base',
-      )}
-    >
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <span
-          className="min-w-0 flex-1 truncate text-sm font-medium text-text-primary"
-          title={team.agentTitle}
-        >
-          {team.agentTitle}
-        </span>
-        <Badge variant="secondary" className="shrink-0 whitespace-nowrap">
-          {t(`flow.agentTeam.process.${team.process}.label`)}
-        </Badge>
-      </div>
-      <div className="flex items-center gap-3 text-xs text-text-secondary">
-        <span>
-          {t('flow.agentTeam.page.participants', { count: team.workers.length })}
-        </span>
-        <span>{t('flow.agentTeam.page.tasks', { count: team.tasks.length })}</span>
-      </div>
-      <div className="flex justify-end">
-        <Button variant="transparent" size="sm" onClick={handleOpenCanvas}>
-          {t('flow.agentTeam.page.viewCanvas')}
-        </Button>
-      </div>
-    </div>
-  );
-};
 
 const TeamList = ({
   teams,
@@ -85,8 +28,33 @@ const TeamList = ({
   selectedKey,
   onSelect,
   onOpenCanvas,
+  roster,
+  onAssign,
+  assigningKey,
+  assignFailedKey,
+  assignFailure,
 }: TeamListProps) => {
   const { t } = useTranslation();
+  // Which card is the one being pointed at. Every other card goes soft while it
+  // is, so the fan and the card it belongs to are the only sharp things left.
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  /* A team that was just created (or deep-linked into) may be below the fold;
+     selecting it should bring it into view rather than leave the board talking
+     about a card the user cannot see. */
+  useEffect(() => {
+    if (!selectedKey) return;
+    const card = listRef.current?.querySelector<HTMLElement>(
+      `[data-team-key="${selectedKey}"]`,
+    );
+    card?.scrollIntoView({ block: 'nearest' });
+  }, [selectedKey]);
+  const hoverHandlers = useCallback(
+    (key: string) => (hovered: boolean) =>
+      setHoveredKey((current) => (hovered ? key : current === key ? null : current)),
+    [],
+  );
 
   if (loading && teams.length === 0) {
     return (
@@ -108,17 +76,31 @@ const TeamList = ({
   }
 
   return (
-    <ScrollArea className="h-full">
-      <div className="flex flex-col gap-2 p-3">
-        {teams.map((team) => (
-          <TeamCard
-            key={teamKey(team)}
-            team={team}
-            active={teamKey(team) === selectedKey}
-            onSelect={onSelect}
-            onOpenCanvas={onOpenCanvas}
-          />
-        ))}
+    <ScrollArea className="h-full" viewportClassName="[&>div]:!block">
+      <div
+        ref={listRef}
+        className="flex w-full min-w-0 flex-col gap-2 p-3"
+      >
+        {teams.map((team) => {
+          const key = teamKey(team);
+          return (
+            <TeamCard
+              key={key}
+              team={team}
+              data-team-key={key}
+              active={key === selectedKey}
+              dimmed={hoveredKey !== null && hoveredKey !== key}
+              onSelect={onSelect}
+              onOpenCanvas={onOpenCanvas}
+              onHoverChange={hoverHandlers(key)}
+              teamKey={teamKey}
+              roster={roster}
+              onAssign={(workerIds) => onAssign(team, workerIds)}
+              assigning={assigningKey === key}
+              assignFailure={assignFailedKey === key ? assignFailure : undefined}
+            />
+          );
+        })}
       </div>
     </ScrollArea>
   );

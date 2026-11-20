@@ -222,6 +222,8 @@ export interface IAgentTeamAgentConfig {
 
 export interface IAgentTeamWorker {
   id: string;
+  /** set when this worker is an existing agent canvas, not an inline config */
+  agent_id?: string;
   name?: string;
   role?: string;
   capabilities?: string[];

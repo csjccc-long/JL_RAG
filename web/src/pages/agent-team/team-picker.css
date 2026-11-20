@@ -1,0 +1,293 @@
+/*
+ * Who is on this collaboration.
+ *
+ * At rest a pill holding the faces, overlapped into a stack so four people cost
+ * twenty-six pixels and not a hundred and four. Pressed, a list unfolds out of
+ * the pill's own corner — the agents that already exist, each with a box that
+ * is always drawn and a tick that arrives.
+ */
+.pk {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.pk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 8px 0 5px;
+  border: 1px solid color-mix(in srgb, rgb(var(--text-primary)) 11%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, rgb(var(--text-primary)) 5%, transparent);
+  color: rgb(var(--text-secondary));
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.pk-pill:hover,
+.pk-pill[aria-expanded='true'] {
+  border-color: color-mix(in srgb, rgb(var(--accent-primary)) 55%, transparent);
+  background: color-mix(in srgb, rgb(var(--accent-primary)) 10%, transparent);
+}
+
+.pk-pill[data-empty] {
+  padding-left: 10px;
+}
+
+.pk-rail {
+  position: relative;
+  display: block;
+  height: 26px;
+  transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pk-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--bg-component) 92%, rgb(var(--text-primary)));
+  /* a lit dome, no glyph: the dot carries the identity, the name sits beside it */
+  box-shadow: inset 0 1px 2px rgb(255 255 255 / 0.3);
+  animation: pk-land 420ms cubic-bezier(0.22, 1.4, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.pk-say {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.pk-saving {
+  color: rgb(var(--text-disabled));
+}
+
+/* how many agents are behind the four faces on the rail */
+.pk-behind {
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--text-secondary));
+}
+
+.pk-chev {
+  margin-left: 1px;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pk-chev[data-open] {
+  transform: rotate(180deg);
+}
+
+.pk-note {
+  margin: 0;
+  font-size: 11px;
+  color: rgb(var(--state-error));
+}
+
+/* ── the list ─────────────────────────────────────────────
+   Fixed, because the rail it belongs to clips its children; anchored on the
+   pill's own corner so it unfolds from there rather than arriving from nowhere. */
+.pk-card {
+  position: fixed;
+  z-index: 65;
+  display: flex;
+  flex-direction: column;
+  width: 268px;
+  /* the height is measured per pill — see place() in team-picker.tsx — so a card
+     near the bottom of the window gets a list that fits, not one that runs off
+     the screen. This is only the ceiling. */
+  max-height: 306px;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, rgb(var(--text-primary)) 12%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-base) 92%, rgb(var(--text-primary)));
+  box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.85);
+  transform-origin: top left;
+  animation: pk-unfold 420ms cubic-bezier(0.22, 1.35, 0.36, 1) both;
+}
+
+.pk-card[data-up] {
+  transform-origin: bottom left;
+  animation-name: pk-unfold-up;
+}
+
+.pk-head {
+  margin: 2px 4px 8px;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: rgb(var(--text-secondary));
+}
+
+.pk-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.pk-empty {
+  margin: 6px 4px;
+  font-size: 12px;
+  color: rgb(var(--text-disabled));
+}
+
+.pk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  animation: pk-row 300ms cubic-bezier(0.22, 1.35, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 40ms + 40ms);
+}
+
+.pk-row:hover {
+  background: color-mix(in srgb, rgb(var(--text-primary)) 6%, transparent);
+}
+
+.pk-row[data-on] {
+  background: color-mix(in srgb, rgb(var(--accent-primary)) 10%, transparent);
+}
+
+.pk-face--row {
+  position: static;
+  flex: 0 0 auto;
+  animation: none;
+}
+
+.pk-who {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pk-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgb(var(--text-primary));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pk-hint {
+  overflow: hidden;
+  font-size: 11px;
+  color: rgb(var(--text-secondary));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* the box is always drawn; only the tick arrives, so the row reads as answered
+   rather than as having grown a control */
+.pk-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, rgb(var(--text-primary)) 16%, transparent);
+  border-radius: 6px;
+  color: rgb(0 0 0 / 0.75);
+}
+
+.pk-row[data-on] .pk-mark {
+  border-color: transparent;
+  background: rgb(var(--accent-primary));
+}
+
+.pk-tick {
+  display: inline-flex;
+  animation: pk-tick 320ms cubic-bezier(0.22, 1.5, 0.36, 1) both;
+}
+
+@keyframes pk-land {
+  from {
+    opacity: 0;
+    transform: translate(var(--tx, 0), -9px) rotate(-22deg) scale(0.2);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pk-unfold {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scaleX(0.86) scaleY(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pk-unfold-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scaleX(0.86) scaleY(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pk-row {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pk-tick {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pk-face,
+  .pk-card,
+  .pk-row,
+  .pk-tick,
+  .pk-rail,
+  .pk-chev {
+    animation: none;
+    transition: none;
+  }
+}

@@ -21,6 +21,43 @@ jest.mock('@/routes', () => ({
   Routes: { Chats: '/chats' },
 }));
 
+// 页面挂着的成员/协作方式两个 Hook 都会走这个 service；被测的只是页面本身，
+// 不该把 next-request 和它初始化的 i18n 单例一起拖进来。
+jest.mock('@/services/agent-service', () => ({
+  __esModule: true,
+  default: { getAgent: jest.fn(), listAgents: jest.fn() },
+  updateAgent: jest.fn(),
+}));
+
+jest.mock('./hooks/use-agent-roster', () => ({
+  useAgentRoster: () => ({ roster: [] }),
+}));
+
+jest.mock('./hooks/use-assign-workers', () => ({
+  useAssignWorkers: () => ({
+    mutate: jest.fn(),
+    isPending: false,
+    error: undefined,
+    variables: undefined,
+  }),
+}));
+
+jest.mock('./hooks/use-set-process', () => ({
+  useSetProcess: () => ({ mutate: jest.fn(), isPending: false, error: undefined }),
+}));
+
+jest.mock('./process-menu', () => ({
+  __esModule: true,
+  default: () => <div data-testid="process-menu" />,
+  PROCESS_ICONS: {},
+}));
+
+// 新建团队对话框自己带 mutation 与查询客户端；页面用例只需要它别在挂载时
+// 去取 QueryClient（页面在测试里不在 Provider 内）。
+jest.mock('./hooks/use-create-team', () => ({
+  useCreateTeam: () => ({ mutate: jest.fn(), isPending: false, error: undefined }),
+}));
+
 const buildTeam = (overrides: Record<string, any> = {}) => ({
   agentId: 'agent-1',
   agentTitle: '供应链团队',

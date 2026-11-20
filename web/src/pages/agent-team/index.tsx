@@ -11,9 +11,16 @@ import {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Plus } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import DispatchBoard from './dispatch-board';
+import NewTeamDialog from './new-team-dialog';
+import { AgentTeamProcess } from '@/interfaces/database/agent';
+import { useAgentRoster } from './hooks/use-agent-roster';
+import { useAssignWorkers } from './hooks/use-assign-workers';
 import { useAgentTeams } from './hooks/use-agent-teams';
+import { useSetProcess } from './hooks/use-set-process';
+import ProcessMenu from './process-menu';
 import { useTeamProgress } from './hooks/use-team-progress';
 import { useTeamRun } from './hooks/use-team-run';
 import ResultPanel from './result-panel';
@@ -33,9 +40,14 @@ const AgentTeamPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { teams, loading, error: teamsError, refetch } = useAgentTeams();
+  const { roster } = useAgentRoster();
+  const assign = useAssignWorkers();
+  const setProcess = useSetProcess();
   const { run, stop, running, taskId, snapshot, answer, error } = useTeamRun();
   const [selectedKey, setSelectedKey] = useState<string>();
   const [task, setTask] = useState(searchParams.get('task') ?? '');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [pendingAgent, setPendingAgent] = useState<string>();
   const autoRunRef = useRef(false);
 
   const { progress } = useTeamProgress(taskId, running);
@@ -66,6 +78,57 @@ const AgentTeamPage = () => {
   const handleSelect = useCallback((_team: IAgentTeamSummary, key: string) => {
     setSelectedKey(key);
   }, []);
+
+  // 新建的团队要立刻被选中：列表是异步刷新的，所以记下刚建好的 agentId，
+  // 等它出现在 teams 里再定位，而不是拿着还没被解析出来的信息去拼 key。
+  useEffect(() => {
+    if (!pendingAgent) return;
+    const created = teams.find((team) => team.agentId === pendingAgent);
+    if (!created) return;
+    setSelectedKey(teamKey(created));
+    setPendingAgent(undefined);
+  }, [teams, pendingAgent]);
+
+  const handleOpenCreate = useCallback(() => {
+    setCreateOpen(true);
+  }, []);
+
+  const handleCreated = useCallback((agentId: string) => {
+    setCreateOpen(false);
+    setPendingAgent(agentId);
+  }, []);
+
+  // 协作的成员来自"已经建好的智能体"，不是在这里现写一份配置：选择结果写回
+  // 团队节点自身的 workers，画布与看板读的是同一份。
+  const handleAssign = useCallback(
+    (team: IAgentTeamSummary, workerIds: string[]) => {
+      assign.mutate({ team, workerIds });
+    },
+    [assign],
+  );
+
+  // 协作方式属于团队本身，执行前可改、执行中锁定：改的是画布上的那一份定义，
+  // 看板与画布因此永远读同一个 process。
+  const handleProcessChange = useCallback(
+    (process: AgentTeamProcess) => {
+      if (!selectedTeam || running) return;
+      setProcess.mutate({
+        team: selectedTeam,
+        process,
+        seed: {
+          task: (worker) =>
+            t('flow.agentTeam.page.seedTask', {
+              name: worker.name || worker.id,
+            }),
+          expected: t('flow.agentTeam.page.seedExpected'),
+          manager: t('flow.agentTeam.page.seedManager', {
+            name: selectedTeam.agentTitle,
+          }),
+        },
+      });
+    },
+    [running, selectedTeam, setProcess, t],
+  );
 
   const handleOpenCanvas = useCallback(
     (team: IAgentTeamSummary) => {
@@ -140,7 +203,15 @@ const AgentTeamPage = () => {
             {t('flow.agentTeam.page.backToChat')}
           </Button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="relative z-20 flex items-center gap-2">
+          {selectedTeam && (
+            <ProcessMenu
+              value={selectedTeam.process}
+              locked={running}
+              saving={setProcess.isPending}
+              onChange={handleProcessChange}
+            />
+          )}
           <Input
             value={task}
             onChange={handleTaskChange}
@@ -163,12 +234,28 @@ const AgentTeamPage = () => {
             </Button>
           )}
         </div>
+        {setProcess.error ? (
+          <p className="text-xs text-state-error">
+            {t('flow.agentTeam.page.processFailed')}
+          </p>
+        ) : null}
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_340px] gap-4">
         <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-button">
-          <div className="border-b border-border-button px-3 py-2 text-sm font-medium text-text-primary">
-            {t('flow.agentTeam.page.teams')}
+          <div className="flex items-center justify-between gap-2 border-b border-border-button py-1.5 pl-3 pr-2">
+            <span className="text-sm font-medium text-text-primary">
+              {t('flow.agentTeam.page.teams')}
+            </span>
+            <button
+              type="button"
+              data-testid="new-team"
+              className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-accent hover:text-text-primary"
+              onClick={handleOpenCreate}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('flow.agentTeam.page.newTeamCta')}
+            </button>
           </div>
           <div className="min-h-0 flex-1">
             {teamsError ? (
@@ -190,6 +277,17 @@ const AgentTeamPage = () => {
                 selectedKey={selectedKey}
                 onSelect={handleSelect}
                 onOpenCanvas={handleOpenCanvas}
+                roster={roster}
+                onAssign={handleAssign}
+                assigningKey={
+                  assign.isPending ? teamKey(assign.variables!.team) : undefined
+                }
+                assignFailedKey={
+                  assign.error && assign.variables
+                    ? teamKey(assign.variables.team)
+                    : undefined
+                }
+                assignFailure={assign.error?.message}
               />
             )}
           </div>
@@ -209,6 +307,14 @@ const AgentTeamPage = () => {
           />
         </div>
       </div>
+
+      <NewTeamDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        roster={roster}
+        taken={teams.map((team) => team.agentTitle)}
+        onCreated={handleCreated}
+      />
     </section>
   );
 };
