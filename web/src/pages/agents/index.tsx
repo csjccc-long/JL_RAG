@@ -175,7 +175,8 @@ export default function Agents() {
 
         {data.length ? (
           <>
-            <CardContainer className="flex-1 overflow-auto px-5">
+            {/* 液体卡片按自身尺寸排版：一行三张，右侧留白 */}
+            <CardContainer className="flex-1 overflow-auto px-5 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,319px))] lg:justify-between xl:grid-cols-[repeat(3,minmax(0,319px))] 2xl:grid-cols-[repeat(3,minmax(0,319px))]">
               {data.map((x) =>
                 x.type === CompilationGroupCategory ? (
                   <CompilationTemplateCard
