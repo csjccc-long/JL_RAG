@@ -1,0 +1,25 @@
+.drow-glyph {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  color: color-mix(in srgb, rgb(var(--accent-primary)) 78%, transparent);
+  opacity: 0;
+  transition: opacity 320ms ease;
+  pointer-events: none;
+}
+
+/* Only the unfolded card carries the mark, and only then does it take the
+   pointer: the resting page is just the stack of pills. */
+.drow[data-unfold='on'] .drow-glyph {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+@media (max-width: 700px) {
+  .drow-glyph {
+    display: none;
+  }
+}

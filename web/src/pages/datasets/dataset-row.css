@@ -1,0 +1,181 @@
+/*
+ * Knowledge bases as a packed collage: the list is laid out in as many columns
+ * as the page affords, and each card flows into the next free slot, so cards of
+ * different sizes fill the width instead of leaving a long empty margin. Inside
+ * a card the values stack; a pill rests exactly as long as its own words, is
+ * clipped only when its words do not fit the card, and grows to show the full
+ * text when the card is pointed at.
+ */
+.drow-list {
+  column-count: var(--drow-cols, 3);
+  column-gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Few cards, narrow page: never more columns than the page can carry. */
+@media (max-width: 1024px) {
+  .drow-list {
+    column-count: min(var(--drow-cols, 3), 2);
+  }
+}
+
+@media (max-width: 640px) {
+  .drow-list {
+    column-count: 1;
+  }
+}
+
+.drow {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+  break-inside: avoid;
+}
+
+/* The card itself. Hidden at rest — the pills are all that shows — and grown
+   out of the name pill's own box once the fields have finished settling. */
+.drow-shell {
+  position: absolute;
+  left: var(--shell-x, 0px);
+  top: var(--shell-y, 0px);
+  width: var(--shell-w, 100%);
+  height: var(--shell-h, 36px);
+  box-sizing: border-box;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-component) 72%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    left 340ms cubic-bezier(0.22, 0.68, 0.24, 1),
+    top 340ms cubic-bezier(0.22, 0.68, 0.24, 1),
+    width 340ms cubic-bezier(0.22, 0.68, 0.24, 1),
+    height 340ms cubic-bezier(0.22, 0.68, 0.24, 1),
+    border-radius 340ms cubic-bezier(0.22, 0.68, 0.24, 1),
+    opacity 160ms ease;
+}
+
+.drow[data-unfold='on'] .drow-shell {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  border-color: color-mix(in srgb, rgb(var(--accent-primary)) 45%, transparent);
+  background: color-mix(in srgb, var(--bg-component) 88%, transparent);
+  opacity: 1;
+}
+
+.drow-field {
+  position: relative;
+  z-index: 1;
+  display: block;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  max-width: 100%;
+  padding: 7px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-base) 62%, transparent);
+  color: rgb(var(--text-primary));
+  overflow: hidden;
+  white-space: nowrap;
+  will-change: width;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.drow-value {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  vertical-align: top;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drow-field--name {
+  font-size: 14px;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
+
+.drow-field--meta {
+  font-size: 12px;
+  line-height: 1.3;
+  color: rgb(var(--text-secondary));
+}
+
+
+.drow:hover .drow-field,
+.drow:focus-visible .drow-field {
+  border-color: color-mix(in srgb, rgb(var(--accent-primary)) 32%, transparent);
+}
+
+.drow:hover .drow-field--name,
+.drow:focus-visible .drow-field--name {
+  border-color: color-mix(in srgb, rgb(var(--accent-primary)) 68%, transparent);
+  background: color-mix(in srgb, rgb(var(--accent-primary)) 9%, var(--bg-base));
+}
+
+/* The card has swallowed the name's box: its outline and fill go away so the
+   words sit on the card instead of on a pill inside it. */
+.drow[data-unfold='on'] .drow-field--name {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* Trailing controls ride the top-right corner of the card. */
+.drow-badge,
+.drow-more {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: rgb(var(--text-secondary));
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 160ms ease,
+    transform 220ms ease;
+}
+
+.drow-badge {
+  right: 40px;
+  max-width: 150px;
+}
+
+.drow-more {
+  right: 8px;
+}
+
+.drow:hover .drow-badge,
+.drow:focus-visible .drow-badge,
+.drow:hover .drow-more,
+.drow:focus-visible .drow-more {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 90ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drow-shell,
+  .drow-field,
+  .drow-badge,
+  .drow-more {
+    transition: none;
+  }
+}

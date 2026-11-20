@@ -6,7 +6,7 @@ import { IDataset } from '@/interfaces/database/dataset';
 import { formatDate } from '@/utils/date';
 import { t } from 'i18next';
 import { ChevronRight } from 'lucide-react';
-import { DatasetDisk } from './dataset-disk';
+import { DatasetRow } from './dataset-row';
 import { DatasetDropdown } from './dataset-dropdown';
 import { useRenameDataset } from './use-rename-dataset';
 
@@ -21,7 +21,7 @@ export function DatasetCard({
   const { navigateToDataset } = useNavigatePage();
 
   return (
-    <DatasetDisk
+    <DatasetRow
       name={dataset.name}
       files={`${dataset.document_count} ${t('knowledgeDetails.files')}`}
       date={formatDate(dataset.update_time)}

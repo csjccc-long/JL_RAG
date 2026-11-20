@@ -1,4 +1,3 @@
-import { CardContainer } from '@/components/card-container';
 import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
 import ListFilterBar from '@/components/list-filter-bar';
@@ -11,7 +10,7 @@ import { useFetchNextKnowledgeListByPage } from '@/hooks/use-knowledge-request';
 import { useQueryClient } from '@tanstack/react-query';
 import { pick } from 'lodash';
 import { Plus } from 'lucide-react';
-import { useCallback, useEffect } from 'react';
+import { CSSProperties, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { DatasetCard } from './dataset-card';
@@ -105,7 +104,14 @@ export default function Datasets() {
 
           {kbs?.length ? (
             <>
-              <CardContainer className="flex-1 overflow-auto px-5">
+              <div
+                className="drow-list w-full min-w-0 flex-1 overflow-auto px-5 pb-2"
+                style={
+                  {
+                    '--drow-cols': 3,
+                  } as CSSProperties
+                }
+              >
                 {kbs.map((dataset) => (
                   <DatasetCard
                     dataset={dataset}
@@ -113,7 +119,7 @@ export default function Datasets() {
                     showDatasetRenameModal={showDatasetRenameModal}
                   />
                 ))}
-              </CardContainer>
+              </div>
 
               <footer className="mt-4 px-5 pb-5">
                 <RAGFlowPagination
