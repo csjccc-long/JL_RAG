@@ -1,5 +1,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
+import HoloMosaic from '@/components/holo-mosaic';
+
 import { KbGlyph } from './kb-glyph';
 import './dataset-row.css';
 
@@ -311,7 +313,44 @@ export function DatasetRow({
       className="drow group"
       data-unfold={unfolded ? 'on' : undefined}
     >
-      <span className="drow-shell" aria-hidden="true" />
+      <div className="drow-shell" aria-hidden="true">
+        {unfolded ? (
+          <div className="drow-shell-fx">
+            <HoloMosaic
+              color="#0d1113"
+              metalColor="#e8ebf1"
+              spectrum="cool"
+              tileSize={0.6}
+              gap={0.08}
+              scatter={0.3}
+              tilt={0.35}
+              saturation={0.1}
+              intensity={1.25}
+              ripple={0.6}
+              glitter={0.85}
+              sheen={0.8}
+              grain={0.08}
+              speed={0.5}
+              intro
+              introSeconds={1.5}
+              mouseInteraction
+              flipOnClick
+              roundness={0.15}
+              bevel={0.35}
+              swirl={1}
+              bands={1.3}
+              softness={0.5}
+              variation={0}
+              filter="none"
+              filterSize={1}
+              fade={0}
+              opacity={1}
+              mouseStrength={1}
+              mouseRadius={0.25}
+            />
+          </div>
+        ) : null}
+      </div>
       {showGlyph ? <KbGlyph /> : null}
       <span className="drow-field drow-field--name">
         <span className="drow-value">{name}</span>
