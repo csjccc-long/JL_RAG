@@ -21,6 +21,16 @@ describe('MemoryCard', () => {
     expect(screen.getByText('WORLD')).toBeInTheDocument();
   });
 
+  it('keeps only the wires in the DOM, because the nodes are the field\'s own dots', () => {
+    const { container } = render(<MemoryCard {...baseProps} />);
+
+    // 4 inputs x 5 hidden + 5 hidden x 2 outputs, each drawn one after another
+    expect(container.querySelectorAll('.pfield-wires path')).toHaveLength(30);
+    // no second dot layer and no axis captions: the canvas reuses its own dots
+    expect(container.querySelectorAll('.pfield-node')).toHaveLength(0);
+    expect(container.querySelector('.pfield-node-label')).toBeNull();
+  });
+
   it('removes without letting the press reach the dot field', () => {
     const onRemove = jest.fn();
     render(<MemoryCard {...baseProps} onRemove={onRemove} />);

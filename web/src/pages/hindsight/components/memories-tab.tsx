@@ -14,7 +14,7 @@
  *  limitations under the License.
  */
 
-import { MemoryCard, PARTICLE_SHAPES } from '@/components/memory-card';
+import { MemoryCard } from '@/components/memory-card';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -270,7 +270,6 @@ const MemoriesTab = ({ bank }: MemoriesTabProps) => {
                     formatTime(memory.mentioned_at || memory.created_at) || '',
                   )}
                   badge={String(memory.type || 'memory').toUpperCase()}
-                  shape={PARTICLE_SHAPES[index % PARTICLE_SHAPES.length]}
                   removeLabel={t('hindsight.delete')}
                   onRemove={() => remove.mutate(memory.id)}
                   removePending={remove.isPending}

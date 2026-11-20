@@ -2,11 +2,8 @@
 
 import { cn } from '@/lib/utils';
 
-import { ParticleField, type ParticleShape } from './particles-field';
+import { ParticleField } from './particles-field';
 import './memory-card.css';
-
-export { PARTICLE_SHAPES } from './particles-field';
-export type { ParticleShape } from './particles-field';
 
 export type MemoryCardProps = {
   /** Card heading, e.g. 记忆01 — the sleeve number of the card. */
@@ -17,8 +14,6 @@ export type MemoryCardProps = {
   meta: string;
   /** Small mono caption next to the timestamp, e.g. the memory type. */
   badge?: string;
-  /** Which silhouette the dots gather into. */
-  shape?: ParticleShape;
   removeLabel?: string;
   onRemove?: () => void;
   removePending?: boolean;
@@ -35,14 +30,13 @@ export const MemoryCard = ({
   title,
   meta,
   badge,
-  shape = 'circle',
   removeLabel,
   onRemove,
   removePending = false,
   className,
 }: MemoryCardProps) => (
   <article className={cn('mcard', className)}>
-    <ParticleField shape={shape} />
+    <ParticleField />
     <div className="mcard-foot">
       <p className="mcard-heading">{heading}</p>
       <p className="mcard-title">{title}</p>

@@ -1,0 +1,40 @@
+/*
+ * The lens is the same window the veil opens — same box, same place, same
+ * growth — so there is never a second shape on the card. The box is only a
+ * frame: the drawing inside is the logo in dots.
+ */
+.slens {
+  position: absolute;
+  left: calc(var(--halftone-x, 50%) - var(--halftone-logo, 0px) * 0.5);
+  top: calc(var(--halftone-y, 50%) - var(--halftone-logo, 0px) * 0.5);
+  width: var(--halftone-logo, 0px);
+  height: var(--halftone-logo, 0px);
+  z-index: 11;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.halftone-card:hover .slens,
+.halftone-card:focus-visible .slens {
+  opacity: 1;
+}
+
+.slens canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: rgb(var(--accent-primary));
+}
+
+@media (hover: none) {
+  .slens {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slens {
+    transition: none;
+  }
+}

@@ -10,6 +10,7 @@ import { CSSProperties, PointerEvent, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ISearchAppProps } from "./hooks";
 import { SearchDropdown } from "./search-dropdown";
+import { SearchLens } from "./search-lens";
 
 interface IProps {
   data: ISearchAppProps;
@@ -145,6 +146,7 @@ export function SearchCard({ data, showSearchRenameModal }: IProps) {
       <HoloFoil />
       <HalftoneVeil />
       <HoloSheen />
+      <SearchLens />
 
       <div className="absolute right-2.5 top-2.5 z-20">
         <SearchDropdown

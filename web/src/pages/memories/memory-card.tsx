@@ -1,10 +1,9 @@
 import { MoreButton } from '@/components/more-button';
 import { SharedBadge } from '@/components/shared-badge';
 import { TruncatedText } from '@/components/truncated-text';
-import { ParticleField, PARTICLE_SHAPES } from '@/components/memory-card/particles-field';
+import { ParticleField } from '@/components/memory-card/particles-field';
 import { useNavigatePage } from '@/hooks/logic-hooks/navigate-hooks';
 import { formatDate } from '@/utils/date';
-import { useMemo } from 'react';
 import { IMemory } from './interface';
 import { MemoryDropdown } from './memory-dropdown';
 import './memory-card.css';
@@ -14,31 +13,13 @@ interface IProps {
   showMemoryRenameModal: (data: IMemory) => void;
 }
 
-function hashString(value: string) {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
 /**
- * Memory tile: a field of dots fills the whole card, the words sit on the
- * gradient along its bottom edge. The silhouette is derived from the memory id,
- * so a list reads as a family of shapes; hovering pushes the dots aside.
+ * Memory tile: a field of dots draws the memory logo across the whole card, the
+ * words sit on the gradient along its bottom edge; hovering turns the field into
+ * the neural skeleton.
  */
 export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
   const { navigateToMemory } = useNavigatePage();
-
-  const shape = useMemo(
-    () =>
-      PARTICLE_SHAPES[
-        hashString(String(data?.id ?? data?.name ?? 'memory')) %
-          PARTICLE_SHAPES.length
-      ],
-    [data?.id, data?.name],
-  );
 
   return (
     <article
@@ -54,7 +35,7 @@ export function MemoryCard({ data, showMemoryRenameModal }: IProps) {
       }}
       className="group mmem"
     >
-      <ParticleField shape={shape} />
+      <ParticleField />
 
       <MemoryDropdown
         memory={data}
