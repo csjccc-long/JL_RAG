@@ -1109,6 +1109,7 @@ export function GooeyNav({
       if (gl && pipeline) {
         gl.deleteBuffer(pipeline.buffer);
         gl.deleteProgram(pipeline.program);
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
       }
       engineRef.current = null;
     };

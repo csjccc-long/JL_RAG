@@ -903,6 +903,9 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       scrollHost?.removeEventListener('scroll', handleScroll);
       gl.deleteBuffer(buffer);
       gl.deleteProgram(program);
+      // 主动归还 WebGL 上下文：SPA 内反复进出页面时，浏览器约 16 个上下文的上限会耗尽，
+      // 顶栏装饰特效与其它 WebGL 组件都会拿不到上下文。
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
     };
   }, []);
 

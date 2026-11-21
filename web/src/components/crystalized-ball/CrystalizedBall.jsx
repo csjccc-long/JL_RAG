@@ -893,10 +893,23 @@ const CrystalizedBall = ({
     const container = containerRef.current;
     if (!container) return undefined;
 
-    const renderer = new Renderer({ alpha: true, premultipliedAlpha: true, antialias: false, depth: false });
-    const gl = renderer.gl;
+    // WebGL 不可用（显卡进程崩溃、上下文耗尽、关闭硬件加速）时 ogl 在设置 gl.renderer 时会抛错，
+    // 这个位于全局顶栏的装饰特效不能把整页拖进错误边界，所以先兜住并静默降级。
+    let renderer;
+    try {
+      renderer = new Renderer({ alpha: true, premultipliedAlpha: true, antialias: false, depth: false });
+    } catch (error) {
+      container.style.display = 'none';
+      return undefined;
+    }
+    const gl = renderer && renderer.gl;
+    if (!gl) {
+      container.style.display = 'none';
+      return undefined;
+    }
     if (!renderer.isWebgl2) {
       gl.getExtension('WEBGL_lose_context')?.loseContext();
+      container.style.display = 'none';
       return undefined;
     }
     const canvas = gl.canvas;
@@ -1457,6 +1470,16 @@ const CrystalizedBall = ({
     });
     intersectionObserver.observe(container);
 
+    // 运行中丢失上下文（驱动重置、上下文被浏览器回收）：停帧并移除画布，其余页面照常可用。
+    const onContextLost = () => {
+      alive = false;
+      visible = false;
+      cancelAnimationFrame(raf);
+      container.style.display = 'none';
+      if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+    };
+    canvas.addEventListener('webglcontextlost', onContextLost);
+
     wakeRef.current = start;
     resize();
 
@@ -1472,6 +1495,7 @@ const CrystalizedBall = ({
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('blur', onPointerLeave);
       document.removeEventListener('visibilitychange', onVisibility);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       wakeRef.current = null;
       disposeDust();
       disposeTarget(sceneTarget);
