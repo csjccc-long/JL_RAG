@@ -1,3 +1,4 @@
+import { orbSprite } from '@/components/particle-orb';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
 
@@ -76,17 +77,6 @@ const radiusOf = (node: ChunkGraphNode) => {
   return base * (node.type === 'entity' ? 1 : 1.8);
 };
 
-interface OrbParticle {
-  x: number;
-  y: number;
-  z: number;
-  size: number;
-  alpha: number;
-  phase: number;
-  darkColor: string;
-  lightColor: string;
-}
-
 interface SimNode {
   data: ChunkGraphNode;
   x: number;
@@ -100,7 +90,6 @@ interface SimNode {
   tz: number;
   r: number;
   color: string;
-  particles: OrbParticle[];
   phase: number;
   scale: number;
   sx: number;
@@ -116,213 +105,6 @@ interface SimEdge {
 
 const clamp = (v: number, min: number, max: number) =>
   Math.min(max, Math.max(min, v));
-
-const hexToRgb = (hex: string): [number, number, number] => {
-  let value = hex.replace('#', '');
-  if (value.length === 3) {
-    value = value
-      .split('')
-      .map((part) => part + part)
-      .join('');
-  }
-  const parsed = Number.parseInt(value, 16);
-  return [(parsed >> 16) & 255, (parsed >> 8) & 255, parsed & 255];
-};
-
-const mixRgb = (
-  base: [number, number, number],
-  target: [number, number, number],
-  amount: number,
-): [number, number, number] => [
-  Math.round(base[0] + (target[0] - base[0]) * amount),
-  Math.round(base[1] + (target[1] - base[1]) * amount),
-  Math.round(base[2] + (target[2] - base[2]) * amount),
-];
-
-const hashSeed = (value: string) => {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-};
-
-const seededRandom = (seed: number) => {
-  let state = seed >>> 0;
-  return () => {
-    state += 0x6d2b79f5;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
-
-const ORB_SPRITE_CACHE = new Map<string, HTMLCanvasElement>();
-
-const orbSprite = (node: SimNode, dark: boolean): HTMLCanvasElement | null => {
-  if (typeof document === 'undefined') return null;
-  const key = node.data.id + (dark ? ':dark' : ':light');
-  const cached = ORB_SPRITE_CACHE.get(key);
-  if (cached) return cached;
-  const size = 128;
-  const sprite = document.createElement('canvas');
-  sprite.width = size;
-  sprite.height = size;
-  const ctx = sprite.getContext('2d');
-  if (!ctx) return null;
-  const center = size / 2;
-  const scale = (size / 2) / 1.24;
-  const particleScale = size * 0.07;
-  const base = hexToRgb(node.color);
-  const sphereLight = mixRgb(base, [235, 235, 240], dark ? 0.2 : 0.28);
-  const sphereMid = mixRgb(base, [50, 50, 56], dark ? 0.16 : 0.28);
-  const sphereEdge = mixRgb(base, [12, 12, 16], dark ? 0.7 : 0.72);
-  const rgba = (rgb: [number, number, number], alpha: number) =>
-    'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + alpha + ')';
-  const sphereRadius = scale * 0.64;
-
-  const halo = ctx.createRadialGradient(
-    center,
-    center,
-    sphereRadius * 0.45,
-    center,
-    center,
-    scale * 1.02,
-  );
-  halo.addColorStop(0, rgba(sphereEdge, 0.15));
-  halo.addColorStop(0.55, rgba(sphereEdge, 0.07));
-  halo.addColorStop(1, rgba(sphereEdge, 0));
-  ctx.fillStyle = halo;
-  ctx.beginPath();
-  ctx.arc(center, center, scale * 1.02, 0, Math.PI * 2);
-  ctx.fill();
-
-  const bridge = ctx.createRadialGradient(
-    center,
-    center,
-    sphereRadius * 0.7,
-    center,
-    center,
-    sphereRadius * 1.32,
-  );
-  bridge.addColorStop(0, rgba(sphereEdge, 0));
-  bridge.addColorStop(0.45, rgba(sphereEdge, 0.09));
-  bridge.addColorStop(1, rgba(sphereEdge, 0));
-  ctx.fillStyle = bridge;
-  ctx.beginPath();
-  ctx.arc(center, center, sphereRadius * 1.32, 0, Math.PI * 2);
-  ctx.fill();
-
-  const sphere = ctx.createRadialGradient(
-    center - sphereRadius * 0.3,
-    center - sphereRadius * 0.34,
-    sphereRadius * 0.06,
-    center,
-    center,
-    sphereRadius,
-  );
-  sphere.addColorStop(0, rgba(sphereLight, 0.68));
-  sphere.addColorStop(0.48, rgba(sphereMid, 0.62));
-  sphere.addColorStop(0.72, rgba(sphereEdge, 0.32));
-  sphere.addColorStop(0.9, rgba(sphereEdge, 0.12));
-  sphere.addColorStop(1, rgba(sphereEdge, 0));
-  ctx.fillStyle = sphere;
-  ctx.beginPath();
-  ctx.arc(center, center, sphereRadius, 0, Math.PI * 2);
-  ctx.fill();
-
-  for (let i = 0; i < node.particles.length; i++) {
-    const particle = node.particles[i];
-    const depth = clamp((particle.z + 1) / 2, 0, 1);
-    const radial = clamp(
-      Math.sqrt(
-        particle.x * particle.x + particle.y * particle.y + particle.z * particle.z,
-      ),
-      0,
-      1,
-    );
-    const point = Math.max(
-      2.5,
-      particleScale *
-        particle.size *
-        (0.8 + 0.34 * depth) *
-        (0.72 + 0.28 * radial),
-    );
-    ctx.globalAlpha = Math.min(
-      1,
-      particle.alpha * 1.45 * (0.5 + 0.5 * depth),
-    );
-    ctx.fillStyle = dark ? particle.darkColor : particle.lightColor;
-    const px = center + particle.x * scale;
-    const py = center + particle.y * scale;
-    if (point < 1.7) {
-      ctx.fillRect(px - point / 2, py - point / 2, point, point);
-    } else {
-      ctx.beginPath();
-      ctx.arc(px, py, point / 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ORB_SPRITE_CACHE.set(key, sprite);
-  return sprite;
-};
-
-const orbParticles = (node: ChunkGraphNode, color: string): OrbParticle[] => {
-  const base = hexToRgb(color);
-  const count =
-    node.type === 'document'
-      ? 160
-      : node.type === 'entity'
-        ? 130
-        : node.type === 'chunk'
-          ? 118
-          : node.type === 'chapter'
-            ? 100
-            : 92;
-  const random = seededRandom(hashSeed(node.id + color));
-  const particles: OrbParticle[] = [];
-  for (let i = 0; i < count; i++) {
-    const y = 1 - (2 * (i + 0.5)) / count;
-    const ring = Math.sqrt(Math.max(0, 1 - y * y));
-    const theta = i * 2.399963229728653 + random() * 0.34;
-    const roll = random();
-    const rim = roll < 0.3;
-    const mid = !rim && roll < 0.62;
-    const shell = rim
-      ? 1
-      : mid
-        ? 0.44 + random() * 0.4
-        : 0.02 + Math.pow(random(), 3) * 0.4;
-    const star = random() < 0.12;
-    const shade = (random() - 0.48) * (star ? 0.42 : 0.58);
-    const darkTarget: [number, number, number] =
-      shade >= 0 ? [255, 255, 255] : [32, 32, 38];
-    const darkRgb = mixRgb(
-      base,
-      darkTarget,
-      shade >= 0 ? 0.12 + shade * 0.48 : 0.04 + -shade * 0.42,
-    );
-    const lightRgb = mixRgb(base, [28, 28, 32], 0.5 + Math.abs(shade) * 0.22);
-    const rimRadius = rim ? 0.985 + random() * 0.015 : 0;
-    particles.push({
-      x: rim ? Math.cos(theta) * rimRadius : Math.cos(theta) * ring * shell,
-      y: rim ? Math.sin(theta) * rimRadius : y * shell,
-      z: rim
-        ? (random() - 0.5) * 0.02
-        : Math.sin(theta) * ring * shell,
-      size:
-        (0.55 + random() * 0.8 + (star ? 0.45 : 0)) *
-        (rim ? 1 : mid ? 1.1 : 1.35),
-      alpha: (rim ? 0.28 : mid ? 0.4 : 0.44) + random() * 0.28,
-      phase: random() * Math.PI * 2,
-      darkColor: 'rgb(' + darkRgb[0] + ',' + darkRgb[1] + ',' + darkRgb[2] + ')',
-      lightColor: 'rgb(' + lightRgb[0] + ',' + lightRgb[1] + ',' + lightRgb[2] + ')',
-    });
-  }
-  return particles;
-};
 
 export function GraphCanvas({
   nodes,
@@ -402,7 +184,6 @@ export function GraphCanvas({
         tz: 0,
         r: radiusOf(node),
         color,
-        particles: orbParticles(node, color),
         phase: i * 0.73,
         scale: 1,
         sx: 0,
@@ -817,12 +598,12 @@ export function GraphCanvas({
       time: number,
     ) => {
       if (radius < 0.6) return;
-      const sprite = orbSprite(node, dark);
-      if (!sprite) return;
       const alpha = dim ? 0.2 : 1;
       const themeBoost = dark ? 1 : 1.16;
-      const scale = isSelected ? 1.1 : hover ? 1.04 : 1;
-      const size = radius * 2.44 * scale;
+      const scale = isSelected ? 1.12 : hover ? 1.05 : 1;
+      const size = radius * 2.6 * scale;
+      const sprite = orbSprite(node.color, dark, size);
+      if (!sprite) return;
       const spin = reduceMotion ? 0 : time * 0.000045 + node.phase * 0.13;
 
       ctx.save();
@@ -833,7 +614,7 @@ export function GraphCanvas({
         1,
         alpha * (isSelected ? 1 : hover ? 0.94 : 0.86) * themeBoost,
       );
-      ctx.drawImage(sprite, -size / 2, -size / 2, size, size);
+      ctx.drawImage(sprite, -sprite.width / 2, -sprite.height / 2);
       ctx.globalAlpha = 1;
       ctx.restore();
     };

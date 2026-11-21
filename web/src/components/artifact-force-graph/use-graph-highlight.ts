@@ -16,11 +16,13 @@
 
 import { useCallback, useMemo, useState, type ComponentProps } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
+import { orbSprite } from '@/components/particle-orb';
 import { renderNodeLabel } from './node-label';
 import {
   DefaultLinkWidth,
   DimmedAlpha,
   HighlightLinkWidth,
+  MinNodeRadius,
 } from './node-style';
 import { type ArtifactGraphLink, type ArtifactGraphNode } from './types';
 import { getBaseLinkColor, withAlpha } from './utils';
@@ -82,15 +84,28 @@ export const useGraphHighlight = (
 
   const paintNode = useCallback<PaintNodeFn>(
     (node, ctx, globalScale) => {
-      const dimmed =
-        activeNode !== null && !highlightNodes.has(node as ArtifactGraphNode);
-      if (dimmed) {
-        ctx.globalAlpha = DimmedAlpha;
+      const graphNode = node as ArtifactGraphNode;
+      if (typeof graphNode.x !== 'number' || typeof graphNode.y !== 'number') {
+        return;
+      }
+      const dimmed = activeNode !== null && !highlightNodes.has(graphNode);
+      const highlighted = activeNode !== null && highlightNodes.has(graphNode);
+      const radius = (graphNode.__radius ?? MinNodeRadius) * (highlighted ? 1.15 : 1);
+      const dark = document.documentElement.classList.contains('dark');
+      const sprite = orbSprite(graphNode.__color, dark, radius * 2.6);
+
+      if (dimmed) ctx.globalAlpha = DimmedAlpha;
+      if (sprite) {
+        const size = sprite.width;
+        ctx.drawImage(sprite, graphNode.x - size / 2, graphNode.y - size / 2);
+      } else {
+        ctx.fillStyle = graphNode.__color;
+        ctx.beginPath();
+        ctx.arc(graphNode.x, graphNode.y, radius, 0, Math.PI * 2);
+        ctx.fill();
       }
       renderNodeLabel(node, ctx, globalScale);
-      if (dimmed) {
-        ctx.globalAlpha = 1;
-      }
+      ctx.globalAlpha = 1;
     },
     [highlightNodes, activeNode],
   );

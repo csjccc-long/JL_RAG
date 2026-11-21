@@ -36,7 +36,7 @@ import { defaultMapNodeToValue } from './utils';
 
 const defaultGetNodeId = (node: IArtifactGraphEntity) => node.slug;
 
-const nodeCanvasObjectMode = () => 'after' as const;
+const nodeCanvasObjectMode = () => 'replace' as const;
 
 function ArtifactForceGraph<TNodeValue = IArtifactGraphEntity>({
   data,
