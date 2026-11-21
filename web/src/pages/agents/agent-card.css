@@ -533,7 +533,7 @@
 }
 
 .liquid-agent--receive .liquid-agent__receive {
-  animation: liquid-receive 560ms cubic-bezier(0.25, 0.9, 0.3, 1) both;
+  animation: liquid-receive 780ms cubic-bezier(0.22, 0.9, 0.24, 1) both;
 }
 
 @keyframes liquid-receive {
@@ -547,7 +547,30 @@
       scale(0.32);
   }
 
-  28% {
+  /* 冲击：过冲一大口 */
+  16% {
+    opacity: 1;
+    transform: translate3d(
+        var(--liquid-receive-x, 50%),
+        var(--liquid-receive-y, 50%),
+        0
+      )
+      scale(1.2);
+  }
+
+  /* 回缩 */
+  34% {
+    opacity: 1;
+    transform: translate3d(
+        var(--liquid-receive-x, 50%),
+        var(--liquid-receive-y, 50%),
+        0
+      )
+      scale(0.84);
+  }
+
+  /* 回弹 */
+  52% {
     opacity: 1;
     transform: translate3d(
         var(--liquid-receive-x, 50%),
@@ -557,14 +580,24 @@
       scale(1.06);
   }
 
-  58% {
+  70% {
     opacity: 1;
     transform: translate3d(
         var(--liquid-receive-x, 50%),
         var(--liquid-receive-y, 50%),
         0
       )
-      scale(0.78);
+      scale(0.95);
+  }
+
+  86% {
+    opacity: 0.85;
+    transform: translate3d(
+        var(--liquid-receive-x, 50%),
+        var(--liquid-receive-y, 50%),
+        0
+      )
+      scale(1.01);
   }
 
   100% {
@@ -574,7 +607,7 @@
         var(--liquid-receive-y, 50%),
         0
       )
-      scale(0.42);
+      scale(0.6);
   }
 }
 

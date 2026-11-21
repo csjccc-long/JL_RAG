@@ -27,6 +27,9 @@ const EMERGE_TIME = 0.14;
 // 出口处的“开口”半径：让液丝能画进卡片内部一点，
 // 把卡片液面凹进去的那道缝糊住（同色，看不出叠了一层）
 const SEAL_RADIUS = 30;
+// 落液时溅起来的小液滴
+const MAX_SPLASH = 14;
+const SPLASH_GRAVITY = 620;
 const ABSORB_TIME = 0.26;
 // 质量弹簧（和导航栏同一组参数）
 const ZETA = 0.72;
@@ -43,6 +46,7 @@ precision highp float;
 
 #define MAX_CARDS 16
 #define MAX_DROPS 24
+#define MAX_SPLASH 14
 
 uniform vec2 uSize;
 uniform float uRatio;
@@ -51,6 +55,9 @@ uniform int uCardCount;
 uniform vec4 uDrops[MAX_DROPS];
 uniform vec4 uRoots[MAX_DROPS];
 uniform int uDropCount;
+// 溅出来的小液滴：xy 位置、z 半径
+uniform vec4 uSplash[MAX_SPLASH];
+uniform int uSplashCount;
 uniform float uSmooth;
 uniform vec3 uInk;
 // 落液时贴在卡片边上的那团液体：xy 位置、z 半径
@@ -119,6 +126,13 @@ void main() {
 
   if (uEntry.z > 0.35) {
     d = smoothMin(d, length(p - uEntry.xy) - uEntry.z, uSmooth);
+  }
+
+  for (int i = 0; i < MAX_SPLASH; i++) {
+    if (i >= uSplashCount) break;
+    vec4 drop = uSplash[i];
+    if (drop.z <= 0.3) continue;
+    d = smoothMin(d, length(p - drop.xy) - drop.z, uSmooth * 0.55);
   }
 
   float aa = max(fwidth(d), 0.6);
@@ -261,11 +275,32 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       ink: uniform('uInk'),
       entry: uniform('uEntry'),
       seal: uniform('uSeal'),
+      splash: uniform('uSplash'),
+      splashCount: uniform('uSplashCount'),
     };
 
     const nodeData = new Float32Array(MAX_DROPS * 4);
     const rootData = new Float32Array(MAX_DROPS * 4);
     const cardData = new Float32Array(MAX_CARDS * 4);
+    const splashData = new Float32Array(MAX_SPLASH * 4);
+
+    // 溅起液滴的状态
+    type Splash = {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      r0: number;
+      r: number;
+      life: number;
+      age: number;
+    };
+    let splash: Splash[] = [];
+    let seed = 7;
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
 
     let liquids: CardBox[] = [];
     // 网格里所有卡片（模板卡也要挡住液体，不能把别人的卡盖住）
@@ -339,6 +374,7 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       cancelAnimationFrame(raf);
       raf = 0;
       nodes = [];
+      splash = [];
       mouth = null;
       entry = null;
       entryAge = 0;
@@ -381,6 +417,22 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       nodeData.fill(0, count * 4);
       rootData.fill(0, count * 4);
 
+      // 溅起的小液滴
+      let splashCount = 0;
+      for (const drop of splash) {
+        if (drop.r <= 0.3 || splashCount >= MAX_SPLASH) continue;
+        splashData[splashCount * 4] = drop.x;
+        splashData[splashCount * 4 + 1] = drop.y;
+        splashData[splashCount * 4 + 2] = drop.r;
+        splashData[splashCount * 4 + 3] = 0;
+        x0 = Math.min(x0, drop.x - drop.r);
+        y0 = Math.min(y0, drop.y - drop.r);
+        x1 = Math.max(x1, drop.x + drop.r);
+        y1 = Math.max(y1, drop.y + drop.r);
+        splashCount += 1;
+      }
+      splashData.fill(0, splashCount * 4);
+
       // 出口开口也要算进包围盒
       if (mouth) {
         x0 = Math.min(x0, mouth.x - SEAL_RADIUS);
@@ -397,7 +449,7 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
         y1 = Math.max(y1, entry.y + entryR);
       }
 
-      if (!count && entryR <= 0.35) {
+      if (!count && entryR <= 0.35 && !splashCount) {
         if (painted) clearAll();
         return;
       }
@@ -419,6 +471,8 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       gl.uniform4fv(loc.drops, nodeData);
       gl.uniform4fv(loc.roots, rootData);
       gl.uniform1i(loc.dropCount, count);
+      gl.uniform4fv(loc.splash, splashData);
+      gl.uniform1i(loc.splashCount, splashCount);
       gl.uniform1f(loc.smooth, SMOOTH);
       gl.uniform3fv(loc.ink, ink);
       gl.uniform4f(loc.entry, entry ? entry.x : 0, entry ? entry.y : 0, entryR, 0);
@@ -485,7 +539,36 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       el.classList.add('liquid-agent--receive');
       window.setTimeout(() => {
         el.classList.remove('liquid-agent--receive');
-      }, 680);
+      }, 820);
+    };
+
+    // 融合时的飞溅：从入口沿卡片法线朝外甩出几颗小液滴
+    const spawnSplash = (at: Point, card: CardBox) => {
+      const cx = (card.left + card.right) / 2;
+      const cy = (card.top + card.bottom) / 2;
+      let nx = at.x - cx;
+      let ny = at.y - cy;
+      const length = Math.hypot(nx, ny) || 1;
+      nx /= length;
+      ny /= length;
+      const base = Math.atan2(ny, nx);
+      const count = 7 + Math.floor(rand() * 3);
+      splash = [];
+      for (let i = 0; i < count; i += 1) {
+        const angle = base + (rand() - 0.5) * 2.1;
+        const speed = 95 + rand() * 175;
+        const r0 = 3.4 + rand() * 4.4;
+        splash.push({
+          x: at.x + nx * 3 + (rand() - 0.5) * 8,
+          y: at.y + ny * 3 + (rand() - 0.5) * 8,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          r0,
+          r: r0,
+          life: 0.42 + rand() * 0.28,
+          age: 0,
+        });
+      }
     };
 
     const advance = (now: number) => {
@@ -532,7 +615,8 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
           node.y = center.y + node.offset.y * (1 - eat);
           node.vx = 0;
           node.vy = 0;
-          node.r = radius * node.weight * (1 - node.absorbed);
+          // 收液时先保持粗细被吸进去，最后才收细：整体变细会读成“被拉成针”
+          node.r = radius * node.weight * Math.pow(1 - node.absorbed, 0.55);
           node.rootR =
             i === 0
               ? Math.max(1.2, ROOT_RADIUS * (1 - node.absorbed))
@@ -571,10 +655,36 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
             : Math.max(2.2, nodes[i - 1].r * 0.86);
       }
 
+      // 飞溅的液滴：甩出去、受重力下坠、边飞边被吸干
+      if (splash.length) {
+        for (const drop of splash) {
+          drop.age += dt;
+          const left = 1 - drop.age / drop.life;
+          if (left <= 0) {
+            drop.r = 0;
+            continue;
+          }
+          drop.vy += SPLASH_GRAVITY * dt;
+          drop.vx *= 1 - 2.2 * dt;
+          drop.vy *= 1 - 0.8 * dt;
+          drop.x += drop.vx * dt;
+          drop.y += drop.vy * dt;
+          drop.r = drop.r0 * Math.pow(left, 0.55);
+          // 落回任何一张卡片上就被那张卡的液面吞掉
+          if (blockers.some((box) => insideBox(box, drop.x, drop.y))) {
+            drop.r = 0;
+            drop.age = drop.life;
+          }
+        }
+        splash = splash.filter((drop) => drop.r > 0.3);
+      }
+
+      // 落液鼓包：冲击后过冲、回缩、再小一点地弹一下
       if (entry) {
         entryAge += dt;
-        const t = Math.min(1, entryAge / 0.42);
-        entryR = 15 * Math.sin(t * Math.PI);
+        const decay = Math.exp(-entryAge * 4.6);
+        entryR = Math.max(0, 23 * decay * Math.cos(entryAge * 19));
+        if (entryAge > 0.95) entryR = 0;
       }
 
       render();
@@ -582,10 +692,11 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       const done =
         nodes.length > 0 &&
         nodes.every((node) => node.absorbed >= 1) &&
-        (!entry || entryR < 0.5);
+        (!entry || entryR < 0.5) &&
+        !splash.length;
       if (done) {
         stop();
-      } else if (nodes.length) {
+      } else if (nodes.length || splash.length) {
         raf = requestAnimationFrame(frame);
       }
     };
@@ -628,7 +739,10 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
         nodes[i].delay = (LINKS - 1 - i) * 0.045;
         nodes[i].offset = { x: nodes[i].x - at.x, y: nodes[i].y - at.y };
       }
-      if (card !== source && liquids.includes(card)) receive(card, at);
+      if (card !== source && liquids.includes(card)) {
+        receive(card, at);
+        spawnSplash(edge, card);
+      }
       wake();
     };
 
