@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 
+import { liquidAudio } from './liquid-audio';
 import './liquid-trail.css';
 
 // 网格上的一层 WebGL 液体，机理照顶部导航栏（gooey-nav）的切换效果：
@@ -62,6 +63,8 @@ uniform float uSmooth;
 uniform vec3 uInk;
 // 落液时贴在卡片边上的那团液体：xy 位置、z 半径
 uniform vec4 uEntry;
+// 抽液时被顶起来的液面鼓包：xy 位置、z 半径
+uniform vec4 uSource;
 // 液丝出口处给卡片开的小口：xy 位置、z 半径
 uniform vec4 uSeal;
 
@@ -126,6 +129,10 @@ void main() {
 
   if (uEntry.z > 0.35) {
     d = smoothMin(d, length(p - uEntry.xy) - uEntry.z, uSmooth);
+  }
+
+  if (uSource.z > 0.35) {
+    d = smoothMin(d, length(p - uSource.xy) - uSource.z, uSmooth);
   }
 
   for (int i = 0; i < MAX_SPLASH; i++) {
@@ -274,6 +281,7 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       smooth: uniform('uSmooth'),
       ink: uniform('uInk'),
       entry: uniform('uEntry'),
+      source: uniform('uSource'),
       seal: uniform('uSeal'),
       splash: uniform('uSplash'),
       splashCount: uniform('uSplashCount'),
@@ -321,6 +329,13 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
     let entry: Point | null = null;
     let entryAge = 0;
     let entryR = 0;
+    // 抽液时被带起来的那团液体：位置 + 半径 + 已经过了多久
+    let sourceAt: Point | null = null;
+    let sourceAge = 0;
+    let sourceR = 0;
+    // 指针速度（驱动水流声）
+    let pointerSpeed = 0;
+    let lastMoveAt = 0;
     let clock = 0;
     let raf = 0;
     let last = 0;
@@ -379,10 +394,15 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       entry = null;
       entryAge = 0;
       entryR = 0;
+      sourceAt = null;
+      sourceAge = 0;
+      sourceR = 0;
+      pointerSpeed = 0;
       source = null;
       lastInside = null;
       sink = null;
       clearAll();
+      liquidAudio.flow(0);
     };
 
     const cardHeight = () => {
@@ -441,6 +461,14 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
         y1 = Math.max(y1, mouth.y + SEAL_RADIUS);
       }
 
+      // 抽液那一口的鼓包也算进包围盒
+      if (sourceAt && sourceR > 0.35) {
+        x0 = Math.min(x0, sourceAt.x - sourceR);
+        y0 = Math.min(y0, sourceAt.y - sourceR);
+        x1 = Math.max(x1, sourceAt.x + sourceR);
+        y1 = Math.max(y1, sourceAt.y + sourceR);
+      }
+
       // 落液那团液体也算进包围盒
       if (entry && entryR > 0.35) {
         x0 = Math.min(x0, entry.x - entryR);
@@ -449,7 +477,7 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
         y1 = Math.max(y1, entry.y + entryR);
       }
 
-      if (!count && entryR <= 0.35 && !splashCount) {
+      if (!count && entryR <= 0.35 && sourceR <= 0.35 && !splashCount) {
         if (painted) clearAll();
         return;
       }
@@ -476,6 +504,13 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       gl.uniform1f(loc.smooth, SMOOTH);
       gl.uniform3fv(loc.ink, ink);
       gl.uniform4f(loc.entry, entry ? entry.x : 0, entry ? entry.y : 0, entryR, 0);
+      gl.uniform4f(
+        loc.source,
+        sourceAt ? sourceAt.x : 0,
+        sourceAt ? sourceAt.y : 0,
+        sourceR,
+        0,
+      );
       gl.uniform4f(
         loc.seal,
         mouth ? mouth.x : 0,
@@ -542,12 +577,17 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       }, 820);
     };
 
-    // 融合时的飞溅：从入口沿卡片法线朝外甩出几颗小液滴
-    const spawnSplash = (at: Point, card: CardBox) => {
+    // 飞溅：融合时从入口、溢出时从出口，沿“离开卡片”的方向甩出几颗小液滴。
+    // 传了 toward 就朝指针那边甩（被抽出来的液体是跟着手走的）。
+    const spawnSplash = (at: Point, card: CardBox, toward?: Point) => {
       const cx = (card.left + card.right) / 2;
       const cy = (card.top + card.bottom) / 2;
       let nx = at.x - cx;
       let ny = at.y - cy;
+      if (toward) {
+        nx = toward.x - at.x;
+        ny = toward.y - at.y;
+      }
       const length = Math.hypot(nx, ny) || 1;
       nx /= length;
       ny /= length;
@@ -555,8 +595,8 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       const count = 7 + Math.floor(rand() * 3);
       splash = [];
       for (let i = 0; i < count; i += 1) {
-        const angle = base + (rand() - 0.5) * 2.1;
-        const speed = 95 + rand() * 175;
+        const angle = base + (rand() - 0.5) * (toward ? 1.5 : 2.1);
+        const speed = (toward ? 120 : 95) + rand() * (toward ? 210 : 175);
         const r0 = 3.4 + rand() * 4.4;
         splash.push({
           x: at.x + nx * 3 + (rand() - 0.5) * 8,
@@ -687,12 +727,30 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
         if (entryAge > 0.95) entryR = 0;
       }
 
+      // 溢出的那一口：液面先被顶起来一团，再弹回去
+      if (sourceAt) {
+        sourceAge += dt;
+        const decay = Math.exp(-sourceAge * 5.4);
+        sourceR = Math.max(0, 19 * decay * Math.cos(sourceAge * 22));
+        if (sourceAge > 0.8) sourceR = 0;
+      }
+
+      // 水流声：跟手的快慢走，收液时自然减弱
+      pointerSpeed *= Math.exp(-dt * 5);
+      if (!sink && nodes.length) {
+        const level = clamp(pointerSpeed / 1500, 0.14, 1);
+        liquidAudio.flow(level);
+      } else if (sink) {
+        liquidAudio.flow(0);
+      }
+
       render();
 
       const done =
         nodes.length > 0 &&
         nodes.every((node) => node.absorbed >= 1) &&
         (!entry || entryR < 0.5) &&
+        (!sourceAt || sourceR < 0.5) &&
         !splash.length;
       if (done) {
         stop();
@@ -721,7 +779,15 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       readCards();
       source = card;
       sink = null;
-      emit(intoCard(edgeMouth(card, from, toward), from, 10));
+      const edge = edgeMouth(card, from, toward);
+      const at = intoCard(edge, from, 10);
+      emit(at);
+      // 溢出处：液面被顶起来一团，同时甩出几颗液体
+      sourceAt = edge;
+      sourceAge = 0;
+      sourceR = 0;
+      spawnSplash(edge, card, toward);
+      liquidAudio.pull(1);
       wake();
     };
 
@@ -742,6 +808,7 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       if (card !== source && liquids.includes(card)) {
         receive(card, at);
         spawnSplash(edge, card);
+        liquidAudio.splash(1);
       }
       wake();
     };
@@ -756,6 +823,13 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       }
       if (performance.now() - cardsAt > 500) readCards();
       const local: Point = { x: x - rect.left, y: y - rect.top };
+      const now = performance.now();
+      if (lastMoveAt && now > lastMoveAt) {
+        const gap = Math.max(0.008, (now - lastMoveAt) / 1000);
+        const moved = Math.hypot(local.x - pointer.x, local.y - pointer.y);
+        pointerSpeed += (moved / gap - pointerSpeed) * 0.45;
+      }
+      lastMoveAt = now;
       pointer = local;
 
       const overCard = blockers.find((card) => insideBox(card, local.x, local.y));
@@ -804,6 +878,9 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       attributeFilter: ['class'],
     });
 
+    const unlockAudio = () => liquidAudio.unlock();
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('pointermove', unlockAudio, { passive: true });
     window.addEventListener('pointermove', handleMove, { passive: true });
     window.addEventListener('pointerout', handleOut);
     window.addEventListener('pointercancel', handleOut);
@@ -817,6 +894,9 @@ export function LiquidTrail({ className = '' }: { className?: string }) {
       cancelAnimationFrame(raf);
       observer.disconnect();
       themeObserver.disconnect();
+      liquidAudio.suspend();
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('pointermove', unlockAudio);
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerout', handleOut);
       window.removeEventListener('pointercancel', handleOut);
