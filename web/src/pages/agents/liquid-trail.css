@@ -1,0 +1,30 @@
+/* 跨卡片液体层：网格上的一层 WebGL 画布，只在指针拖出液体时才绘制。
+   液体颜色取卡片液面同色，所以液柱从卡片边缘“长”出来是看不出来的。 */
+.liquid-trail {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  color: var(--liquid-trail-fill);
+}
+
+.liquid-trail {
+  --liquid-trail-fill: #f4f4f5;
+}
+
+:root:not(.dark) .liquid-trail {
+  --liquid-trail-fill: color-mix(
+    in srgb,
+    rgb(var(--text-primary)) 8%,
+    var(--bg-component)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-trail {
+    display: none;
+  }
+}

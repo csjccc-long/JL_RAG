@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import "./agent-card.css";
 import { AgentDropdown } from "./agent-dropdown";
 import { CanvasCategoryToFlowType, FlowType, FlowTypeConfig } from "./constant";
+import { useLiquidPull } from "./hooks/use-liquid-pull";
 import { useRenameAgent } from "./use-rename-agent";
 
 export type DatasetCardProps = {
@@ -143,7 +144,9 @@ function LiquidFilter({ filterId }: { filterId: string }) {
 export function AgentCard({ data, showAgentRenameModal }: DatasetCardProps) {
   const { navigateToAgent } = useNavigatePage();
   const { t } = useTranslation();
+  const cardRef = useRef<HTMLElement>(null);
   const filterId = useId();
+  useLiquidPull(cardRef);
   const title = data.title || "";
   const hasDesc = Boolean(data.description);
   const hasTags = Boolean(data.tags);
@@ -168,6 +171,7 @@ export function AgentCard({ data, showAgentRenameModal }: DatasetCardProps) {
 
   return (
     <article
+      ref={cardRef}
       data-testid="agent-card"
       data-agent-name={title}
       tabIndex={0}
@@ -200,6 +204,10 @@ export function AgentCard({ data, showAgentRenameModal }: DatasetCardProps) {
         {DRIPS.map((drip) => (
           <i key={drip} className={`liquid-agent__drip ${drip}`} />
         ))}
+        {/* 被指针吸附的液体团：与卡片自身液面同场融合，拉出鼓包 */}
+        <i className="liquid-agent__pull" aria-hidden />
+        {/* 另一张卡片的液体落进来时，在这里鼓一下再融回本卡液面 */}
+        <i className="liquid-agent__receive" aria-hidden />
       </div>
 
       <div className="liquid-agent__plate" />

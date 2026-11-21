@@ -26,6 +26,7 @@ import { CompilationTemplateCard } from './compilation-template-card';
 import { CreateAgentDialog } from './create-agent-dialog';
 import { useCreateAgentOrPipeline } from './hooks/use-create-agent';
 import { useSelectFilters } from './hooks/use-select-filters';
+import { LiquidTrail } from './liquid-trail';
 import { UploadAgentDialog } from './upload-agent-dialog';
 import { useHandleImportJsonFile } from './use-import-json';
 import { useRenameAgent } from './use-rename-agent';
@@ -176,24 +177,28 @@ export default function Agents() {
         {data.length ? (
           <>
             {/* 液体卡片按自身尺寸排版：一行三张，右侧留白 */}
-            <CardContainer className="flex-1 overflow-auto px-5 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,319px))] lg:justify-between xl:grid-cols-[repeat(3,minmax(0,319px))] 2xl:grid-cols-[repeat(3,minmax(0,319px))]">
-              {data.map((x) =>
-                x.type === CompilationGroupCategory ? (
-                  <CompilationTemplateCard
-                    key={x.id}
-                    data={x}
-                    onClick={handleEditCompilation(x.id)}
-                    onDelete={handleDeleteCompilation}
-                  />
-                ) : (
-                  <AgentCard
-                    key={x.id}
-                    data={x}
-                    showAgentRenameModal={showAgentRenameModal}
-                  />
-                ),
-              )}
-            </CardContainer>
+            {/* 轨迹层覆盖整个滚动区，卡片之间被拖出的液体画在这里 */}
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <CardContainer className="flex-1 overflow-auto px-5 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,319px))] lg:justify-between xl:grid-cols-[repeat(3,minmax(0,319px))] 2xl:grid-cols-[repeat(3,minmax(0,319px))]">
+                {data.map((x) =>
+                  x.type === CompilationGroupCategory ? (
+                    <CompilationTemplateCard
+                      key={x.id}
+                      data={x}
+                      onClick={handleEditCompilation(x.id)}
+                      onDelete={handleDeleteCompilation}
+                    />
+                  ) : (
+                    <AgentCard
+                      key={x.id}
+                      data={x}
+                      showAgentRenameModal={showAgentRenameModal}
+                    />
+                  ),
+                )}
+              </CardContainer>
+              <LiquidTrail />
+            </div>
 
             <footer className="mt-4 px-5 pb-5">
               <RAGFlowPagination
