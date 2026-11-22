@@ -1,6 +1,7 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 import HoloMosaic from '@/components/holo-mosaic';
+import { cardFlipAudio } from '@/utils/card-flip-audio';
 
 import { KbGlyph } from './kb-glyph';
 import './dataset-row.css';
@@ -69,6 +70,11 @@ export function DatasetRow({
   const motionsRef = useRef<FieldMotion[]>([]);
   const hoveredRef = useRef(false);
   const [unfolded, setUnfolded] = useState(false);
+
+  const handleFlip = useCallback(
+    (spanMs?: number) => cardFlipAudio.flip(1, spanMs),
+    [],
+  );
 
   const stop = useCallback(() => {
     if (rafRef.current) {
@@ -247,6 +253,8 @@ export function DatasetRow({
     if (list) observer?.observe(list);
     const open = () => {
       hoveredRef.current = true;
+      // The card that unfolds here turns over: make sure audio is awake by then.
+      cardFlipAudio.unlock();
       go(true);
       seedUnfold();
       window.clearTimeout(unfoldRef.current);
@@ -335,6 +343,7 @@ export function DatasetRow({
               introSeconds={1.5}
               mouseInteraction
               flipOnClick
+              onFlip={handleFlip}
               roundness={0.15}
               bevel={0.35}
               swirl={1}

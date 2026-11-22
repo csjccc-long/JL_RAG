@@ -14,6 +14,10 @@ const MAX_RENDER_DIM = 2400;
 const TILE_PX = 52;
 const EYE = 1.15;
 const INTRO_SECONDS = 2.4;
+/** The intro's rustle waits until the flip front has actually reached the card. */
+const INTRO_SOUND_PHASE = 0.34;
+/** Where the intro's flip front has all but cleared the card. */
+const INTRO_SOUND_END = 1.58;
 const WAVE_SECONDS = 4;
 const FILTERS: Record<string, number> = { none: 0, dither: 1, ascii: 2 };
 
@@ -437,6 +441,12 @@ export type HoloMosaicProps = {
   mouseStrength?: number;
   mouseRadius?: number;
   flipOnClick?: boolean;
+  /**
+   * Fired once when the intro flip starts to show, and once on every click flip.
+   * The argument is how long, in milliseconds, that flip takes on screen — the
+   * rustle is only right if it is as long as the card takes to turn over.
+   */
+  onFlip?: (spanMs?: number) => void;
   lightMode?: boolean;
   paused?: boolean;
   dpr?: number;
@@ -474,6 +484,7 @@ const HoloMosaic = ({
   mouseStrength = 1,
   mouseRadius = 0.25,
   flipOnClick = true,
+  onFlip,
   lightMode = false,
   paused = false,
   dpr,
@@ -518,6 +529,7 @@ const HoloMosaic = ({
     mouseStrength: clampNumber(mouseStrength, 0, 3),
     mouseRadius: clampNumber(mouseRadius, 0.05, 1),
     flipOnClick,
+    onFlip,
     lightMode,
     paused,
     dpr,
@@ -586,6 +598,7 @@ const HoloMosaic = ({
     };
     let raf = 0;
     let last = 0;
+    let introFlipped = false;
     let visible = true;
     let alive = true;
     let lost = false;
@@ -766,6 +779,18 @@ const HoloMosaic = ({
       } else if (state.intro < s.introSeconds) {
         state.intro = s.introSeconds;
       }
+      // The intro is the card turning over: let the page sound it once — but not
+      // on the frame the intro starts, when nothing has visibly turned yet.
+      if (!introFlipped && state.intro < s.introSeconds) {
+        const phase = state.intro * (INTRO_SECONDS / s.introSeconds);
+        if (phase >= INTRO_SOUND_PHASE) {
+          introFlipped = true;
+          const span =
+            (Math.max(0.12, INTRO_SOUND_END - phase) * s.introSeconds * 1000) /
+            INTRO_SECONDS;
+          s.onFlip?.(Math.round(span));
+        }
+      }
       const { pointer, light, hover } = state;
       const active = s.mouseInteraction && pointer.inside && !reduce;
       const target = active ? toSurface(pointer.x, pointer.y) : null;
@@ -850,6 +875,8 @@ const HoloMosaic = ({
       const point = toSurface(spot.x, spot.y);
       state.waves.push({ x: point.x, y: point.y, start: state.clock });
       while (state.waves.length > MAX_WAVES) state.waves.shift();
+      // A click turns the card over as one quick ripple: the short rustle fits.
+      s.onFlip?.();
       wake();
     };
 
