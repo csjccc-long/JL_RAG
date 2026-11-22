@@ -54,6 +54,8 @@ import { formatTime, isRecord } from '@/utils/hindsight-util';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import OrbitalTab, { OrbitalPanel } from '@/components/orbital-tab';
+
 type GovernanceTabProps = {
   bank: string;
 };
@@ -143,8 +145,25 @@ const GovernanceTab = ({ bank }: GovernanceTabProps) => {
   const [pruneDays, setPruneDays] = useState('90');
   const [openWebhook, setOpenWebhook] = useState('');
 
+  const features = [
+    { key: 'banks', label: t('hindsight.banksTitle') },
+    { key: 'directives', label: t('hindsight.directivesTitle') },
+    { key: 'documents', label: t('hindsight.documentsTitle') },
+    { key: 'operations', label: t('hindsight.operationsTitle') },
+    { key: 'queue', label: t('hindsight.queueTitle') },
+    { key: 'aliases', label: t('hindsight.aliasesTitle') },
+    { key: 'webhooks', label: t('hindsight.webhooksTitle') },
+  ];
+
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <>
+      <OrbitalTab
+        starKey="governance"
+        hint={t('hindsight.orbitHint')}
+        drawerLabel={t('hindsight.dataPanel')}
+        features={features}
+      >
+        <OrbitalPanel id="banks">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t('hindsight.banksTitle')}</CardTitle>
@@ -212,7 +231,9 @@ const GovernanceTab = ({ bank }: GovernanceTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="directives">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -267,7 +288,9 @@ const GovernanceTab = ({ bank }: GovernanceTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="documents">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -304,7 +327,9 @@ const GovernanceTab = ({ bank }: GovernanceTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="operations">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -361,7 +386,9 @@ const GovernanceTab = ({ bank }: GovernanceTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="queue">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t('hindsight.queueTitle')}</CardTitle>
@@ -423,7 +450,9 @@ const GovernanceTab = ({ bank }: GovernanceTabProps) => {
           </div>
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="aliases">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t('hindsight.aliasesTitle')}</CardTitle>
@@ -491,7 +520,9 @@ const GovernanceTab = ({ bank }: GovernanceTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="webhooks">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -609,7 +640,9 @@ const GovernanceTab = ({ bank }: GovernanceTabProps) => {
           )}
         </CardContent>
       </Card>
-    </div>
+        </OrbitalPanel>
+      </OrbitalTab>
+    </>
   );
 };
 

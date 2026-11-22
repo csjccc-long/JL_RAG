@@ -30,6 +30,8 @@ import { HindsightMemory } from '@/interfaces/database/hindsight';
 import { asArray, formatTime, isRecord, memoryText } from '@/utils/hindsight-util';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import OrbitalTab, { OrbitalPanel } from '@/components/orbital-tab';
 import DocumentEvidenceDialog from './document-evidence-dialog';
 
 type ReflectTabProps = {
@@ -82,8 +84,20 @@ const ReflectTab = ({ bank }: ReflectTabProps) => {
     });
   };
 
+  const features = [
+    { key: 'ask', label: t('hindsight.reflectTitle') },
+    { key: 'answer', label: t('hindsight.reflectAnswer') },
+  ];
+
   return (
-    <div className="grid gap-4">
+    <>
+      <OrbitalTab
+        starKey="reflect"
+        hint={t('hindsight.orbitHint')}
+        drawerLabel={t('hindsight.dataPanel')}
+        features={features}
+      >
+        <OrbitalPanel id="ask">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -108,7 +122,9 @@ const ReflectTab = ({ bank }: ReflectTabProps) => {
           </div>
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="answer">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -194,6 +210,8 @@ const ReflectTab = ({ bank }: ReflectTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
+      </OrbitalTab>
 
       <DocumentEvidenceDialog
         bank={bank}
@@ -205,7 +223,7 @@ const ReflectTab = ({ bank }: ReflectTabProps) => {
           }
         }}
       />
-    </div>
+    </>
   );
 };
 

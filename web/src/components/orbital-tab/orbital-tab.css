@@ -1,0 +1,15 @@
+/* The universe fills the frame; the drawer floats above it. */
+.orbital-tab .orbital-universe {
+  position: absolute;
+  inset: 0;
+}
+
+/* Every feature's controls live in the drawer; only the chosen planet's are
+   drawn, the rest stay mounted so their input survives a change of planet. */
+.orbital-panel {
+  display: none;
+}
+
+.orbital-panel[data-active='on'] {
+  display: block;
+}

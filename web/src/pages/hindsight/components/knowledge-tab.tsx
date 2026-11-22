@@ -46,6 +46,8 @@ import { KnowledgePage } from '@/interfaces/database/hindsight';
 import { asArray, formatTime, memoryText } from '@/utils/hindsight-util';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import OrbitalTab, { OrbitalPanel } from '@/components/orbital-tab';
 import DocumentEvidenceDialog from './document-evidence-dialog';
 
 type KnowledgeTabProps = {
@@ -98,8 +100,21 @@ const KnowledgeTab = ({ bank }: KnowledgeTabProps) => {
 
   const visiblePages = pageResults ?? pages ?? [];
 
+  const features = [
+    { key: 'models', label: t('hindsight.mentalModelsTitle') },
+    { key: 'observations', label: t('hindsight.observationsTitle') },
+    { key: 'pages', label: t('hindsight.pagesTitle') },
+  ];
+
   return (
-    <div className="grid gap-4">
+    <>
+      <OrbitalTab
+        starKey="knowledge"
+        hint={t('hindsight.orbitHint')}
+        drawerLabel={t('hindsight.dataPanel')}
+        features={features}
+      >
+        <OrbitalPanel id="models">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -187,7 +202,9 @@ const KnowledgeTab = ({ bank }: KnowledgeTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="observations">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -251,7 +268,9 @@ const KnowledgeTab = ({ bank }: KnowledgeTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="pages">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">{t('hindsight.pagesTitle')}</CardTitle>
@@ -315,6 +334,8 @@ const KnowledgeTab = ({ bank }: KnowledgeTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
+      </OrbitalTab>
 
       <Dialog
         open={!!pageDetail}
@@ -353,7 +374,6 @@ const KnowledgeTab = ({ bank }: KnowledgeTabProps) => {
           </div>
         </DialogContent>
       </Dialog>
-
       <DocumentEvidenceDialog
         bank={bank}
         documentId={documentId}
@@ -364,7 +384,7 @@ const KnowledgeTab = ({ bank }: KnowledgeTabProps) => {
           }
         }}
       />
-    </div>
+    </>
   );
 };
 

@@ -135,19 +135,19 @@ const HindsightPage = () => {
         </TabsList>
 
         <div className="min-h-0 flex-1 overflow-auto pt-4">
-          <TabsContent value="overview" className="mt-0">
+          <TabsContent value="overview" className="mt-0 h-full">
             <OverviewTab status={status} bank={bank} />
           </TabsContent>
-          <TabsContent value="memories" className="mt-0">
+          <TabsContent value="memories" className="mt-0 h-full">
             <MemoriesTab bank={bank} />
           </TabsContent>
-          <TabsContent value="reflect" className="mt-0">
+          <TabsContent value="reflect" className="mt-0 h-full">
             <ReflectTab bank={bank} />
           </TabsContent>
-          <TabsContent value="knowledge" className="mt-0">
+          <TabsContent value="knowledge" className="mt-0 h-full">
             <KnowledgeTab bank={bank} />
           </TabsContent>
-          <TabsContent value="governance" className="mt-0">
+          <TabsContent value="governance" className="mt-0 h-full">
             <GovernanceTab bank={bank} />
           </TabsContent>
         </div>

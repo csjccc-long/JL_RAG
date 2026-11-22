@@ -1,0 +1,32 @@
+/* The console draws its universes on this frame; everything else slides in
+   from the right edge so the picture keeps the whole frame to itself. */
+.memory-sky {
+  position: relative;
+  height: 100%;
+  min-height: 560px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: radial-gradient(
+      ellipse 70% 60% at 42% 48%,
+      rgb(var(--text-primary) / 6%),
+      transparent 70%
+    )
+    var(--bg-base);
+}
+
+.memory-sky__field {
+  position: absolute;
+  inset: 0;
+}
+
+.memory-sky__hint {
+  position: absolute;
+  left: 20px;
+  bottom: 16px;
+  z-index: 2;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: rgb(var(--text-secondary) / 78%);
+  pointer-events: none;
+}

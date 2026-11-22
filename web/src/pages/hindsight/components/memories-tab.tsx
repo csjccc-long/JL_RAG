@@ -41,6 +41,8 @@ import { asArray, formatTime, memoryScore, memoryText } from '@/utils/hindsight-
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import OrbitalTab, { OrbitalPanel } from '@/components/orbital-tab';
+
 type MemoriesTabProps = {
   bank: string;
 };
@@ -87,9 +89,23 @@ const MemoriesTab = ({ bank }: MemoriesTabProps) => {
     setRecalled(asArray<RecalledMemory>(result, ['memories', 'results', 'items']));
   };
 
+  const features = [
+    { key: 'retain', label: t('hindsight.retainTitle') },
+    { key: 'recall', label: t('hindsight.recallTitle') },
+    { key: 'ingest', label: t('hindsight.ingestTitle') },
+    { key: 'memories', label: t('hindsight.memoriesTitle') },
+  ];
+
   return (
-    <div className="grid gap-4">
+    <>
+      <OrbitalTab
+        starKey="memories"
+        hint={t('hindsight.orbitHint')}
+        drawerLabel={t('hindsight.dataPanel')}
+        features={features}
+      >
       <div className="grid gap-4 xl:grid-cols-2">
+        <OrbitalPanel id="retain">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -126,7 +142,9 @@ const MemoriesTab = ({ bank }: MemoriesTabProps) => {
             </div>
           </CardContent>
         </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="recall">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
@@ -179,8 +197,10 @@ const MemoriesTab = ({ bank }: MemoriesTabProps) => {
             </div>
           </CardContent>
         </Card>
+        </OrbitalPanel>
       </div>
 
+        <OrbitalPanel id="ingest">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -248,7 +268,9 @@ const MemoriesTab = ({ bank }: MemoriesTabProps) => {
           )}
         </CardContent>
       </Card>
+        </OrbitalPanel>
 
+        <OrbitalPanel id="memories">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -281,7 +303,9 @@ const MemoriesTab = ({ bank }: MemoriesTabProps) => {
           )}
         </CardContent>
       </Card>
-    </div>
+        </OrbitalPanel>
+      </OrbitalTab>
+    </>
   );
 };
 
