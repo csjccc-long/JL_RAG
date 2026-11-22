@@ -18,6 +18,7 @@ import { CardContainer } from '@/components/card-container';
 import { EmptyCardType } from '@/components/empty/constant';
 import { EmptyAppCard } from '@/components/empty/empty';
 import ListFilterBar from '@/components/list-filter-bar';
+import { MosaicReveal } from '@/components/mosaic-reveal';
 import { RenameDialog } from '@/components/rename-dialog';
 import { Button } from '@/components/ui/button';
 import { RAGFlowPagination } from '@/components/ui/ragflow-pagination';
@@ -121,13 +122,14 @@ export default function SearchList() {
               <CardContainer className="flex-1 overflow-auto px-5">
                 {list?.data.search_apps.map((x) => {
                   return (
-                    <SearchCard
-                      key={x.id}
-                      data={x}
-                      showSearchRenameModal={() => {
-                        showSearchRenameModal(x);
-                      }}
-                    />
+                    <MosaicReveal key={x.id}>
+                      <SearchCard
+                        data={x}
+                        showSearchRenameModal={() => {
+                          showSearchRenameModal(x);
+                        }}
+                      />
+                    </MosaicReveal>
                   );
                 })}
               </CardContainer>
