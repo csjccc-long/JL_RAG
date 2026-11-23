@@ -1444,6 +1444,84 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取 Entities 和 R
       metadataFieldsTip: '选择每个块要显示的元数据字段',
     },
     setting: {
+      dashboard: {
+        menu: '看板',
+        welcome: '欢迎回来，{{name}}',
+        welcomeGuest: '欢迎回来',
+        tabs: {
+          updated: '最近更新',
+          created: '最近创建',
+        },
+        actions: {
+          create: '新建知识库',
+        },
+        recent: {
+          title: '最近的知识库',
+          empty: '还没有知识库，创建一个开始吧',
+          previous: '上一页',
+          next: '下一页',
+          page: '{{current}} / {{total}}',
+        },
+        bar: {
+          title: '今年新增知识库',
+          total: '共 {{value}} 个知识库',
+        },
+        trend: {
+          title: '累计 Token',
+          empty: '还没有 Token 消耗',
+          span: {
+            week: '近 12 周',
+            month: '今年',
+            year: '近 12 年',
+          },
+          mode: {
+            line: '曲线',
+            terrain: '3D',
+          },
+          note: {
+            scenery: '山体是背景，顶线是真实读数',
+          },
+        },
+        tokenMeter: {
+          title: 'Token 消耗',
+          of: '共 {{value}}',
+          compact: '紧凑',
+          undo: '还原',
+          rest: '其他知识库',
+          empty: '还没有 Token 消耗',
+          bar: '条状',
+          field: '点阵',
+        },
+        contribution: {
+          title: '今年的贡献',
+          newThisYear: '今年新增 {{value}} 个',
+          activity: '活动',
+        },
+        metrics: {
+          documents: '文档',
+          chunks: '分块',
+          tokens: 'Token',
+          knowledgeBases: '知识库',
+        },
+        granularity: {
+          week: '每周',
+          month: '每月',
+          year: '每年',
+        },
+        axis: {
+          month: '{{month}}月',
+          year: '{{year}}年',
+        },
+        relative: {
+          today: '今天',
+          daysAgo: '{{days}} 天前',
+          monthsAgo: '{{months}} 个月前',
+          yearsAgo: '{{years}} 年前',
+        },
+        tooltip: {
+          activity: '{{date}} · {{value}} 次更新',
+        },
+      },
       Verify: '验证',
       keyValid: '你的 API 密钥有效。',
       keyInvalid: '你的 API 密钥无效。',

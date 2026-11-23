@@ -1,0 +1,27 @@
+/*
+ * The bars grow out of the baseline on first paint, and again when the
+ * granularity changes and the chart is rebuilt.
+ */
+@keyframes dashboard-bar-rise {
+  from {
+    transform: scaleY(0);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.dashboard-bar-value {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: dashboard-bar-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* left to right, so the chart reads as itself filling up */
+  animation-delay: calc(var(--bar-index, 0) * 45ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-bar-value {
+    animation: none;
+  }
+}

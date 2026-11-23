@@ -97,6 +97,7 @@ export enum Routes {
   ChatShare = `${Chats}/share`,
   ChatWidget = `${Chats}/widget`,
   UserSetting = '/user-setting',
+  Dashboard = '/dashboard',
   DataSetOverview = '/logs',
   DataSetSetting = '/configuration',
   DataSetSettingNext = '/setting',
@@ -306,7 +307,11 @@ const routeConfigOptions = [
         children: [
           {
             path: Routes.UserSetting,
-            element: <Navigate to={`/user-setting/model`} replace />,
+            element: <Navigate to={`/user-setting/dashboard`} replace />,
+          },
+          {
+            path: `${Routes.UserSetting}${Routes.Dashboard}`,
+            Component: () => import('@/pages/user-setting/dashboard'),
           },
           {
             path: `${Routes.UserSetting}/profile`,

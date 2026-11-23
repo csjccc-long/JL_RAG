@@ -1,0 +1,44 @@
+/* the weather arrives after the range, before the reading */
+.trend-cloud {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  animation: trend-cloud-in 900ms ease-out both;
+}
+
+@keyframes trend-cloud-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+.dark .trend-cloud {
+  animation-name: trend-cloud-in-strong;
+}
+
+@keyframes trend-cloud-in-strong {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trend-cloud {
+    animation: none;
+    opacity: 0.55;
+  }
+
+  .dark .trend-cloud {
+    opacity: 1;
+  }
+}

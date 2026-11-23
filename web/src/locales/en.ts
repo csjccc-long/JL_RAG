@@ -1551,6 +1551,84 @@ This auto-tagging feature enhances retrieval by adding another layer of domain-s
         'Select which metadata fields to display with each chunk',
     },
     setting: {
+      dashboard: {
+        menu: 'Dashboard',
+        welcome: 'Welcome back, {{name}}',
+        welcomeGuest: 'Welcome back',
+        tabs: {
+          updated: 'Recently updated',
+          created: 'Recently created',
+        },
+        actions: {
+          create: 'New knowledge base',
+        },
+        recent: {
+          title: 'Recent knowledge bases',
+          empty: 'No knowledge base yet',
+          previous: 'Previous',
+          next: 'Next',
+          page: '{{current}} / {{total}}',
+        },
+        bar: {
+          title: 'Knowledge bases this year',
+          total: '{{value}} in total',
+        },
+        trend: {
+          title: 'Cumulative tokens',
+          empty: 'No token usage yet',
+          span: {
+            week: 'last 12 weeks',
+            month: 'this year',
+            year: 'last 12 years',
+          },
+          mode: {
+            line: 'Curve',
+            terrain: '3D',
+          },
+          note: {
+            scenery: 'The mass is scenery; the crest is the reading',
+          },
+        },
+        tokenMeter: {
+          title: 'Tokens consumed',
+          of: 'of {{value}}',
+          compact: 'Compact',
+          undo: 'Undo',
+          rest: 'Other knowledge bases',
+          empty: 'No token usage yet',
+          bar: 'Bar',
+          field: 'Field',
+        },
+        contribution: {
+          title: 'Contribution this year',
+          newThisYear: '{{value}} new this year',
+          activity: 'Activity',
+        },
+        metrics: {
+          documents: 'Documents',
+          chunks: 'Chunks',
+          tokens: 'Tokens',
+          knowledgeBases: 'Knowledge bases',
+        },
+        granularity: {
+          week: 'Weekly',
+          month: 'Monthly',
+          year: 'Yearly',
+        },
+        axis: {
+          month: '{{month}}',
+          year: '{{year}}',
+        },
+        relative: {
+          today: 'Today',
+          daysAgo: '{{days}} days ago',
+          monthsAgo: '{{months}} months ago',
+          yearsAgo: '{{years}} years ago',
+        },
+        tooltip: {
+          activity: '{{date}} · {{value}} updates',
+        },
+      },
       Verify: 'Verify',
       keyValid: 'Your API Key is valid.',
       keyInvalid: 'Your API Key is invalid.',

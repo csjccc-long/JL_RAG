@@ -29,6 +29,7 @@ import { Routes } from '@/routes';
 import { TFunction } from 'i18next';
 import {
   LucideBox,
+  LucideLayoutDashboard,
   LucideLogOut,
   LucideMessagesSquare,
   LucideServer,
@@ -41,6 +42,11 @@ import { useTranslation } from 'react-i18next';
 import { useHandleMenuClick } from './hooks';
 
 const menuItems = (t: TFunction) => [
+  {
+    icon: <LucideLayoutDashboard className="size-[1em]" />,
+    label: t('setting.dashboard.menu'),
+    key: Routes.Dashboard,
+  },
   {
     icon: <LucideBox className="size-[1em]" />,
     label: t('setting.model'),
