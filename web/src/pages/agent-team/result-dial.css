@@ -3,9 +3,12 @@
   opacity: 0.9;
 }
 
-.team-dial-rings {
-  color: rgb(var(--text-primary));
-  opacity: 0.5;
+/* 脸的上层：跟着光一起平移，底层那一块不动，中间的错位就是阴影。 */
+.team-dial-top {
+  transform: translate(
+    calc(var(--dial-lx, 0) * var(--face-shift, 0px)),
+    calc(var(--dial-ly, 0) * var(--face-shift, 0px))
+  );
 }
 
 /* 拖得动的舞台：整圈角度由 --dial-angle 一个变量驱动，JS 每帧只改这一处。 */

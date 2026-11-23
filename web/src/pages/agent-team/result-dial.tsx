@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,8 +13,6 @@ const BodyInk = 'color-mix(in srgb, rgb(var(--accent-primary)) 72%, white)';
 /* 卡通立体只靠一层：深色打底 + 浅色往左上偏一点，右下自然留出一道深边。 */
 const ShadeInk = 'color-mix(in srgb, rgb(var(--accent-primary)) 78%, black)';
 
-const RingRadius = [196, 150, 104, 60];
-const LaneRadius = [176, 128];
 /* 环上只放表情：11 种眼神轮一遍，再补一个回来凑满 12 个位置。 */
 export const Expressions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 /* 底部才是形状，和参考图那一排一致。 */
@@ -37,13 +36,6 @@ const round = (value: number) => Math.round(value * 100) / 100;
 const polar = (radius: number, degrees: number): Pt => {
   const radians = ((degrees - 90) * Math.PI) / 180;
   return { x: Center + radius * Math.cos(radians), y: Center + radius * Math.sin(radians) };
-};
-
-const arc = (radius: number, from: number, to: number) => {
-  const start = polar(radius, from);
-  const end = polar(radius, to);
-  const large = to - from > 180 ? 1 : 0;
-  return 'M ' + round(start.x) + ' ' + round(start.y) + ' A ' + radius + ' ' + radius + ' 0 ' + large + ' 1 ' + round(end.x) + ' ' + round(end.y);
 };
 
 /* Catmull-Rom 转三次贝塞尔，闭合一圈；花和云朵这类轮廓都靠它抹平。 */
@@ -265,16 +257,23 @@ const EyeArt = ({ variant, side, ink, unit: base }: { variant: number; side: num
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
+export interface Gaze {
+  x: number;
+  y: number;
+}
+
 /**
- * 自动张望的眼睛：把两只眼睛当成球面上的两个点。
+ * 球面眼睛：把两只眼睛当成球面上的两个点。
  *
  * 看左时是球在转，所以一只眼睛沿弧线走、靠近边缘的那只被透视压窄、另一只甩得更开；
- * 斜着看时一对眼睛一起歪（Tilt）。没有鼠标跟随——没人理它的时候它自己每隔几秒
- * 随便看一个方向、停一下、回正，再眨眨眼。
+ * 斜着看时一对眼睛一起歪（Tilt）。
+ *
+ * 朝向不是自己乱看，而是跟着"上层脸"的位移走——光从哪边来、浅色那块往哪边偏，
+ * 眼睛就往哪边看。这样阴影的变动是能被脸本身读出来的，而不是单纯换个色。
  *
  * 每帧直接写 DOM（transform 与 opacity），不走 React 状态：一次张望不是一次渲染。
  */
-const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; index: number }) => {
+const OrbitEyes = ({ variant, unit, index, gaze }: { variant: number; unit: number; index: number; gaze: { current: Gaze } }) => {
   const gap = gapOf(variant);
   const eyes = useRef<(SVGGElement | null)[]>([]);
 
@@ -338,6 +337,9 @@ const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; in
         previous = 0;
         return;
       }
+      const light = gaze.current ?? { x: 0, y: 0 };
+      turn.tx = clamp(light.x * 0.45, -0.6, 0.6);
+      turn.ty = clamp(light.y * 0.38, -0.5, 0.5);
       const dt = previous ? Math.min(2.5, (now - previous) / 16.67) : 1;
       previous = now;
       if (still) {
@@ -362,26 +364,11 @@ const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; in
     };
     document.addEventListener('visibilitychange', resume);
 
-    let glance = 0;
-    const look = () => {
-      const angle = Math.random() * Math.PI * 2;
-      const far = 0.42 + Math.random() * 0.18;
-      turn.tx = Math.cos(angle) * far;
-      turn.ty = Math.sin(angle) * far;
-      glance = window.setTimeout(() => {
-        turn.tx = 0;
-        turn.ty = 0;
-        glance = window.setTimeout(look, 4200 + Math.random() * 2600);
-      }, 900);
-    };
-    if (!still) glance = window.setTimeout(look, 2200 + index * 330);
-
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener('visibilitychange', resume);
-      window.clearTimeout(glance);
     };
-  }, [gap, index, unit]);
+  }, [gaze, gap, index, unit]);
 
   return (
     <g>
@@ -406,6 +393,7 @@ interface FaceProps {
   shape: DialShape;
   variant: number;
   index: number;
+  gaze: { current: Gaze };
   unit?: number;
   faceUnit?: number;
   picked?: boolean;
@@ -414,12 +402,16 @@ interface FaceProps {
 }
 
 /**
- * 一张脸 = 一块实色外形 + 偏移的实色投影 + 一对眼睛。
- * 没有描边，也不留白底，参考图的"动画风"就是这两层实色。
+ * 一张脸 = 两层同形状实色：底层是影，上层是脸。
+ *
+ * 上层跟着光的方向平移（--dial-lx / --dial-ly 由舞台每帧写），底层不动，
+ * 于是偏移那一侧露出影、另一侧露出脸的边——阴影的变动是"挪出来的"，不是画上去的。
+ * 眼睛和上层一起走，所以光一偏，眼神也跟着偏。
  */
-const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, center = false, onPick }: FaceProps) => {
+const Face = ({ shape, variant, index, gaze, unit = 1, faceUnit, picked = false, center = false, onPick }: FaceProps) => {
   const radius = 21 * unit;
   const clipId = 'dial-face-' + useId().replace(/:/g, '');
+  const shift = radius * (center ? 0.1 : 0.12);
   return (
     <g
       className="team-dial-face"
@@ -429,17 +421,14 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
       data-picked={picked ? 'true' : undefined}
       onClick={onPick}
     >
-      {picked ? <circle r={radius * 1.42} fill="rgb(var(--text-primary))" fillOpacity={0.08} /> : null}
-      {/* 卡通立体：一整块深色打底，再用浅色往左上挪一点盖上去，只在右下留一道深色边。 */}
+      {picked ? <circle r={radius * 1.42} fill={Ink} fillOpacity={0.16} /> : null}
       <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
-      <ShapeClip shape={shape} radius={radius} id={clipId} />
-      <g clipPath={'url(#' + clipId + ')'}>
-        <g transform={'translate(' + round(-radius * (shape === 'star' ? 0.075 : 0.11)) + ' ' + round(-radius * (shape === 'star' ? 0.09 : 0.13)) + ')'}>
-          <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
-        </g>
+      <g className="team-dial-top" style={{ '--face-shift': shift + 'px' } as CSSProperties}>
+        <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
       </g>
+      <ShapeClip shape={shape} radius={radius} id={clipId} />
       <g clipPath={'url(#' + clipId + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
-        <OrbitEyes variant={variant} unit={faceUnit ?? unit} index={index} />
+        <OrbitEyes variant={variant} unit={faceUnit ?? unit} index={index} gaze={gaze} />
       </g>
     </g>
   );
@@ -455,7 +444,6 @@ const RingFaces = Expressions.map((variant, index) => ({
 
 /* 底部那排形状：和参考图一样是一块实色 + 偏移投影，没有描边。 */
 const ShapeChip = ({ shape, picked, onPick }: { shape: DialShape; picked: boolean; onPick: () => void }) => {
-  const clipId = 'dial-chip-' + useId().replace(/:/g, '');
   return (
   <button
     type="button"
@@ -467,11 +455,8 @@ const ShapeChip = ({ shape, picked, onPick }: { shape: DialShape; picked: boolea
   >
     <svg viewBox="-30 -30 60 60" className="h-10 w-10">
       <ShapeBody shape={shape} radius={20} fill={ShadeInk} />
-      <ShapeClip shape={shape} radius={20} id={clipId} />
-      <g clipPath={'url(#' + clipId + ')'}>
-        <g transform="translate(-2.2 -2.6)">
-          <ShapeBody shape={shape} radius={20} fill={BodyInk} />
-        </g>
+      <g transform="translate(-2.6 -3)">
+        <ShapeBody shape={shape} radius={20} fill={BodyInk} />
       </g>
     </svg>
   </button>
@@ -490,6 +475,8 @@ const ResultDial = () => {
   const [shape, setShape] = useState<DialShape>('flower');
   const stage = useRef<HTMLDivElement | null>(null);
   const spin = useRef({ angle: 0, dragging: false, moved: false, startX: 0, base: 0, lastDrag: 0 });
+  /* 光的方向：同一份数值既驱动"上层脸"的平移，也驱动眼睛的朝向。 */
+  const gaze = useRef<Gaze>({ x: 0, y: 0 });
 
   /* 环自己慢慢转，鼠标按住可以直接拖；拖动时暂停自转，松手后从当前角度继续。 */
   useEffect(() => {
@@ -509,6 +496,14 @@ const ResultDial = () => {
       previous = now;
       if (!still && !spin.current.dragging && !hovered) spin.current.angle += (delta / 1000) * 3.75;
       apply();
+      /* 光慢慢摆：两层之间的位移和眼神用的是同一对数，所以看起来是同一束光。 */
+      const seconds = now / 1000;
+      const lx = still ? 0.55 : Math.sin(seconds * 0.42) * 0.9;
+      const ly = still ? -0.55 : Math.sin(seconds * 0.27 + 1.2) * 0.72;
+      gaze.current.x = lx;
+      gaze.current.y = ly;
+      node.style.setProperty('--dial-lx', lx.toFixed(3));
+      node.style.setProperty('--dial-ly', ly.toFixed(3));
       raf = requestAnimationFrame(paint);
     };
 
@@ -570,39 +565,6 @@ const ResultDial = () => {
     <div data-testid="result-dial" className="pointer-events-none absolute inset-0 select-none">
       <div ref={stage} className="team-dial-stage absolute -right-[99px] -top-[99px] hidden h-[440px] w-[440px] lg:block">
         <svg viewBox={'0 0 ' + Size + ' ' + Size} className="h-full w-full">
-          <g className="team-dial-rings" fill="none" stroke="currentColor">
-            {RingRadius.map((radius, index) => (
-              <circle
-                key={radius}
-                cx={Center}
-                cy={Center}
-                r={radius}
-                strokeWidth={index === 0 ? 1.2 : 0.8}
-                strokeOpacity={index === 0 ? 0.38 : 0.16}
-              />
-            ))}
-          </g>
-
-          <circle cx={Center} cy={Center} r={RingRadius[3]} fill={Ink} fillOpacity={0.06} />
-
-          <path
-            d={arc(RingRadius[0], 90, 360)}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeOpacity={0.46}
-            strokeLinecap="round"
-          />
-
-          <path
-            d={arc(LaneRadius[1], 96, 354)}
-            fill="none"
-            stroke={Ink}
-            strokeWidth={2.4}
-            strokeOpacity={0.55}
-            strokeLinecap="round"
-          />
-
           <g className="team-dial-agents">
             {RingFaces.map((face) => (
               <g
@@ -614,6 +576,7 @@ const ResultDial = () => {
                     shape="circle"
                     variant={face.variant}
                     index={face.index}
+                    gaze={gaze}
                     picked={expression === face.index}
                     onPick={() => pickExpression(face.index)}
                   />
@@ -627,6 +590,7 @@ const ResultDial = () => {
               shape={shape}
               variant={Expressions[expression]}
               index={3}
+              gaze={gaze}
               unit={shape === 'star' ? 3 : shape === 'heart' ? 2.9 : 2.5}
               faceUnit={shape === 'star' ? 1.5 : shape === 'heart' ? 1.9 : 2.5}
               center
