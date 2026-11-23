@@ -8,24 +8,30 @@
   opacity: 0.5;
 }
 
-/* 整圈表情慢慢转，每个头像反向自转，转出被切掉的四分之一时脸仍然是正的。 */
-.team-dial-agents {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: team-dial-turn 96s linear infinite;
+/* 拖得动的舞台：整圈角度由 --dial-angle 一个变量驱动，JS 每帧只改这一处。 */
+.team-dial-stage {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
 }
 
+.team-dial-stage:active {
+  cursor: grabbing;
+}
+
+.team-dial-agents {
+  transform-box: view-box;
+  transform-origin: 200px 200px;
+  transform: rotate(var(--dial-angle, 0deg));
+}
+
+/* 每个头像反向自转，转到被切掉的那四分之一时脸仍然是正的。 */
 .team-dial-agent {
   transform-box: fill-box;
   transform-origin: center;
-  animation: team-dial-turn 96s linear infinite reverse;
+  transform: rotate(calc(-1 * var(--dial-angle, 0deg)));
   pointer-events: auto;
   cursor: pointer;
-}
-
-.team-dial-agents:hover,
-.team-dial-agents:hover .team-dial-agent {
-  animation-play-state: paused;
 }
 
 /* 底部形状：选中不是描边，是换一块底 + 抬一点。 */
@@ -49,19 +55,9 @@
   background: rgb(var(--text-primary) / 0.08);
 }
 
-@keyframes team-dial-turn {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .team-dial-agents,
   .team-dial-agent {
-    animation: none;
+    transition: none;
   }
 }

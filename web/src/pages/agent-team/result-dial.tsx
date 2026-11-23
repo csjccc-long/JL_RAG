@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import './result-dial.css';
 
@@ -8,18 +9,24 @@ const Ink = 'rgb(var(--accent-primary))';
 const EyeInk = 'rgb(0 0 0 / 0.85)';
 /* 参考图是浅色桃肉 + 深一档的同色投影，换成主题色就是"浅青的身子 + 青的影"。 */
 const BodyInk = 'color-mix(in srgb, rgb(var(--accent-primary)) 72%, white)';
+/* 卡通立体只靠一层：深色打底 + 浅色往左上偏一点，右下自然留出一道深边。 */
+const ShadeInk = 'color-mix(in srgb, rgb(var(--accent-primary)) 78%, black)';
 
 const RingRadius = [196, 150, 104, 60];
 const LaneRadius = [176, 128];
 /* 环上只放表情：11 种眼神轮一遍，再补一个回来凑满 12 个位置。 */
-export const Expressions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 4];
+export const Expressions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 /* 底部才是形状，和参考图那一排一致。 */
 export const ShapeChoices = ['squircle', 'egg', 'flower', 'star', 'heart'] as const;
 
 export type DialShape = 'circle' | 'squircle' | 'egg' | 'flower' | 'star' | 'heart';
 
-/* 眼睛在脸上左右各偏多少：球面坐标里是"半间距占半径的比例"。 */
-const EyeGap = 0.3;
+/* 眼睛在脸上左右各偏多少：球面坐标里是"半间距占半径的比例"。
+   笑眼这类要明显拉开，否则两弯眉会挤在中间，和参考图差得远。 */
+const EyeGap = 0.34;
+const WideEyeGap = 0.46;
+const smiley = (variant: number) => variant === 2 || variant === 5 || variant === 7 || variant === 11;
+const gapOf = (variant: number) => (smiley(variant) ? WideEyeGap : EyeGap);
 /* 斜着看时两只眼睛一起歪多少度（到边缘时）。 */
 const Tilt = 64;
 
@@ -195,7 +202,7 @@ const EyeArt = ({ variant, side, ink, unit: base }: { variant: number; side: num
     />
   );
 
-  switch (variant % 11) {
+  switch (variant % 12) {
     case 0:
       return bar();
     case 1:
@@ -221,6 +228,13 @@ const EyeArt = ({ variant, side, ink, unit: base }: { variant: number; side: num
       return bar(10.4, 3.1);
     case 9:
       return <rect x={-3 * unit} y={-3.6 * unit} width={6 * unit} height={7.2 * unit} rx={3 * unit} fill={ink} />;
+    case 11:
+      /* 单眼一笑一睁 */
+      return (
+        <>
+          {side < 0 ? smile() : dot(2.8)}
+        </>
+      );
     default:
       return (
         <>
@@ -251,6 +265,7 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
  * 每帧直接写 DOM（transform 与 opacity），不走 React 状态：一次张望不是一次渲染。
  */
 const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; index: number }) => {
+  const gap = gapOf(variant);
   const eyes = useRef<(SVGGElement | null)[]>([]);
 
   useEffect(() => {
@@ -283,7 +298,7 @@ const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; in
       for (let side = 0; side < 2; side += 1) {
         const node = eyes.current[side];
         if (!node) continue;
-        const base = side === 0 ? -EyeGap : EyeGap;
+        const base = side === 0 ? -gap : gap;
         /* 眼睛在单位球面上的点，被这次转头带到哪儿 */
         const depth0 = Math.sqrt(1 - base * base);
         const x1 = base * cosY + depth0 * sinY;
@@ -356,7 +371,7 @@ const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; in
       document.removeEventListener('visibilitychange', resume);
       window.clearTimeout(glance);
     };
-  }, [index, unit]);
+  }, [gap, index, unit]);
 
   return (
     <g>
@@ -405,11 +420,14 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
       onClick={onPick}
     >
       {picked ? <circle r={radius * 1.42} fill="rgb(var(--text-primary))" fillOpacity={0.08} /> : null}
-      <g transform={'translate(' + round(2.2 * unit) + ' ' + round(3.1 * unit) + ')'}>
-        <ShapeBody shape={shape} radius={radius} fill={Ink} />
-      </g>
-      <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
+      {/* 卡通立体：一整块深色打底，再用浅色往左上挪一点盖上去，只在右下留一道深色边。 */}
+      <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
       <ShapeClip shape={shape} radius={radius} id={clipId} />
+      <g clipPath={'url(#' + clipId + ')'}>
+        <g transform={'translate(' + round(-radius * 0.11) + ' ' + round(-radius * 0.13) + ')'}>
+          <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
+        </g>
+      </g>
       <g clipPath={'url(#' + clipId + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
         <OrbitEyes variant={variant} unit={faceUnit ?? unit} index={index} />
       </g>
@@ -426,7 +444,9 @@ const RingFaces = Expressions.map((variant, index) => ({
 }));
 
 /* 底部那排形状：和参考图一样是一块实色 + 偏移投影，没有描边。 */
-const ShapeChip = ({ shape, picked, onPick }: { shape: DialShape; picked: boolean; onPick: () => void }) => (
+const ShapeChip = ({ shape, picked, onPick }: { shape: DialShape; picked: boolean; onPick: () => void }) => {
+  const clipId = 'dial-chip-' + useId().replace(/:/g, '');
+  return (
   <button
     type="button"
     data-shape={shape}
@@ -436,13 +456,17 @@ const ShapeChip = ({ shape, picked, onPick }: { shape: DialShape; picked: boolea
     className="team-dial-chip"
   >
     <svg viewBox="-30 -30 60 60" className="h-10 w-10">
-      <g transform="translate(2.4 3.2)">
-        <ShapeBody shape={shape} radius={20} fill={Ink} />
+      <ShapeBody shape={shape} radius={20} fill={ShadeInk} />
+      <ShapeClip shape={shape} radius={20} id={clipId} />
+      <g clipPath={'url(#' + clipId + ')'}>
+        <g transform="translate(-2.2 -2.6)">
+          <ShapeBody shape={shape} radius={20} fill={BodyInk} />
+        </g>
       </g>
-      <ShapeBody shape={shape} radius={20} fill={BodyInk} />
     </svg>
   </button>
-);
+  );
+};
 
 /**
  * 分发盘的占位：四分之三的圆盘，剩下四分之一被面板右上角切走。
@@ -451,12 +475,91 @@ const ShapeChip = ({ shape, picked, onPick }: { shape: DialShape; picked: boolea
  * 之后任务分发的每条链路（谁派给谁、跑在哪个阶段）都会落在这几圈同心轨道上。
  */
 const ResultDial = () => {
+  const { t } = useTranslation();
   const [expression, setExpression] = useState(4);
   const [shape, setShape] = useState<DialShape>('flower');
+  const stage = useRef<HTMLDivElement | null>(null);
+  const spin = useRef({ angle: 0, dragging: false, moved: false, startX: 0, base: 0, lastDrag: 0 });
+
+  /* 环自己慢慢转，鼠标按住可以直接拖；拖动时暂停自转，松手后从当前角度继续。 */
+  useEffect(() => {
+    const node = stage.current;
+    if (!node) return undefined;
+    const still = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    let raf = 0;
+    let previous = 0;
+    let hovered = false;
+
+    const apply = () => {
+      node.style.setProperty('--dial-angle', spin.current.angle.toFixed(2) + 'deg');
+    };
+
+    const paint = (now: number) => {
+      const delta = previous ? Math.min(64, now - previous) : 16;
+      previous = now;
+      if (!still && !spin.current.dragging && !hovered) spin.current.angle += (delta / 1000) * 3.75;
+      apply();
+      raf = requestAnimationFrame(paint);
+    };
+
+    const enter = () => {
+      hovered = true;
+    };
+    const leave = () => {
+      hovered = false;
+    };
+    const down = (event: PointerEvent) => {
+      spin.current.dragging = true;
+      spin.current.moved = false;
+      spin.current.startX = event.clientX;
+      spin.current.base = spin.current.angle;
+      try {
+        node.setPointerCapture(event.pointerId);
+      } catch {
+        /* 合成事件没有真实 pointerId，忽略即可 */
+      }
+    };
+    const move = (event: PointerEvent) => {
+      if (!spin.current.dragging) return;
+      const dx = event.clientX - spin.current.startX;
+      if (Math.abs(dx) > 3) spin.current.moved = true;
+      spin.current.angle = spin.current.base + dx * 0.55;
+      apply();
+    };
+    const up = (event: PointerEvent) => {
+      if (!spin.current.dragging) return;
+      spin.current.dragging = false;
+      if (spin.current.moved) spin.current.lastDrag = performance.now();
+      if (node.hasPointerCapture(event.pointerId)) node.releasePointerCapture(event.pointerId);
+    };
+
+    raf = requestAnimationFrame(paint);
+    node.addEventListener('pointerenter', enter);
+    node.addEventListener('pointerleave', leave);
+    node.addEventListener('pointerdown', down);
+    node.addEventListener('pointermove', move);
+    node.addEventListener('pointerup', up);
+    node.addEventListener('pointercancel', up);
+    return () => {
+      cancelAnimationFrame(raf);
+      node.removeEventListener('pointerenter', enter);
+      node.removeEventListener('pointerleave', leave);
+      node.removeEventListener('pointerdown', down);
+      node.removeEventListener('pointermove', move);
+      node.removeEventListener('pointerup', up);
+      node.removeEventListener('pointercancel', up);
+    };
+  }, []);
+
+  /* 刚拖完的那一下 click 不要当成"选表情"。 */
+  const pickExpression = (index: number) => {
+    if (performance.now() - spin.current.lastDrag < 300) return;
+    setExpression(index);
+  };
 
   return (
     <div data-testid="result-dial" className="pointer-events-none absolute inset-0 select-none">
-      <div className="absolute -right-[99px] -top-[99px] hidden h-[440px] w-[440px] lg:block">
+      <div ref={stage} className="team-dial-stage absolute -right-[99px] -top-[99px] hidden h-[440px] w-[440px] lg:block">
         <svg viewBox={'0 0 ' + Size + ' ' + Size} className="h-full w-full">
           <g className="team-dial-rings" fill="none" stroke="currentColor">
             {RingRadius.map((radius, index) => (
@@ -503,7 +606,7 @@ const ResultDial = () => {
                     variant={face.variant}
                     index={face.index}
                     picked={expression === face.index}
-                    onPick={() => setExpression(face.index)}
+                    onPick={() => pickExpression(face.index)}
                   />
                 </g>
               </g>
@@ -523,7 +626,7 @@ const ResultDial = () => {
         </svg>
       </div>
 
-      <div className="pointer-events-auto absolute inset-x-0 top-[352px] hidden justify-center gap-1.5 px-4 lg:flex">
+      <div className="pointer-events-auto absolute inset-x-0 top-[352px] hidden flex-wrap justify-center gap-1.5 px-4 lg:flex">
         {ShapeChoices.map((choice) => (
           <ShapeChip
             key={choice}
@@ -532,6 +635,7 @@ const ResultDial = () => {
             onPick={() => setShape(choice)}
           />
         ))}
+        <p className="w-full pt-1 text-center text-[11px] text-text-secondary">{t('flow.agentTeam.page.dialHint')}</p>
       </div>
     </div>
   );
