@@ -1,5 +1,5 @@
 import type { CSSProperties, RefObject } from 'react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import './result-dial.css';
@@ -201,6 +201,145 @@ const ShapeClip = ({ shape, radius, id }: { shape: DialShape; radius: number; id
         : <path d={pathOf(shape, radius)} />}
   </clipPath>
 );
+
+/* ── 塑形过渡：把任意一个外形摊成同一圈等距采样点 ───────────────
+   换形状时不再整块替换，而是把这 96 个点在两套轮廓之间插值——像捏橡皮泥，
+   角会先被拉过去、肚子再跟上。所以每个形状都必须能摊成同样多的点：
+   圆、圆角方、菱形直接用解析采样，星、心、蛋、云、盾沿 SVG 路径按弧长取点。 */
+const MorphSamples = 120;
+
+const resample = (points: Pt[], count: number): Pt[] => {
+  const lengths: number[] = [0];
+  let total = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const next = points[(index + 1) % points.length];
+    total += Math.hypot(next.x - points[index].x, next.y - points[index].y);
+    lengths.push(total);
+  }
+  const out: Pt[] = [];
+  let cursor = 0;
+  for (let sample = 0; sample < count; sample += 1) {
+    const at = (sample / count) * total;
+    while (cursor < points.length - 1 && lengths[cursor + 1] < at) cursor += 1;
+    const span = lengths[cursor + 1] - lengths[cursor] || 1;
+    const t = (at - lengths[cursor]) / span;
+    const a = points[cursor];
+    const b = points[(cursor + 1) % points.length];
+    out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  }
+  return out;
+};
+
+const roundedRectLoop = (radius: number, corner: number): Pt[] => {
+  const half = radius;
+  const r = Math.min(corner, half);
+  const points: Pt[] = [];
+  const steps = 14;
+  const arc = (cx: number, cy: number, from: number, to: number) => {
+    for (let step = 0; step <= steps; step += 1) {
+      const angle = ((from + ((to - from) * step) / steps) * Math.PI) / 180;
+      points.push({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
+    }
+  };
+  for (let y = -half + r; y <= half - r; y += 2) points.push({ x: half, y });
+  arc(half - r, half - r, 0, 90);
+  for (let x = half - r; x >= -half + r; x -= 2) points.push({ x, y: half });
+  arc(-half + r, half - r, 90, 180);
+  for (let y = half - r; y >= -half + r; y -= 2) points.push({ x: -half, y });
+  arc(-half + r, -half + r, 180, 270);
+  for (let x = -half + r; x <= half - r; x += 2) points.push({ x, y: -half });
+  arc(half - r, -half + r, 270, 360);
+  return resample(points, MorphSamples);
+};
+
+const sampleCache = new Map<string, Pt[]>();
+
+/* 把一条现成的 path 摊成同一圈点：连续换形状时从"此刻正在变的那张脸"接着捏，
+   而不是从上一个形状的终点重新起手。jsdom 没有路径测量，返回 null 交给调用方兜底。 */
+const sampleElement = (node: SVGPathElement | null): Pt[] | null => {
+  if (!node || typeof node.getTotalLength !== 'function') return null;
+  const total = node.getTotalLength();
+  if (!total) return null;
+  const points: Pt[] = [];
+  for (let index = 0; index < MorphSamples; index += 1) {
+    const point = node.getPointAtLength((index / MorphSamples) * total);
+    points.push({ x: point.x, y: point.y });
+  }
+  return points;
+};
+
+/* 把形状摊成 MorphSamples 个等距点（局部坐标、未套 transform）。 */
+const faceOutline = (shape: DialShape, radius: number): Pt[] => {
+  const key = shape + ':' + radius.toFixed(2);
+  const cached = sampleCache.get(key);
+  if (cached) return cached;
+
+  let points: Pt[];
+  if (shape === 'circle') {
+    points = [];
+    for (let index = 0; index < MorphSamples; index += 1) {
+      const angle = (index / MorphSamples) * Math.PI * 2 - Math.PI / 2;
+      points.push({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+    }
+  } else if (shape === 'squircle') {
+    points = roundedRectLoop(radius, radius * 0.44);
+  } else if (shape === 'diamond') {
+    /* 菱形 = 圆角方转 45° 再横向压到 0.78，烘焙进点里，过渡时才没有 transform 要一起插值。 */
+    const cos = Math.cos(Math.PI / 4);
+    const sin = Math.sin(Math.PI / 4);
+    points = roundedRectLoop(radius, radius * 0.32).map((point) => {
+      const x = point.x * cos - point.y * sin;
+      const y = point.x * sin + point.y * cos;
+      return { x: x * 0.78, y };
+    });
+  } else {
+    const data = pathOf(shape, radius);
+    const node = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    node.setAttribute('d', data);
+    /* jsdom 没有路径测量：退化成按 d 里的锚点/控制点取点（只有测试会走到这里）。 */
+    if (typeof node.getTotalLength !== 'function') {
+      const numbers = (data.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+      const anchors: Pt[] = [];
+      for (let index = 0; index + 1 < numbers.length; index += 2) {
+        anchors.push({ x: numbers[index], y: numbers[index + 1] });
+      }
+      points = resample(anchors, MorphSamples);
+    } else {
+      const total = node.getTotalLength();
+      points = [];
+      for (let index = 0; index < MorphSamples; index += 1) {
+        const point = node.getPointAtLength((index / MorphSamples) * total);
+        points.push({ x: point.x, y: point.y });
+      }
+    }
+  }
+  sampleCache.set(key, points);
+  return points;
+};
+
+/* 两点集之间找一圈最省力的错位：星转成心时不要整张脸拧 40°。 */
+const alignOutline = (from: Pt[], to: Pt[]): Pt[] => {
+  const count = from.length;
+  let bestShift = 0;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (let shift = 0; shift < count; shift += 2) {
+    let score = 0;
+    for (let index = 0; index < count; index += 5) {
+      const a = from[index];
+      const b = to[(index + shift) % count];
+      score += (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+    }
+    if (score < bestScore) {
+      bestScore = score;
+      bestShift = shift;
+    }
+  }
+  const out: Pt[] = [];
+  for (let index = 0; index < count; index += 1) out.push(to[(index + bestShift) % count]);
+  return out;
+};
+
+const MorphMs = 560;
 
 /* 星和心的胖处在偏上，眼睛要跟着抬一点，不然会挤在尖端。 */
 const ShapeEyeLift: Record<DialShape, number> = {
@@ -493,8 +632,54 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
   const clipId = 'dial-face-' + useId().replace(/:/g, '');
   /* 这张脸的根节点：眼睛每帧往它上面写偏移方向。 */
   const board = useRef<SVGGElement | null>(null);
+  /* 影、脸、裁剪共用同一条轮廓：换形状时三条 d 一起被逐帧改写，所以三者永远对得上。 */
+  const skin = useRef<SVGGElement | null>(null);
+  const shadePath = useRef<SVGPathElement | null>(null);
+  const topPath = useRef<SVGPathElement | null>(null);
+  const clipPathRef = useRef<SVGPathElement | null>(null);
+  const wasShape = useRef(shape);
+  const wasRadius = useRef(radius);
   /* 参考图是一块浅色贴纸 + 一块深色侧面：上层往左上错开一点，右下就露出一条厚度。 */
   const shift = radius * (shape === 'star' || shape === 'cloud' || shape === 'shield' ? 0.11 : 0.085);
+  const outline = smoothClosed(faceOutline(shape, radius));
+
+  /* 换形状 = 捏：起手把三条路径换回旧形状（在绘制前发生，所以看不到回跳），
+     再把 120 个采样点从旧轮廓插到新轮廓，中途整张脸横向鼓一下、纵向压一下。 */
+  useLayoutEffect(() => {
+    const fromShape = wasShape.current;
+    const fromRadius = wasRadius.current;
+    wasShape.current = shape;
+    wasRadius.current = radius;
+    const elements = [shadePath.current, topPath.current, clipPathRef.current];
+    if (fromShape === shape || !elements[0]) return;
+    const still =
+      typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (still) return;
+
+    const start = sampleElement(topPath.current) ?? faceOutline(fromShape, fromRadius);
+    const end = alignOutline(start, faceOutline(shape, radius));
+    const started = performance.now();
+    let raf = 0;
+
+    const paint = (now: number) => {
+      const raw = Math.min(1, (now - started) / MorphMs);
+      const t = 1 - Math.pow(1 - raw, 3);
+      const points = start.map((point, at) => ({
+        x: point.x + (end[at].x - point.x) * t,
+        y: point.y + (end[at].y - point.y) * t,
+      }));
+      const data = smoothClosed(points);
+      elements.forEach((element) => element?.setAttribute('d', data));
+      /* 捏的动作：中点最胖，收尾回到正形。 */
+      const belly = Math.sin(Math.PI * raw);
+      skin.current?.setAttribute('transform', 'scale(' + round(1 + 0.06 * belly) + ' ' + round(1 - 0.07 * belly) + ')');
+      if (raw < 1) raf = requestAnimationFrame(paint);
+      else skin.current?.removeAttribute('transform');
+    };
+    raf = requestAnimationFrame(paint);
+    return () => cancelAnimationFrame(raf);
+  }, [shape, radius]);
+
   return (
     <g
       ref={board}
@@ -506,19 +691,24 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
       onClick={onPick}
     >
       {picked ? <circle r={radius * 1.42} fill={Ink} fillOpacity={0.16} /> : null}
-      <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
-      <g className="team-dial-top" style={{ '--face-shift': shift + 'px' } as CSSProperties}>
-        <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
-      </g>
-      <ShapeClip shape={shape} radius={radius} id={clipId} />
-      <g clipPath={'url(#' + clipId + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
-        <OrbitEyes
-          variant={variant}
-          unit={faceUnit ?? unit}
-          index={index}
-          layer={board}
-          reach={shape === 'circle' ? 1 : 0.62}
-        />
+      <g ref={skin}>
+        <path ref={shadePath} d={outline} fill={ShadeInk} />
+        <g className="team-dial-top" style={{ '--face-shift': shift + 'px' } as CSSProperties}>
+          <path ref={topPath} d={outline} fill={BodyInk} />
+        </g>
+        <clipPath id={clipId}>
+          <circle r={radius * EyeField[shape]} />
+          <path ref={clipPathRef} d={outline} />
+        </clipPath>
+        <g clipPath={'url(#' + clipId + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
+          <OrbitEyes
+            variant={variant}
+            unit={faceUnit ?? unit}
+            index={index}
+            layer={board}
+            reach={shape === 'circle' ? 1 : 0.62}
+          />
+        </g>
       </g>
     </g>
   );

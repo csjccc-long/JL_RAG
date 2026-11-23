@@ -27,6 +27,24 @@ describe('ResultDial', () => {
     expect(container.querySelectorAll('.team-dial-eye')).toHaveLength((Expressions.length + 1) * 2);
   });
 
+  // 塑形过渡要在同一条轮廓上做：影、脸、裁剪三张 path 必须共用一份 d，
+  // 否则换形状时影子会比脸慢半拍，边缘还会露出没被裁掉的眼睛。
+  it('影、脸、裁剪共用同一条轮廓', () => {
+    const { container } = render(<ResultDial />);
+    const center = centerFace(container) as HTMLElement;
+    const paths = Array.from(center.querySelectorAll('path'));
+    expect(paths).toHaveLength(3);
+    const cloudOutline = paths[0].getAttribute('d');
+    expect(paths[1].getAttribute('d')).toBe(cloudOutline);
+    expect(paths[2].getAttribute('d')).toBe(cloudOutline);
+
+    fireEvent.click(container.querySelector('.team-dial-chip[data-shape="heart"]') as Element);
+    const after = Array.from(center.querySelectorAll('path'));
+    expect(after[0].getAttribute('d')).not.toBe(cloudOutline);
+    expect(after[1].getAttribute('d')).toBe(after[0].getAttribute('d'));
+    expect(after[2].getAttribute('d')).toBe(after[0].getAttribute('d'));
+  });
+
   // 中间只负责展示：换形状，中心跟着换。
   it('选一个形状，中间就换成它', () => {
     const { container } = render(<ResultDial />);

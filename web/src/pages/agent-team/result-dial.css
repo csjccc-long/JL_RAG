@@ -8,6 +8,19 @@
   pointer-events: auto;
   touch-action: none;
   cursor: grab;
+  /* 这圈脸是被右侧栏的右上角切掉的。硬切的地方（面板上边、面板右边）改成羽化：
+     两条各自渐隐的遮罩取交集，脸越靠近那条边越淡，最后溶进背景，而不是被一刀切断。
+     尺寸对应 440×440 的舞台：右边界在 341px（77.6%），上边界在 99px（22.5%）。 */
+  -webkit-mask-image:
+    linear-gradient(to right, #000 72%, transparent 87%),
+    linear-gradient(to bottom, transparent 13%, #000 27%);
+  mask-image:
+    linear-gradient(to right, #000 72%, transparent 87%),
+    linear-gradient(to bottom, transparent 13%, #000 27%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  /* 边缘再糊一点点，羽化区里就没有矢量线的硬边。 */
+  filter: blur(0.35px);
 }
 
 .team-dial-stage:active {
