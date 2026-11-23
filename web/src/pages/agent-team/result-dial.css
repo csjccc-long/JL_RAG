@@ -2,7 +2,12 @@
    three quarters of a disc, the fourth quarter cut away by the panel corner */
 .team-dial {
   color: rgb(var(--text-secondary));
-  opacity: 0.62;
+  opacity: 0.78;
+}
+
+/* 头像比刻度更重要一点：它们是将来点选 agent 的入口，压得太暗就不像"可选中" */
+.team-dial-agents {
+  opacity: 1;
 }
 
 .team-dial-rings {
@@ -20,6 +25,20 @@
   animation: team-dial-turn 90s linear infinite;
 }
 
+/* agents ride the second ring: the ring turns, each face turns back, so the
+   row keeps its orientation while the clipped quarter comes round */
+.team-dial-agents {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: team-dial-turn 160s linear infinite;
+}
+
+.team-dial-agent {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: team-dial-turn 160s linear infinite reverse;
+}
+
 @keyframes team-dial-turn {
   to {
     transform: rotate(360deg);
@@ -28,7 +47,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .team-dial-sweep,
-  .team-dial-lane {
+  .team-dial-lane,
+  .team-dial-agents,
+  .team-dial-agent {
     animation: none;
   }
 }
