@@ -3,14 +3,6 @@
   opacity: 0.9;
 }
 
-/* 脸的上层：跟着光一起平移，底层那一块不动，中间的错位就是阴影。 */
-.team-dial-top {
-  transform: translate(
-    calc(var(--dial-lx, 0) * var(--face-shift, 0px)),
-    calc(var(--dial-ly, 0) * var(--face-shift, 0px))
-  );
-}
-
 /* 拖得动的舞台：整圈角度由 --dial-angle 一个变量驱动，JS 每帧只改这一处。 */
 .team-dial-stage {
   pointer-events: auto;
@@ -41,9 +33,9 @@
 .team-dial-chip {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   transition:
     background-color 160ms ease,
     transform 160ms ease;
