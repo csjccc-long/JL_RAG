@@ -29,20 +29,21 @@
   cursor: pointer;
 }
 
-/* 贴纸的上层：跟着光偏移，底层不动，右下那一条就是厚度。
-   --dial-lx/--dial-ly 由 ResultDial 每帧写一次，--face-shift 是这张脸的偏移量。 */
+/* 贴纸的上层：底层不动，上层挪，挪出去的那条边就是厚度。
+   --face-lx/--face-ly 是这张脸自己的眼睛写进来的方向（-1..0，左上为负），
+   --face-shift 是这张脸的位移量，所以每张脸的厚薄跟着它自己的视线走。 */
 .team-dial-top {
   transform: translate(
-    calc(var(--dial-lx, -0.6) * var(--face-shift, 0px)),
-    calc(var(--dial-ly, -0.55) * var(--face-shift, 0px))
+    calc(var(--face-lx, -0.62) * var(--face-shift, 0px)),
+    calc(var(--face-ly, -0.6) * var(--face-shift, 0px))
   );
 }
 
 @media (prefers-reduced-motion: reduce) {
   .team-dial-top {
     transform: translate(
-      calc(-0.6 * var(--face-shift, 0px)),
-      calc(-0.55 * var(--face-shift, 0px))
+      calc(-0.62 * var(--face-shift, 0px)),
+      calc(-0.6 * var(--face-shift, 0px))
     );
   }
 }

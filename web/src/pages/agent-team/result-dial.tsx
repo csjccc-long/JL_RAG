@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, RefObject } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -193,8 +193,8 @@ const ShapeEyeLift: Record<DialShape, number> = {
   squircle: 0,
   diamond: 0,
   egg: 0.02,
-  /* 参考图里云的眼睛略低于中线，盾的眼睛略高于中线。 */
-  cloud: -0.05,
+  /* 参考图里云的眼睛落在下面那团大弧里，盾的眼睛略高于中线。 */
+  cloud: -0.16,
   star: 0.04,
   heart: 0.12,
   shield: 0.06,
@@ -301,7 +301,21 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
  *
  * 每帧直接写 DOM（transform 与 opacity），不走 React 状态：一次张望不是一次渲染。
  */
-const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; index: number }) => {
+const OrbitEyes = ({
+  variant,
+  unit,
+  index,
+  layer,
+  reach = 1,
+}: {
+  variant: number;
+  unit: number;
+  index: number;
+  /* 这张脸的根节点：贴纸上层靠它上面的两个变量挪位置。 */
+  layer: RefObject<SVGGElement | null>;
+  /* 视线能走多远：圆脸是整张脸，异形（云、盾、星…）的轮廓更窄，走太远会被裁掉。 */
+  reach?: number;
+}) => {
   const gap = gapOf(variant);
   const eyes = useRef<(SVGGElement | null)[]>([]);
 
@@ -331,6 +345,15 @@ const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; in
       const cosP = Math.cos(pitch);
       const sinP = Math.sin(pitch);
       const tilt = Tilt * turn.x * turn.y;
+
+      /* 贴纸上层不按固定轨迹漂——它跟着这张脸的眼神走：
+         眼睛往右，上层也往右挪，左边那条厚度就变宽；往左同理。
+         基准偏移留 0.62，所以右下那道边永远都在，只是随视线宽窄。 */
+      const board = layer.current;
+      if (board) {
+        board.style.setProperty('--face-lx', clamp(-0.62 + turn.x * 0.55, -0.95, -0.3).toFixed(3));
+        board.style.setProperty('--face-ly', clamp(-0.6 + turn.y * 0.55, -0.95, -0.3).toFixed(3));
+      }
 
       for (let side = 0; side < 2; side += 1) {
         const node = eyes.current[side];
@@ -392,7 +415,7 @@ const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; in
     let glance = 0;
     const look = () => {
       const angle = Math.random() * Math.PI * 2;
-      const far = 0.42 + Math.random() * 0.18;
+      const far = (0.42 + Math.random() * 0.18) * reach;
       turn.tx = Math.cos(angle) * far;
       turn.ty = Math.sin(angle) * far;
       glance = window.setTimeout(() => {
@@ -408,7 +431,7 @@ const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; in
       document.removeEventListener('visibilitychange', resume);
       window.clearTimeout(glance);
     };
-  }, [gap, index, unit]);
+  }, [gap, index, layer, reach, unit]);
 
   return (
     <g>
@@ -443,17 +466,20 @@ interface FaceProps {
 /**
  * 一张脸 = 两层同形状实色：底层是影，上层是脸。
  *
- * 上层跟着光的方向平移（--dial-lx / --dial-ly 由舞台每帧写），底层不动，
- * 于是偏移那一侧露出影、另一侧露出脸的边——阴影的变动是"挪出来的"，不是画上去的。
- * 眼睛和上层一起走，所以光一偏，眼神也跟着偏。
+ * 上层往哪儿挪，由这张脸的眼睛决定：OrbitEyes 每帧把视线方向写成
+ * --face-lx / --face-ly，底层不动，于是偏移那一侧露出影、另一侧露出脸的边——
+ * 厚度是"眼睛看出来的"，不是画上去的，也不是整盘一起摆。
  */
 const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, center = false, onPick }: FaceProps) => {
   const radius = 21 * unit;
   const clipId = 'dial-face-' + useId().replace(/:/g, '');
+  /* 这张脸的根节点：眼睛每帧往它上面写偏移方向。 */
+  const board = useRef<SVGGElement | null>(null);
   /* 参考图是一块浅色贴纸 + 一块深色侧面：上层往左上错开一点，右下就露出一条厚度。 */
   const shift = radius * (shape === 'star' || shape === 'cloud' || shape === 'shield' ? 0.11 : 0.085);
   return (
     <g
+      ref={board}
       className="team-dial-face"
       data-shape={shape}
       data-eyes={variant}
@@ -468,7 +494,13 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
       </g>
       <ShapeClip shape={shape} radius={radius} id={clipId} />
       <g clipPath={'url(#' + clipId + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
-        <OrbitEyes variant={variant} unit={faceUnit ?? unit} index={index} />
+        <OrbitEyes
+          variant={variant}
+          unit={faceUnit ?? unit}
+          index={index}
+          layer={board}
+          reach={shape === 'circle' ? 1 : 0.62}
+        />
       </g>
     </g>
   );
@@ -534,14 +566,6 @@ const ResultDial = () => {
       previous = now;
       if (!still && !spin.current.dragging && !hovered) spin.current.angle += (delta / 1000) * 3.75;
       apply();
-      /* 光慢慢摆：上层贴纸跟着偏，右下的厚度就一宽一窄。
-         眼睛不跟这束光走——每张脸各自张望，两者互不牵连。 */
-      const seconds = now / 1000;
-      /* 厚度只在 0.4–1.0 倍之间呼吸，不会薄到看不见——参考图那条边是一直都在的。 */
-      const lx = still ? -0.7 : -(0.72 + Math.sin(seconds * 0.42) * 0.3);
-      const ly = still ? -0.7 : -(0.7 + Math.sin(seconds * 0.27 + 1.2) * 0.3);
-      node.style.setProperty('--dial-lx', lx.toFixed(3));
-      node.style.setProperty('--dial-ly', ly.toFixed(3));
       raf = requestAnimationFrame(paint);
     };
 
