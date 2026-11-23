@@ -95,7 +95,8 @@ const StarPath = (radius: number): string => {
   const points: Pt[] = [];
   for (let index = 0; index < 10; index += 1) {
     const angle = (index / 10) * Math.PI * 2 - Math.PI / 2;
-    const reach = index % 2 === 0 ? radius : radius * 0.48;
+    /* 内径 0.62 才不至于是刀子似的尖角，配上圆角描边就是贴纸那种胖星星。 */
+    const reach = index % 2 === 0 ? radius : radius * 0.62;
     points.push({ x: Math.cos(angle) * reach, y: Math.sin(angle) * reach });
   }
   return points
@@ -143,7 +144,16 @@ const ShapeBody = ({ shape, radius, fill, fillOpacity = 1 }: ShapeBodyProps) => 
   if (shape === 'squircle') {
     return <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={radius * 0.44} fill={fill} fillOpacity={fillOpacity} />;
   }
-  return <path d={pathOf(shape, radius)} fill={fill} fillOpacity={fillOpacity} />;
+  return (
+    <path
+      d={pathOf(shape, radius)}
+      fill={fill}
+      fillOpacity={fillOpacity}
+      stroke={shape === 'star' ? fill : undefined}
+      strokeWidth={shape === 'star' ? radius * 0.07 : undefined}
+      strokeLinejoin="round"
+    />
+  );
 };
 
 /* 尖角形状（星、心）收不住眼睛，用同一块外形做裁剪，眼睛只出现在脸里面。 */
@@ -424,7 +434,7 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
       <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
       <ShapeClip shape={shape} radius={radius} id={clipId} />
       <g clipPath={'url(#' + clipId + ')'}>
-        <g transform={'translate(' + round(-radius * 0.11) + ' ' + round(-radius * 0.13) + ')'}>
+        <g transform={'translate(' + round(-radius * (shape === 'star' ? 0.075 : 0.11)) + ' ' + round(-radius * (shape === 'star' ? 0.09 : 0.13)) + ')'}>
           <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
         </g>
       </g>
@@ -435,7 +445,7 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
   );
 };
 
-const AgentOrbitRadius = 150;
+const AgentOrbitRadius = 130;
 
 const RingFaces = Expressions.map((variant, index) => ({
   variant,
@@ -508,17 +518,8 @@ const ResultDial = () => {
     const leave = () => {
       hovered = false;
     };
-    const down = (event: PointerEvent) => {
-      spin.current.dragging = true;
-      spin.current.moved = false;
-      spin.current.startX = event.clientX;
-      spin.current.base = spin.current.angle;
-      try {
-        node.setPointerCapture(event.pointerId);
-      } catch {
-        /* 合成事件没有真实 pointerId，忽略即可 */
-      }
-    };
+    /* 不用 setPointerCapture：它会把随后的 click 重定向到舞台上，
+       表情就再也点不中了。改成拖动期间临时挂 window 上的监听。 */
     const move = (event: PointerEvent) => {
       if (!spin.current.dragging) return;
       const dx = event.clientX - spin.current.startX;
@@ -526,28 +527,36 @@ const ResultDial = () => {
       spin.current.angle = spin.current.base + dx * 0.55;
       apply();
     };
-    const up = (event: PointerEvent) => {
+    const up = () => {
       if (!spin.current.dragging) return;
       spin.current.dragging = false;
       if (spin.current.moved) spin.current.lastDrag = performance.now();
-      if (node.hasPointerCapture(event.pointerId)) node.releasePointerCapture(event.pointerId);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+    const down = (event: PointerEvent) => {
+      spin.current.dragging = true;
+      spin.current.moved = false;
+      spin.current.startX = event.clientX;
+      spin.current.base = spin.current.angle;
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
     };
 
     raf = requestAnimationFrame(paint);
     node.addEventListener('pointerenter', enter);
     node.addEventListener('pointerleave', leave);
     node.addEventListener('pointerdown', down);
-    node.addEventListener('pointermove', move);
-    node.addEventListener('pointerup', up);
-    node.addEventListener('pointercancel', up);
     return () => {
       cancelAnimationFrame(raf);
       node.removeEventListener('pointerenter', enter);
       node.removeEventListener('pointerleave', leave);
       node.removeEventListener('pointerdown', down);
-      node.removeEventListener('pointermove', move);
-      node.removeEventListener('pointerup', up);
-      node.removeEventListener('pointercancel', up);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
     };
   }, []);
 
