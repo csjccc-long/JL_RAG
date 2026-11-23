@@ -184,7 +184,7 @@ const NewTeamDialog = ({
                     aria-pressed={on}
                     onClick={() => toggle(agent.id)}
                   >
-                    <AgentAvatar seed={agent.id} size={30} className="nt-face" />
+                    <AgentAvatar seed={agent.id} size={36} className="nt-face" />
                     <span className="nt-agent-text">
                       <span className="nt-agent-name">
                         {agent.title || agent.id}

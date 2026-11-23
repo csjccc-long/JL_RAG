@@ -123,7 +123,7 @@ describe('TeamCard', () => {
     expect(document.querySelectorAll('.pk-face')).toHaveLength(1);
     expect(document.querySelector('.pk-behind')).toBeNull();
     expect((document.querySelector('.pk-rail') as HTMLElement).style.width).toBe(
-      '30px',
+      '38px',
     );
     unmount();
 
@@ -141,9 +141,9 @@ describe('TeamCard', () => {
     );
     expect(document.querySelectorAll('.pk-face')).toHaveLength(2);
     expect(document.querySelector('.pk-behind')).toBeNull();
-    /* 30px 一张、每张压 10px，两张就是 30 + 20 */
+    /* 38px 一张、每张压 15px，两张就是 38 + 23 */
     expect((document.querySelector('.pk-rail') as HTMLElement).style.width).toBe(
-      '50px',
+      '61px',
     );
   });
 

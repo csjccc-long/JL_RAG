@@ -30,11 +30,11 @@ import './team-picker.css';
 /* matched against the refusal thrown by use-assign-workers */
 const NO_BRAIN = 'no model step';
 
-const FACE = 30;
+const FACE = 38;
 /* how much of each face the next one covers — with no letters on the dots the
    stack can lap hard, the way a row of avatars does */
 /* 形状不是圆，压太多会把角吃掉，叠 5px 就够看出是一摞 */
-const LAP = 10;
+const LAP = 15;
 /* the rail holds three faces and then says how many are behind it */
 const RAIL = 3;
 const PANEL_W = 268;
@@ -220,7 +220,7 @@ const TeamPicker = ({
             >
               <AgentAvatar
                 seed={worker.agent_id || worker.id || worker.name || ''}
-                size={28}
+                size={38}
               />
             </span>
           ))}
@@ -302,7 +302,7 @@ const TeamPicker = ({
                     onClick={() => toggleWorker(option.id)}
                   >
                     <span className="pk-face pk-face--row">
-                      <AgentAvatar seed={option.id} size={30} />
+                      <AgentAvatar seed={option.id} size={36} />
                     </span>
                     <span className="pk-who">
                       <span className="pk-name">{option.name}</span>
