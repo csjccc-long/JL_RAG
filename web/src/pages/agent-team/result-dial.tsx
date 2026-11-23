@@ -322,6 +322,7 @@ const OrbitEyes = ({
   index,
   layer,
   reach = 1,
+  eyeScale = 1,
 }: {
   variant: number;
   unit: number;
@@ -330,6 +331,8 @@ const OrbitEyes = ({
   layer: RefObject<SVGGElement | null>;
   /* 视线能走多远：圆脸是整张脸，异形（云、盾、星…）的轮廓更窄，走太远会被裁掉。 */
   reach?: number;
+  /* 只放大眼珠、不改变眼距与位置：小头像里表情才看得清。 */
+  eyeScale?: number;
 }) => {
   const gap = gapOf(variant);
   const eyes = useRef<(SVGGElement | null)[]>([]);
@@ -459,7 +462,7 @@ const OrbitEyes = ({
           }}
         >
           <g className="team-dial-eye-art">
-            <EyeArt variant={variant} side={side === 0 ? -1 : 1} ink={EyeInk} unit={unit} />
+            <EyeArt variant={variant} side={side === 0 ? -1 : 1} ink={EyeInk} unit={unit * eyeScale} />
           </g>
         </g>
       ))}
@@ -523,7 +526,7 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
 
 /* ── 小头像：给已有智能体一个固定的脸 ─────────────────────
    同一个 id 永远长成同一张脸（形状 + 眼神都从 id 里算），换个地方出现也是它。
-   这里不跑张望的 rAF —— 一屏可能几十个头像，静态就够了。 */
+   眼睛和圆盘上的一样会自己张望，贴纸上层也跟着眼神挪——一张脸的厚度和它的视线是一回事。 */
 const seedOf = (seed: string) => {
   let hash = 2166136261;
   for (let i = 0; i < seed.length; i += 1) {
@@ -543,7 +546,7 @@ export const avatarOf = (seed: string): { shape: DialShape; variant: number } =>
 
 export const AgentAvatar = ({
   seed,
-  size = 24,
+  size = 28,
   className,
 }: {
   seed: string;
@@ -552,8 +555,9 @@ export const AgentAvatar = ({
 }) => {
   const { shape, variant } = avatarOf(seed);
   const id = 'avatar-' + useId().replace(/:/g, '');
+  const board = useRef<SVGGElement | null>(null);
   const radius = 21;
-  const gap = gapOf(variant) * radius;
+  const shift = (shape === 'star' || shape === 'cloud' || shape === 'shield' ? 0.1 : 0.08) * radius;
   return (
     <svg
       viewBox="-30 -30 60 60"
@@ -565,18 +569,23 @@ export const AgentAvatar = ({
       focusable="false"
       data-avatar={shape + ':' + variant}
     >
-      <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
-      <g transform="translate(-1.9 -2.2)">
-        <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
-      </g>
-      <ShapeClip shape={shape} radius={radius} id={id} />
-      <g clipPath={'url(#' + id + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
-        {[-gap, gap].map((x, index) => (
-          <g key={index} transform={'translate(' + round(x) + ' 0)'}>
-            {/* 小尺寸下眼睛要放大一档，不然 24px 里看不出是哪种表情 */}
-            <EyeArt variant={variant} side={index === 0 ? -1 : 1} ink={EyeInk} unit={1.34} />
-          </g>
-        ))}
+      <g ref={board}>
+        <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
+        <g className="team-dial-top" style={{ '--face-shift': shift + 'px' } as CSSProperties}>
+          <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
+        </g>
+        <ShapeClip shape={shape} radius={radius} id={id} />
+        <g clipPath={'url(#' + id + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
+          {/* 小尺寸下眼珠要放大一档，不然 24px 里看不出是哪种表情 */}
+          <OrbitEyes
+            variant={variant}
+            unit={1}
+            index={seedOf(seed) % 12}
+            layer={board}
+            reach={shape === 'circle' ? 1 : 0.62}
+            eyeScale={1.34}
+          />
+        </g>
       </g>
     </svg>
   );
