@@ -197,7 +197,7 @@ const DispatchSeek = ({
     beat.current = window.setTimeout(() => {
       setPress(false);
       setOpen(true);
-      field.current?.focus();
+      field.current?.focus({ preventScroll: true });
     }, still ? 0 : PRESS);
   };
 

@@ -10,6 +10,7 @@
 
   position: relative;
   flex: none;
+  overflow: hidden;
   height: var(--shut);
   width: var(--w);
   border-radius: 999px;
