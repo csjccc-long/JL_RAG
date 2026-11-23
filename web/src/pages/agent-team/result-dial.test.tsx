@@ -30,7 +30,7 @@ describe('ResultDial', () => {
   // 中间只负责展示：换形状，中心跟着换。
   it('选一个形状，中间就换成它', () => {
     const { container } = render(<ResultDial />);
-    expect(centerFace(container)?.getAttribute('data-shape')).toBe('flower');
+    expect(centerFace(container)?.getAttribute('data-shape')).toBe('cloud');
 
     const star = container.querySelector('.team-dial-chip[data-shape="star"]');
     fireEvent.click(star as Element);

@@ -14,10 +14,10 @@ const ShadeInk = 'color-mix(in srgb, rgb(var(--accent-primary)) 78%, black)';
 
 /* 环上只放表情：11 种眼神轮一遍，再补一个回来凑满 12 个位置。 */
 export const Expressions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-/* 底部才是形状：参考图那排贴纸（方、蛋、云、星、心），再补上菱形和盾牌。 */
-export const ShapeChoices = ['squircle', 'diamond', 'egg', 'flower', 'star', 'heart', 'shield'] as const;
+/* 底部才是形状：参考图那排贴纸（方、菱形、蛋、云、星、心、盾）。 */
+export const ShapeChoices = ['squircle', 'diamond', 'egg', 'cloud', 'star', 'heart', 'shield'] as const;
 
-export type DialShape = 'circle' | 'squircle' | 'diamond' | 'egg' | 'flower' | 'star' | 'heart' | 'shield';
+export type DialShape = 'circle' | 'squircle' | 'diamond' | 'egg' | 'cloud' | 'star' | 'heart' | 'shield';
 
 /* 眼睛在脸上左右各偏多少：球面坐标里是"半间距占半径的比例"。
    笑眼这类要明显拉开，否则两弯眉会挤在中间，和参考图差得远。 */
@@ -58,42 +58,72 @@ const smoothClosed = (points: Pt[]): string => {
   return parts.join(' ');
 };
 
-/* 云朵似的花：采样"从花心朝外看最远能摸到哪"，得到一条完整外轮廓；
-   叠圆做花会在花瓣内部留下接缝，这条不会。花瓣做大、离心近一点，
-   才是参考图那种一坨鼓鼓的云，而不是六片尖锐的花瓣。 */
-const FlowerPath = (radius: number): string => {
-  const lobes = 5;
-  const petal = radius * 0.52;
-  const distance = radius * 0.48;
-  const samples = 168;
+/* 圆角多边形：顶点处切一刀、用二次曲线从切口穿过顶点，棱角就被磨圆了。
+   星和菱形都靠它——直接连直线是刀尖，这样才是贴纸上那种钝钝的角。 */
+const roundedPolygon = (points: Pt[], cut: number): string => {
+  const count = points.length;
+  let data = '';
+  for (let index = 0; index < count; index += 1) {
+    const previous = points[(index - 1 + count) % count];
+    const corner = points[index];
+    const next = points[(index + 1) % count];
+    const start = {
+      x: corner.x + (previous.x - corner.x) * cut,
+      y: corner.y + (previous.y - corner.y) * cut,
+    };
+    const end = {
+      x: corner.x + (next.x - corner.x) * cut,
+      y: corner.y + (next.y - corner.y) * cut,
+    };
+    data += (index === 0 ? 'M ' : ' L ') + round(start.x) + ' ' + round(start.y) +
+      ' Q ' + round(corner.x) + ' ' + round(corner.y) + ' ' + round(end.x) + ' ' + round(end.y);
+  }
+  return data + ' Z';
+};
+
+/* 云：几团圆叠在一起，沿射线取"最远摸得到的边"，得到一条没有接缝的云轮廓。
+   上面三团（左小、中间大、右中），下面两团撑出平底，和参考图那块云一致。 */
+const CloudPath = (radius: number): string => {
+  const r = radius;
+  const puffs = [
+    { x: -r * 0.48, y: -r * 0.04, r: r * 0.44 },
+    { x: r * 0.02, y: -r * 0.34, r: r * 0.56 },
+    { x: r * 0.5, y: r * 0.02, r: r * 0.42 },
+    { x: -r * 0.28, y: r * 0.34, r: r * 0.38 },
+    { x: r * 0.32, y: r * 0.36, r: r * 0.36 },
+  ];
+  const samples = 180;
   const points: Pt[] = [];
   for (let index = 0; index < samples; index += 1) {
     const angle = (index / samples) * Math.PI * 2;
-    let reach = radius * 0.5;
-    for (let lobe = 0; lobe < lobes; lobe += 1) {
-      const phi = (lobe / lobes) * Math.PI * 2;
-      const delta = angle - phi;
-      const inside = petal * petal - distance * distance * Math.sin(delta) ** 2;
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    let reach = r * 0.2;
+    for (const puff of puffs) {
+      const projection = dx * puff.x + dy * puff.y;
+      const gap = puff.x * puff.x + puff.y * puff.y - projection * projection;
+      const inside = puff.r * puff.r - gap;
       if (inside <= 0) continue;
-      const edge = distance * Math.cos(delta) + Math.sqrt(inside);
+      const edge = projection + Math.sqrt(inside);
       if (edge > reach) reach = edge;
     }
-    points.push({ x: Math.cos(angle) * reach, y: Math.sin(angle) * reach });
+    points.push({ x: dx * reach, y: dy * reach });
   }
   return smoothClosed(points);
 };
 
+/* 菱形要"瘦"：先做一个圆角方，转 45°，再横向压到 0.78——角还是圆的，不是尖的。 */
+const DiamondTransform = 'scale(0.78 1) rotate(45)';
+
+/* 星：五个角、内径 0.55，所有角都磨圆——参考图那颗星是钝钝的、有点肉感的。 */
 const StarPath = (radius: number): string => {
   const points: Pt[] = [];
   for (let index = 0; index < 10; index += 1) {
     const angle = (index / 10) * Math.PI * 2 - Math.PI / 2;
-    /* 内径 0.62 才不至于是刀子似的尖角，配上圆角描边就是贴纸那种胖星星。 */
-    const reach = index % 2 === 0 ? radius : radius * 0.62;
+    const reach = index % 2 === 0 ? radius : radius * 0.55;
     points.push({ x: Math.cos(angle) * reach, y: Math.sin(angle) * reach });
   }
-  return points
-    .map((point, index) => (index === 0 ? 'M ' : 'L ') + round(point.x) + ' ' + round(point.y))
-    .join(' ') + ' Z';
+  return roundedPolygon(points, 0.2);
 };
 
 const HeartPath = (radius: number): string => {
@@ -109,12 +139,12 @@ const HeartPath = (radius: number): string => {
 /* 盾牌：上缘微拱、两侧收到底部一个圆点，参考图里那块盾。 */
 const ShieldPath = (radius: number): string => {
   const r = radius;
-  return 'M ' + round(-r * 0.92) + ' ' + round(-r * 0.86) +
-    ' C ' + round(-r * 0.55) + ' ' + round(-r * 1.0) + ' ' + round(r * 0.55) + ' ' + round(-r * 1.0) + ' ' + round(r * 0.92) + ' ' + round(-r * 0.86) +
-    ' C ' + round(r * 0.97) + ' ' + round(-r * 0.46) + ' ' + round(r * 0.88) + ' ' + round(-r * 0.14) + ' ' + round(r * 0.6) + ' ' + round(r * 0.32) +
-    ' C ' + round(r * 0.4) + ' ' + round(r * 0.64) + ' ' + round(r * 0.2) + ' ' + round(r * 0.84) + ' 0 ' + round(r * 0.95) +
-    ' C ' + round(-r * 0.2) + ' ' + round(r * 0.84) + ' ' + round(-r * 0.4) + ' ' + round(r * 0.64) + ' ' + round(-r * 0.6) + ' ' + round(r * 0.32) +
-    ' C ' + round(-r * 0.88) + ' ' + round(-r * 0.14) + ' ' + round(-r * 0.97) + ' ' + round(-r * 0.46) + ' ' + round(-r * 0.92) + ' ' + round(-r * 0.86) +
+  return 'M ' + round(-r * 1.0) + ' ' + round(-r * 0.8) +
+    ' C ' + round(-r * 0.58) + ' ' + round(-r * 0.98) + ' ' + round(r * 0.58) + ' ' + round(-r * 0.98) + ' ' + round(r * 1.0) + ' ' + round(-r * 0.8) +
+    ' C ' + round(r * 1.04) + ' ' + round(-r * 0.34) + ' ' + round(r * 0.94) + ' ' + round(r * 0.02) + ' ' + round(r * 0.66) + ' ' + round(r * 0.4) +
+    ' C ' + round(r * 0.44) + ' ' + round(r * 0.66) + ' ' + round(r * 0.22) + ' ' + round(r * 0.82) + ' 0 ' + round(r * 0.92) +
+    ' C ' + round(-r * 0.22) + ' ' + round(r * 0.82) + ' ' + round(-r * 0.44) + ' ' + round(r * 0.66) + ' ' + round(-r * 0.66) + ' ' + round(r * 0.4) +
+    ' C ' + round(-r * 0.94) + ' ' + round(r * 0.02) + ' ' + round(-r * 1.04) + ' ' + round(-r * 0.34) + ' ' + round(-r * 1.0) + ' ' + round(-r * 0.8) +
     ' Z';
 };
 
@@ -140,7 +170,7 @@ const pathOf = (shape: DialShape, radius: number): string => {
   if (shape === 'heart') return HeartPath(radius);
   if (shape === 'egg') return EggPath(radius);
   if (shape === 'shield') return ShieldPath(radius);
-  return FlowerPath(radius);
+  return CloudPath(radius);
 };
 
 /* 扁平一块颜色，没有描边——参考图就是靠"一块实色 + 一块偏移实色"立起来的。 */
@@ -156,10 +186,10 @@ const ShapeBody = ({ shape, radius, fill, fillOpacity = 1 }: ShapeBodyProps) => 
         y={-radius}
         width={radius * 2}
         height={radius * 2}
-        rx={radius * 0.34}
+        rx={radius * 0.32}
         fill={fill}
         fillOpacity={fillOpacity}
-        transform="rotate(45)"
+        transform={DiamondTransform}
       />
     );
   }
@@ -181,7 +211,7 @@ const ShapeClip = ({ shape, radius, id }: { shape: DialShape; radius: number; id
     {shape === 'circle' ? <circle r={radius} /> : shape === 'squircle'
       ? <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={radius * 0.44} />
       : shape === 'diamond'
-        ? <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={radius * 0.34} transform="rotate(45)" />
+        ? <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={radius * 0.32} transform={DiamondTransform} />
         : <path d={pathOf(shape, radius)} />}
   </clipPath>
 );
@@ -192,7 +222,7 @@ const ShapeEyeLift: Record<DialShape, number> = {
   squircle: 0,
   diamond: 0,
   egg: 0.02,
-  flower: 0.02,
+  cloud: 0.02,
   star: 0.04,
   heart: 0.12,
   shield: 0.06,
@@ -510,10 +540,9 @@ const ShapeChip = ({ shape, picked, onPick }: { shape: DialShape; picked: boolea
 const ResultDial = () => {
   const { t } = useTranslation();
   const [expression, setExpression] = useState(4);
-  const [shape, setShape] = useState<DialShape>('flower');
+  const [shape, setShape] = useState<DialShape>('cloud');
   const stage = useRef<HTMLDivElement | null>(null);
   const spin = useRef({ angle: 0, dragging: false, moved: false, startX: 0, base: 0, lastDrag: 0 });
-  /* 光的方向：同一份数值既驱动"上层脸"的平移，也驱动眼睛的朝向。 */
 
   /* 环自己慢慢转，鼠标按住可以直接拖；拖动时暂停自转，松手后从当前角度继续。 */
   useEffect(() => {
