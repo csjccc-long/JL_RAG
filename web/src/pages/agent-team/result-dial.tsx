@@ -521,6 +521,67 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
   );
 };
 
+/* ── 小头像：给已有智能体一个固定的脸 ─────────────────────
+   同一个 id 永远长成同一张脸（形状 + 眼神都从 id 里算），换个地方出现也是它。
+   这里不跑张望的 rAF —— 一屏可能几十个头像，静态就够了。 */
+const seedOf = (seed: string) => {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+export const avatarOf = (seed: string): { shape: DialShape; variant: number } => {
+  const hash = seedOf(seed);
+  return {
+    shape: ShapeChoices[hash % ShapeChoices.length],
+    variant: Math.floor(hash / ShapeChoices.length) % 12,
+  };
+};
+
+export const AgentAvatar = ({
+  seed,
+  size = 24,
+  className,
+}: {
+  seed: string;
+  size?: number;
+  className?: string;
+}) => {
+  const { shape, variant } = avatarOf(seed);
+  const id = 'avatar-' + useId().replace(/:/g, '');
+  const radius = 21;
+  const gap = gapOf(variant) * radius;
+  return (
+    <svg
+      viewBox="-30 -30 60 60"
+      width={size}
+      height={size}
+      className={className}
+      role="img"
+      aria-hidden="true"
+      focusable="false"
+      data-avatar={shape + ':' + variant}
+    >
+      <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
+      <g transform="translate(-1.9 -2.2)">
+        <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
+      </g>
+      <ShapeClip shape={shape} radius={radius} id={id} />
+      <g clipPath={'url(#' + id + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
+        {[-gap, gap].map((x, index) => (
+          <g key={index} transform={'translate(' + round(x) + ' 0)'}>
+            {/* 小尺寸下眼睛要放大一档，不然 24px 里看不出是哪种表情 */}
+            <EyeArt variant={variant} side={index === 0 ? -1 : 1} ink={EyeInk} unit={1.34} />
+          </g>
+        ))}
+      </g>
+    </svg>
+  );
+};
+
 const AgentOrbitRadius = 130;
 
 const RingFaces = Expressions.map((variant, index) => ({

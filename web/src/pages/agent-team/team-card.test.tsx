@@ -141,8 +141,9 @@ describe('TeamCard', () => {
     );
     expect(document.querySelectorAll('.pk-face')).toHaveLength(2);
     expect(document.querySelector('.pk-behind')).toBeNull();
+    /* 26px 一张、每张压 5px，两张就是 26 + 21 */
     expect((document.querySelector('.pk-rail') as HTMLElement).style.width).toBe(
-      '43px',
+      '47px',
     );
   });
 

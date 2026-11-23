@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react';
 
-import ResultDial, { Expressions, ShapeChoices } from './result-dial';
+import ResultDial, { AgentAvatar, Expressions, ShapeChoices, avatarOf } from './result-dial';
 
 const ringFaces = (container: HTMLElement) =>
   Array.from(container.querySelectorAll('.team-dial-agent .team-dial-face'));
@@ -50,5 +50,33 @@ describe('ResultDial', () => {
 
     const picked = container.querySelectorAll('.team-dial-agent .team-dial-face[data-picked="true"]');
     expect(picked).toHaveLength(1);
+  });
+});
+
+describe('AgentAvatar', () => {
+  // 同一个 agent 在哪儿出现都是同一张脸。
+  it('同一个 id 永远是同一张脸', () => {
+    const { container } = render(
+      <>
+        <AgentAvatar seed="agent-7f3" />
+        <AgentAvatar seed="agent-7f3" />
+      </>,
+    );
+    const faces = Array.from(container.querySelectorAll('svg[data-avatar]'));
+    expect(faces).toHaveLength(2);
+    expect(faces[0].getAttribute('data-avatar')).toBe(faces[1].getAttribute('data-avatar'));
+  });
+
+  it('形状和表情都从允许的集合里取', () => {
+    const ids = ['a', 'b', 'c', 'agent-x', '工作量估算师', '漏洞猎手'];
+    const shapes = new Set(ids.map((id) => avatarOf(id).shape));
+    ids.forEach((id) => {
+      const { shape, variant } = avatarOf(id);
+      expect(ShapeChoices).toContain(shape);
+      expect(variant).toBeGreaterThanOrEqual(0);
+      expect(variant).toBeLessThan(Expressions.length);
+    });
+    /* 一组真实 id 不该全撞成同一个形状，否则"按 id 分配"就白做了 */
+    expect(shapes.size).toBeGreaterThan(1);
   });
 });

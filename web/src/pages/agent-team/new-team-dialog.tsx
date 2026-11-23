@@ -13,7 +13,7 @@ import {
 import { AgentTeamProcess, IFlow } from '@/interfaces/database/agent';
 import { AGENT_TEAM_PROCESSES } from '@/pages/agent/form/agent-team-form/interface';
 import { managerBrief, seedExpectedText, seedTaskText } from './utils/apply-process';
-import { faceTint } from './utils/face';
+import { AgentAvatar } from './result-dial';
 import { useCreateTeam } from './hooks/use-create-team';
 import { PROCESS_ICONS } from './process-menu';
 import './new-team-dialog.css';
@@ -184,11 +184,7 @@ const NewTeamDialog = ({
                     aria-pressed={on}
                     onClick={() => toggle(agent.id)}
                   >
-                    <span
-                      className="nt-face"
-                      style={faceTint(agent.id)}
-                      aria-hidden
-                    />
+                    <AgentAvatar seed={agent.id} size={26} className="nt-face" />
                     <span className="nt-agent-text">
                       <span className="nt-agent-name">
                         {agent.title || agent.id}

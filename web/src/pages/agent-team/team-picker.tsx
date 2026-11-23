@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown } from 'lucide-react';
 import { IFlow } from '@/interfaces/database/agent';
 import { IAgentTeamSummary } from './utils/extract-teams';
-import { faceTint } from './utils/face';
+import { AgentAvatar } from './result-dial';
 import { playFanSound } from './team-fan';
 import './team-picker.css';
 
@@ -33,7 +33,8 @@ const NO_BRAIN = 'no model step';
 const FACE = 26;
 /* how much of each face the next one covers — with no letters on the dots the
    stack can lap hard, the way a row of avatars does */
-const LAP = 9;
+/* 形状不是圆，压太多会把角吃掉，叠 5px 就够看出是一摞 */
+const LAP = 5;
 /* the rail holds three faces and then says how many are behind it */
 const RAIL = 3;
 const PANEL_W = 268;
@@ -211,13 +212,17 @@ const TeamPicker = ({
               title={worker.name || worker.id}
               style={
                 {
-                  ...faceTint(worker.agent_id || worker.id || worker.name || ''),
                   transform: `translateX(${i * (FACE - LAP)}px)`,
                   zIndex: shown.length - i,
                   '--i': i,
                 } as CSSProperties
               }
-            />
+            >
+              <AgentAvatar
+                seed={worker.agent_id || worker.id || worker.name || ''}
+                size={22}
+              />
+            </span>
           ))}
         </span>
         {behind > 0 && <span className="pk-say pk-behind">+{behind}</span>}
@@ -296,10 +301,8 @@ const TeamPicker = ({
                     style={{ '--i': i } as CSSProperties}
                     onClick={() => toggleWorker(option.id)}
                   >
-                    <span
-                      className="pk-face pk-face--row"
-                      style={faceTint(option.id)}
-                    >
+                    <span className="pk-face pk-face--row">
+                      <AgentAvatar seed={option.id} size={24} />
                     </span>
                     <span className="pk-who">
                       <span className="pk-name">{option.name}</span>
