@@ -176,9 +176,24 @@ const ShapeBody = ({ shape, radius, fill, fillOpacity = 1 }: ShapeBodyProps) => 
   );
 };
 
-/* 尖角形状（星、心）收不住眼睛，用同一块外形做裁剪，眼睛只出现在脸里面。 */
+/* 裁剪 = 外形 ∪ 一块"眼球活动区"。
+   只用外形裁时，云朵顶上那道凹口会把路过它的眼睛切掉一块（凹口是轮廓的凹陷，
+   眼睛明明还在脸里）；并上一块以眼位为心的圆，凹口就被填平，而外缘仍按外形收，
+   所以眼睛只在各自形状的安全半径内活动，不会被切。 */
+const EyeField: Record<DialShape, number> = {
+  circle: 1,
+  squircle: 0.94,
+  egg: 0.92,
+  diamond: 0.62,
+  cloud: 0.86,
+  star: 0.6,
+  heart: 0.72,
+  shield: 0.78,
+};
+
 const ShapeClip = ({ shape, radius, id }: { shape: DialShape; radius: number; id: string }) => (
   <clipPath id={id}>
+    <circle r={radius * EyeField[shape]} />
     {shape === 'circle' ? <circle r={radius} /> : shape === 'squircle'
       ? <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={radius * 0.44} />
       : shape === 'diamond'
