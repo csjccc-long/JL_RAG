@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -86,11 +87,11 @@ const roundedPolygon = (points: Pt[], cut: number): string => {
 const CloudPath = (radius: number): string => {
   const r = radius;
   const puffs = [
-    { x: -r * 0.48, y: -r * 0.04, r: r * 0.44 },
-    { x: r * 0.02, y: -r * 0.34, r: r * 0.56 },
-    { x: r * 0.5, y: r * 0.02, r: r * 0.42 },
-    { x: -r * 0.28, y: r * 0.34, r: r * 0.38 },
-    { x: r * 0.32, y: r * 0.36, r: r * 0.36 },
+    { x: -r * 0.62, y: r * 0.04, r: r * 0.38 },
+    { x: r * 0.0, y: -r * 0.26, r: r * 0.5 },
+    { x: r * 0.6, y: r * 0.02, r: r * 0.4 },
+    { x: -r * 0.32, y: r * 0.26, r: r * 0.42 },
+    { x: r * 0.3, y: r * 0.26, r: r * 0.4 },
   ];
   const samples = 180;
   const points: Pt[] = [];
@@ -139,12 +140,12 @@ const HeartPath = (radius: number): string => {
 /* 盾牌：上缘微拱、两侧收到底部一个圆点，参考图里那块盾。 */
 const ShieldPath = (radius: number): string => {
   const r = radius;
-  return 'M ' + round(-r * 1.0) + ' ' + round(-r * 0.8) +
-    ' C ' + round(-r * 0.58) + ' ' + round(-r * 0.98) + ' ' + round(r * 0.58) + ' ' + round(-r * 0.98) + ' ' + round(r * 1.0) + ' ' + round(-r * 0.8) +
-    ' C ' + round(r * 1.04) + ' ' + round(-r * 0.34) + ' ' + round(r * 0.94) + ' ' + round(r * 0.02) + ' ' + round(r * 0.66) + ' ' + round(r * 0.4) +
-    ' C ' + round(r * 0.44) + ' ' + round(r * 0.66) + ' ' + round(r * 0.22) + ' ' + round(r * 0.82) + ' 0 ' + round(r * 0.92) +
-    ' C ' + round(-r * 0.22) + ' ' + round(r * 0.82) + ' ' + round(-r * 0.44) + ' ' + round(r * 0.66) + ' ' + round(-r * 0.66) + ' ' + round(r * 0.4) +
-    ' C ' + round(-r * 0.94) + ' ' + round(r * 0.02) + ' ' + round(-r * 1.04) + ' ' + round(-r * 0.34) + ' ' + round(-r * 1.0) + ' ' + round(-r * 0.8) +
+  return 'M ' + round(-r * 0.76) + ' ' + round(-r * 0.72) +
+    ' Q 0 ' + round(-r * 1.02) + ' ' + round(r * 0.76) + ' ' + round(-r * 0.72) +
+    ' C ' + round(r * 0.84) + ' ' + round(-r * 0.4) + ' ' + round(r * 0.8) + ' ' + round(-r * 0.06) + ' ' + round(r * 0.66) + ' ' + round(r * 0.28) +
+    ' C ' + round(r * 0.5) + ' ' + round(r * 0.62) + ' ' + round(r * 0.26) + ' ' + round(r * 0.86) + ' 0 ' + round(r * 0.96) +
+    ' C ' + round(-r * 0.26) + ' ' + round(r * 0.86) + ' ' + round(-r * 0.5) + ' ' + round(r * 0.62) + ' ' + round(-r * 0.66) + ' ' + round(r * 0.28) +
+    ' C ' + round(-r * 0.8) + ' ' + round(-r * 0.06) + ' ' + round(-r * 0.84) + ' ' + round(-r * 0.4) + ' ' + round(-r * 0.76) + ' ' + round(-r * 0.72) +
     ' Z';
 };
 
@@ -479,7 +480,7 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
   const radius = 21 * unit;
   const clipId = 'dial-face-' + useId().replace(/:/g, '');
   /* 参考图是一块浅色贴纸 + 一块深色侧面：上层往左上错开一点，右下就露出一条厚度。 */
-  const shift = radius * (shape === 'star' ? 0.1 : 0.085);
+  const shift = radius * (shape === 'star' || shape === 'cloud' || shape === 'shield' ? 0.11 : 0.085);
   return (
     <g
       className="team-dial-face"
@@ -491,7 +492,7 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
     >
       {picked ? <circle r={radius * 1.42} fill={Ink} fillOpacity={0.16} /> : null}
       <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
-      <g transform={'translate(' + round(-shift) + ' ' + round(-shift * 1.15) + ')'}>
+      <g className="team-dial-top" style={{ '--face-shift': shift + 'px' } as CSSProperties}>
         <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
       </g>
       <ShapeClip shape={shape} radius={radius} id={clipId} />
@@ -562,6 +563,13 @@ const ResultDial = () => {
       previous = now;
       if (!still && !spin.current.dragging && !hovered) spin.current.angle += (delta / 1000) * 3.75;
       apply();
+      /* 光慢慢摆：上层贴纸跟着偏，右下的厚度就一宽一窄。
+         眼睛不跟这束光走——每张脸各自张望，两者互不牵连。 */
+      const seconds = now / 1000;
+      const lx = still ? -0.6 : -(0.55 + Math.sin(seconds * 0.42) * 0.45);
+      const ly = still ? -0.55 : -(0.5 + Math.sin(seconds * 0.27 + 1.2) * 0.4);
+      node.style.setProperty('--dial-lx', lx.toFixed(3));
+      node.style.setProperty('--dial-ly', ly.toFixed(3));
       raf = requestAnimationFrame(paint);
     };
 
