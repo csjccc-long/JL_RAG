@@ -1,0 +1,34 @@
+/* the dial is a placeholder for the dispatch picture that lands here next:
+   three quarters of a disc, the fourth quarter cut away by the panel corner */
+.team-dial {
+  color: rgb(var(--text-secondary));
+  opacity: 0.62;
+}
+
+.team-dial-rings {
+  color: rgb(var(--text-primary));
+  opacity: 0.5;
+}
+
+.team-dial-sweep {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: team-dial-turn 150s linear infinite;
+}
+
+.team-dial-lane {
+  animation: team-dial-turn 90s linear infinite;
+}
+
+@keyframes team-dial-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .team-dial-sweep,
+  .team-dial-lane {
+    animation: none;
+  }
+}

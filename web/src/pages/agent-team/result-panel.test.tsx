@@ -57,6 +57,15 @@ describe('ResultPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('空态里铺开分发盘，结论出来后收起', () => {
+    const { unmount } = renderPanel({});
+    expect(screen.getByTestId('result-dial')).toBeInTheDocument();
+
+    unmount();
+    renderPanel({ snapshot: { outputs: { structured: { summary: '结论' } } } });
+    expect(screen.queryByTestId('result-dial')).toBeNull();
+  });
+
   it('未知告警原样显示', () => {
     renderPanel({
       snapshot: { outputs: { structured: { warning: 'Something odd happened.' } } },

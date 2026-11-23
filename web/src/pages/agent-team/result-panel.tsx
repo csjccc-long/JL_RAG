@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ITeamRunSnapshot } from './hooks/use-team-run';
+import ResultDial from './result-dial';
 import { IAgentTeamSummary } from './utils/extract-teams';
 
 interface ResultPanelProps {
@@ -137,7 +138,9 @@ const ResultPanel = ({
   );
 
   return (
-    <ScrollArea className="h-full">
+    <div className="relative h-full overflow-hidden">
+      {!snapshot && !answer && !running && <ResultDial />}
+      <ScrollArea className="relative z-10 h-full">
       <div className="flex flex-col gap-4 p-4">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-text-primary">
@@ -171,7 +174,7 @@ const ResultPanel = ({
         )}
 
         {!snapshot && !answer && !running && (
-          <div className="py-8 text-center text-xs text-text-secondary">
+          <div className="flex min-h-[420px] items-center justify-center px-2 text-center text-xs text-text-secondary">
             {t('flow.agentTeam.page.resultEmpty')}
           </div>
         )}
@@ -270,8 +273,9 @@ const ResultPanel = ({
             </Section>
           </>
         )}
-      </div>
-    </ScrollArea>
+        </div>
+      </ScrollArea>
+    </div>
   );
 };
 
