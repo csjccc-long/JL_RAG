@@ -82,36 +82,16 @@ const roundedPolygon = (points: Pt[], cut: number): string => {
   return data + ' Z';
 };
 
-/* 云：几团圆叠在一起，沿射线取"最远摸得到的边"，得到一条没有接缝的云轮廓。
-   上面三团（左小、中间大、右中），下面两团撑出平底，和参考图那块云一致。 */
-const CloudPath = (radius: number): string => {
-  const r = radius;
-  const puffs = [
-    { x: -r * 0.62, y: r * 0.04, r: r * 0.38 },
-    { x: r * 0.0, y: -r * 0.26, r: r * 0.5 },
-    { x: r * 0.6, y: r * 0.02, r: r * 0.4 },
-    { x: -r * 0.32, y: r * 0.26, r: r * 0.42 },
-    { x: r * 0.3, y: r * 0.26, r: r * 0.4 },
-  ];
-  const samples = 180;
-  const points: Pt[] = [];
-  for (let index = 0; index < samples; index += 1) {
-    const angle = (index / samples) * Math.PI * 2;
-    const dx = Math.cos(angle);
-    const dy = Math.sin(angle);
-    let reach = r * 0.2;
-    for (const puff of puffs) {
-      const projection = dx * puff.x + dy * puff.y;
-      const gap = puff.x * puff.x + puff.y * puff.y - projection * projection;
-      const inside = puff.r * puff.r - gap;
-      if (inside <= 0) continue;
-      const edge = projection + Math.sqrt(inside);
-      if (edge > reach) reach = edge;
-    }
-    points.push({ x: dx * reach, y: dy * reach });
-  }
-  return smoothClosed(points);
-};
+/* 云和盾的轮廓直接从参考图上描下来（沿像素边界走一圈、等距重采样 56 点、
+   归一化到 ±1），所以起伏、缺口的比例和图里那块贴纸一致，不靠猜。 */
+type Outline = ReadonlyArray<readonly [number, number]>;
+
+const CloudOutline: Outline = [[-0.017, -0.723], [0.084, -0.712], [0.18, -0.685], [0.265, -0.635], [0.342, -0.564], [0.398, -0.481], [0.434, -0.39], [0.488, -0.322], [0.583, -0.35], [0.687, -0.344], [0.778, -0.308], [0.855, -0.246], [0.91, -0.166], [0.945, -0.074], [0.965, 0.024], [0.993, 0.119], [1, 0.222], [0.981, 0.321], [0.945, 0.412], [0.887, 0.49], [0.814, 0.563], [0.729, 0.614], [0.634, 0.64], [0.532, 0.651], [0.43, 0.661], [0.329, 0.675], [0.228, 0.689], [0.128, 0.703], [0.026, 0.714], [-0.077, 0.721], [-0.183, 0.723], [-0.289, 0.723], [-0.396, 0.723], [-0.502, 0.723], [-0.608, 0.723], [-0.709, 0.71], [-0.801, 0.674], [-0.882, 0.613], [-0.943, 0.532], [-0.98, 0.441], [-1, 0.343], [-0.993, 0.239], [-0.98, 0.139], [-0.938, 0.05], [-0.876, -0.031], [-0.793, -0.087], [-0.706, -0.135], [-0.612, -0.164], [-0.606, -0.262], [-0.573, -0.355], [-0.512, -0.436], [-0.429, -0.492], [-0.341, -0.536], [-0.243, -0.557], [-0.177, -0.613], [-0.103, -0.673]];
+
+const ShieldOutline: Outline = [[-0.059, -1], [0.053, -0.992], [0.148, -0.942], [0.237, -0.877], [0.331, -0.827], [0.43, -0.786], [0.528, -0.743], [0.631, -0.712], [0.738, -0.691], [0.844, -0.669], [0.917, -0.599], [0.925, -0.487], [0.925, -0.371], [0.933, -0.259], [0.941, -0.147], [0.941, -0.031], [0.941, 0.084], [0.925, 0.194], [0.894, 0.296], [0.846, 0.392], [0.783, 0.481], [0.713, 0.559], [0.627, 0.63], [0.543, 0.705], [0.459, 0.782], [0.372, 0.852], [0.286, 0.923], [0.195, 0.982], [0.087, 1], [-0.019, 0.977], [-0.117, 0.934], [-0.211, 0.882], [-0.304, 0.827], [-0.399, 0.778], [-0.49, 0.719], [-0.581, 0.659], [-0.667, 0.588], [-0.744, 0.504], [-0.814, 0.418], [-0.862, 0.322], [-0.886, 0.217], [-0.902, 0.108], [-0.909, -0.005], [-0.925, -0.114], [-0.925, -0.229], [-0.933, -0.342], [-0.941, -0.454], [-0.911, -0.557], [-0.814, -0.591], [-0.712, -0.623], [-0.614, -0.666], [-0.516, -0.708], [-0.42, -0.756], [-0.325, -0.805], [-0.236, -0.87], [-0.15, -0.941]];
+
+const outlinePath = (outline: Outline, radius: number): string =>
+  smoothClosed(outline.map(([x, y]) => ({ x: x * radius, y: y * radius })));
 
 /* 菱形要"瘦"：先做一个圆角方，转 45°，再横向压到 0.78——角还是圆的，不是尖的。 */
 const DiamondTransform = 'scale(0.78 1) rotate(45)';
@@ -137,17 +117,7 @@ const HeartPath = (radius: number): string => {
     ' Z';
 };
 
-/* 盾牌：上缘微拱、两侧收到底部一个圆点，参考图里那块盾。 */
-const ShieldPath = (radius: number): string => {
-  const r = radius;
-  return 'M ' + round(-r * 0.76) + ' ' + round(-r * 0.72) +
-    ' Q 0 ' + round(-r * 1.02) + ' ' + round(r * 0.76) + ' ' + round(-r * 0.72) +
-    ' C ' + round(r * 0.84) + ' ' + round(-r * 0.4) + ' ' + round(r * 0.8) + ' ' + round(-r * 0.06) + ' ' + round(r * 0.66) + ' ' + round(r * 0.28) +
-    ' C ' + round(r * 0.5) + ' ' + round(r * 0.62) + ' ' + round(r * 0.26) + ' ' + round(r * 0.86) + ' 0 ' + round(r * 0.96) +
-    ' C ' + round(-r * 0.26) + ' ' + round(r * 0.86) + ' ' + round(-r * 0.5) + ' ' + round(r * 0.62) + ' ' + round(-r * 0.66) + ' ' + round(r * 0.28) +
-    ' C ' + round(-r * 0.8) + ' ' + round(-r * 0.06) + ' ' + round(-r * 0.84) + ' ' + round(-r * 0.4) + ' ' + round(-r * 0.76) + ' ' + round(-r * 0.72) +
-    ' Z';
-};
+
 
 const EggPath = (radius: number): string => {
   const r = radius;
@@ -170,8 +140,8 @@ const pathOf = (shape: DialShape, radius: number): string => {
   if (shape === 'star') return StarPath(radius);
   if (shape === 'heart') return HeartPath(radius);
   if (shape === 'egg') return EggPath(radius);
-  if (shape === 'shield') return ShieldPath(radius);
-  return CloudPath(radius);
+  if (shape === 'shield') return outlinePath(ShieldOutline, radius);
+  return outlinePath(CloudOutline, radius);
 };
 
 /* 扁平一块颜色，没有描边——参考图就是靠"一块实色 + 一块偏移实色"立起来的。 */
@@ -223,7 +193,8 @@ const ShapeEyeLift: Record<DialShape, number> = {
   squircle: 0,
   diamond: 0,
   egg: 0.02,
-  cloud: 0.02,
+  /* 参考图里云的眼睛略低于中线，盾的眼睛略高于中线。 */
+  cloud: -0.05,
   star: 0.04,
   heart: 0.12,
   shield: 0.06,
@@ -566,8 +537,9 @@ const ResultDial = () => {
       /* 光慢慢摆：上层贴纸跟着偏，右下的厚度就一宽一窄。
          眼睛不跟这束光走——每张脸各自张望，两者互不牵连。 */
       const seconds = now / 1000;
-      const lx = still ? -0.6 : -(0.55 + Math.sin(seconds * 0.42) * 0.45);
-      const ly = still ? -0.55 : -(0.5 + Math.sin(seconds * 0.27 + 1.2) * 0.4);
+      /* 厚度只在 0.4–1.0 倍之间呼吸，不会薄到看不见——参考图那条边是一直都在的。 */
+      const lx = still ? -0.7 : -(0.72 + Math.sin(seconds * 0.42) * 0.3);
+      const ly = still ? -0.7 : -(0.7 + Math.sin(seconds * 0.27 + 1.2) * 0.3);
       node.style.setProperty('--dial-lx', lx.toFixed(3));
       node.style.setProperty('--dial-ly', ly.toFixed(3));
       raf = requestAnimationFrame(paint);
@@ -655,7 +627,7 @@ const ResultDial = () => {
               shape={shape}
               variant={Expressions[expression]}
               index={3}
-              unit={shape === 'star' ? 3 : shape === 'heart' ? 2.9 : 2.5}
+              unit={shape === 'star' ? 3 : shape === 'heart' ? 2.9 : shape === 'cloud' ? 2.9 : 2.5}
               faceUnit={shape === 'star' ? 1.5 : shape === 'heart' ? 1.9 : 2.5}
               center
             />
