@@ -23,7 +23,8 @@ import { useSetProcess } from './hooks/use-set-process';
 import ProcessMenu from './process-menu';
 import { useTeamProgress } from './hooks/use-team-progress';
 import { useTeamRun } from './hooks/use-team-run';
-import ResultPanel from './result-panel';
+import ResultDial from './result-dial';
+import ResultDrawer from './result-drawer';
 import TeamList, { teamKey } from './team-list';
 import { IDelegationLike, buildBoardCards } from './utils/board';
 import { IAgentTeamSummary } from './utils/extract-teams';
@@ -297,8 +298,9 @@ const AgentTeamPage = () => {
           <DispatchBoard cards={cards} />
         </div>
 
-        <div className="min-h-0 overflow-hidden rounded-lg border border-border-button bg-bg-base">
-          <ResultPanel
+        <div className="relative min-h-0 overflow-hidden">
+          <ResultDial />
+          <ResultDrawer
             team={selectedTeam}
             snapshot={snapshot}
             answer={answer}

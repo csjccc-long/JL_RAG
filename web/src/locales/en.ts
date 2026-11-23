@@ -3741,6 +3741,7 @@ This process aggregates variables from multiple branches into a single variable 
           boardEmpty: 'No tasks',
           result: 'Result',
           resultEmpty: 'Run the team to see its conclusion here',
+          resultPending: 'The team is working; its conclusion will appear here',
           answer: 'Final answer',
           delegations: 'Delegations',
           votes: 'Votes',

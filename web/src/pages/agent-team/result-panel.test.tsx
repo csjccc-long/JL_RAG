@@ -57,13 +57,11 @@ describe('ResultPanel', () => {
     ).toBeInTheDocument();
   });
 
-  it('空态里铺开分发盘，结论出来后收起', () => {
-    const { unmount } = renderPanel({});
-    expect(screen.getByTestId('result-dial')).toBeInTheDocument();
-
-    unmount();
-    renderPanel({ snapshot: { outputs: { structured: { summary: '结论' } } } });
-    expect(screen.queryByTestId('result-dial')).toBeNull();
+  it('运行中先给一句"结论还没到"', () => {
+    renderPanel({ running: true });
+    expect(
+      screen.getByText('flow.agentTeam.page.resultPending'),
+    ).toBeInTheDocument();
   });
 
   it('未知告警原样显示', () => {

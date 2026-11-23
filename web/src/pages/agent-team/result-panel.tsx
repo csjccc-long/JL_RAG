@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ITeamRunSnapshot } from './hooks/use-team-run';
-import ResultDial from './result-dial';
 import { IAgentTeamSummary } from './utils/extract-teams';
 
 interface ResultPanelProps {
@@ -131,36 +130,14 @@ const ResultPanel = ({
   const votes: any[] = Array.isArray(outputs.votes) ? outputs.votes : [];
   const finalError = error || String(outputs._ERROR ?? '');
   const conclusion = buildConclusion(structured, outputs, answer);
-  const partial = String(structured.status ?? '') === 'partial';
   const warning = localizeWarning(
     asText(structured.warning ?? outputs.warning).trim(),
     t,
   );
 
   return (
-    <div className="relative h-full overflow-hidden">
-      {!snapshot && !answer && !running && <ResultDial />}
-      <ScrollArea className="relative z-10 h-full">
+    <ScrollArea className="h-full">
       <div className="flex flex-col gap-4 p-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-text-primary">
-            {t('flow.agentTeam.page.result')}
-          </span>
-          {running && <Badge variant="default">{t('flow.agentTeam.status.running')}</Badge>}
-          {!running && snapshot && !finalError && (
-            <Badge variant={partial ? 'secondary' : 'success'}>
-              {t(
-                partial
-                  ? 'flow.agentTeam.status.partial'
-                  : 'flow.agentTeam.status.success',
-              )}
-            </Badge>
-          )}
-          {finalError && (
-            <Badge variant="destructive">{t('flow.agentTeam.status.failed')}</Badge>
-          )}
-        </div>
-
         {finalError && (
           <div className="rounded-md border border-state-error bg-bg-card p-2 text-xs text-state-error">
             {finalError}
@@ -173,9 +150,13 @@ const ResultPanel = ({
           </div>
         )}
 
-        {!snapshot && !answer && !running && (
-          <div className="flex min-h-[420px] items-center justify-center px-2 text-center text-xs text-text-secondary">
-            {t('flow.agentTeam.page.resultEmpty')}
+        {!snapshot && !answer && (
+          <div className="flex min-h-[160px] items-center justify-center px-2 text-center text-xs text-text-secondary">
+            {t(
+              running
+                ? 'flow.agentTeam.page.resultPending'
+                : 'flow.agentTeam.page.resultEmpty',
+            )}
           </div>
         )}
 
@@ -273,9 +254,8 @@ const ResultPanel = ({
             </Section>
           </>
         )}
-        </div>
-      </ScrollArea>
-    </div>
+      </div>
+    </ScrollArea>
   );
 };
 

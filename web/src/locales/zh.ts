@@ -3319,6 +3319,7 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取 Entities 和 R
           boardEmpty: '暂无任务',
           result: '协作结果',
           resultEmpty: '运行后在这里查看团队结论',
+          resultPending: '团队正在协作，结论会出现在这里',
           answer: '最终答复',
           delegations: '分发记录',
           votes: '投票',
