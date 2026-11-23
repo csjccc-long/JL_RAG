@@ -1,0 +1,151 @@
+.dispatch-seek {
+  --w: 36px;
+  --p: 0;
+  --say: 0;
+  --lx: 0px;
+  --ly: 0px;
+  --inset: 9px;
+  --icon: 18px;
+  --shut: 36px;
+
+  position: relative;
+  flex: none;
+  height: var(--shut);
+  width: var(--w);
+  border-radius: 999px;
+  background-color: rgb(var(--accent-primary));
+  color: rgb(var(--text-primary-inverse));
+  transform: translate3d(var(--lx), var(--ly), 0);
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    box-shadow 220ms ease;
+  will-change: width, transform;
+}
+
+.dispatch-seek[data-open='true'] {
+  background-color: rgb(var(--bg-base));
+  color: rgb(var(--text-secondary));
+  box-shadow:
+    inset 0 0 0 1px var(--border-button),
+    0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.dispatch-seek[data-flat] {
+  transition: none;
+}
+
+.dispatch-seek[data-running='true'] {
+  opacity: 0.7;
+}
+
+.dispatch-seek[data-disabled] {
+  opacity: 0.45;
+}
+
+.dispatch-seek:hover:not([data-open='true']):not([data-running='true']) {
+  filter: brightness(1.06);
+}
+
+.dispatch-seek-skin {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  transition: transform 140ms ease;
+}
+
+.dispatch-seek[data-press='true'] .dispatch-seek-skin {
+  transform: scale(0.94);
+}
+
+.dispatch-seek-mark {
+  position: absolute;
+  top: 50%;
+  left: var(--inset);
+  display: grid;
+  place-items: center;
+  width: var(--icon);
+  height: var(--icon);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.dispatch-seek-spin {
+  animation: dispatch-seek-turn 900ms linear infinite;
+}
+
+@keyframes dispatch-seek-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dispatch-seek-field {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  border: none;
+  border-radius: inherit;
+  background: transparent;
+  outline: none;
+  padding-left: calc(var(--inset) + var(--icon) + 7px);
+  padding-right: 42px;
+  font-size: 13px;
+  line-height: 1;
+  color: rgb(var(--text-primary));
+  opacity: var(--say);
+  transition: opacity 160ms linear;
+}
+
+.dispatch-seek[data-open='false'] .dispatch-seek-field {
+  pointer-events: none;
+}
+
+.dispatch-seek-field::placeholder {
+  color: rgb(var(--text-secondary));
+}
+
+.dispatch-seek-go {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background-color: rgb(var(--accent-primary));
+  color: rgb(var(--text-primary-inverse));
+  transform: translateY(-50%);
+  transition: filter 160ms ease;
+}
+
+.dispatch-seek-go:hover {
+  filter: brightness(1.08);
+}
+
+.dispatch-seek-hit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  cursor: pointer;
+  background: transparent;
+}
+
+.dispatch-seek-hit:disabled {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dispatch-seek,
+  .dispatch-seek-skin,
+  .dispatch-seek-field {
+    transition: none;
+  }
+
+  .dispatch-seek-spin {
+    animation-duration: 2.4s;
+  }
+}

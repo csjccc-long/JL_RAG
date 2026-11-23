@@ -1,9 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Routes } from '@/routes';
 import {
-  ChangeEvent,
-  KeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -14,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import DispatchBoard from './dispatch-board';
+import DispatchSeek from './dispatch-seek';
 import NewTeamDialog from './new-team-dialog';
 import { AgentTeamProcess } from '@/interfaces/database/agent';
 import { useAgentRoster } from './hooks/use-agent-roster';
@@ -143,20 +141,6 @@ const AgentTeamPage = () => {
     run(selectedTeam.agentId, task.trim());
   }, [selectedTeam, task, running, run]);
 
-  const handleTaskChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      setTask(event.target.value);
-    },
-    [],
-  );
-
-  const handleTaskKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === 'Enter') handleRun();
-    },
-    [handleRun],
-  );
-
   const handleRetry = useCallback(() => {
     refetch();
   }, [refetch]);
@@ -213,27 +197,26 @@ const AgentTeamPage = () => {
               onChange={handleProcessChange}
             />
           )}
-          <Input
-            value={task}
-            onChange={handleTaskChange}
-            placeholder={t('flow.agentTeam.page.taskPlaceholder')}
-            className="h-9 flex-1"
-            onKeyDown={handleTaskKeyDown}
-          />
-          <Button
-            className="shrink-0 whitespace-nowrap"
-            onClick={handleRun}
-            disabled={running || !selectedTeam}
-          >
-            {running
-              ? t('flow.agentTeam.page.running')
-              : t('flow.agentTeam.page.run')}
-          </Button>
-          {running && (
-            <Button variant="transparent" onClick={stop}>
-              {t('flow.agentTeam.page.stop')}
-            </Button>
-          )}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <DispatchSeek
+              value={task}
+              placeholder={t('flow.agentTeam.page.taskPlaceholder')}
+              label={
+                running
+                  ? t('flow.agentTeam.page.running')
+                  : t('flow.agentTeam.page.run')
+              }
+              running={running}
+              disabled={!selectedTeam}
+              onChange={setTask}
+              onSubmit={handleRun}
+            />
+            {running && (
+              <Button variant="transparent" onClick={stop}>
+                {t('flow.agentTeam.page.stop')}
+              </Button>
+            )}
+          </div>
         </div>
         {setProcess.error ? (
           <p className="text-xs text-state-error">
