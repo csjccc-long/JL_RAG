@@ -1,14 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
-import { AgentOrbit, AgentPresets, type AgentShape } from './agent-presets';
 import './result-dial.css';
 
 const Size = 400;
 const Center = Size / 2;
 const Ink = 'rgb(var(--accent-primary))';
+const EyeInk = 'rgb(0 0 0 / 0.85)';
+/* 参考图是浅色桃肉 + 深一档的同色投影，换成主题色就是"浅青的身子 + 青的影"。 */
+const BodyInk = 'color-mix(in srgb, rgb(var(--accent-primary)) 72%, white)';
 
 const RingRadius = [196, 150, 104, 60];
 const LaneRadius = [176, 128];
+/* 环上只放表情：11 种眼神轮一遍，再补一个回来凑满 12 个位置。 */
+export const Expressions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 4];
+/* 底部才是形状，和参考图那一排一致。 */
+export const ShapeChoices = ['squircle', 'egg', 'flower', 'star', 'heart'] as const;
+
+export type DialShape = 'circle' | 'squircle' | 'egg' | 'flower' | 'star' | 'heart';
 
 /* 眼睛在脸上左右各偏多少：球面坐标里是"半间距占半径的比例"。 */
 const EyeGap = 0.3;
@@ -109,39 +117,51 @@ const EggPath = (radius: number): string => {
 };
 
 interface ShapeBodyProps {
-  shape: AgentShape;
+  shape: DialShape;
   radius: number;
   fill: string;
   fillOpacity?: number;
-  stroke?: string;
-  strokeOpacity?: number;
-  strokeWidth?: number;
 }
 
-const ShapeBody = ({ shape, radius, fill, fillOpacity = 1, stroke, strokeOpacity = 1, strokeWidth = 0 }: ShapeBodyProps) => {
-  const shared = {
-    fill,
-    fillOpacity,
-    stroke: stroke || fill,
-    strokeOpacity,
-    strokeWidth,
-    strokeLinejoin: 'round' as const,
-    strokeLinecap: 'round' as const,
-  };
-  if (shape === 'circle') return <circle r={radius} {...shared} />;
+const pathOf = (shape: DialShape, radius: number): string => {
+  if (shape === 'star') return StarPath(radius);
+  if (shape === 'heart') return HeartPath(radius);
+  if (shape === 'egg') return EggPath(radius);
+  return FlowerPath(radius);
+};
+
+/* 扁平一块颜色，没有描边——参考图就是靠"一块实色 + 一块偏移实色"立起来的。 */
+const ShapeBody = ({ shape, radius, fill, fillOpacity = 1 }: ShapeBodyProps) => {
+  if (shape === 'circle') return <circle r={radius} fill={fill} fillOpacity={fillOpacity} />;
   if (shape === 'squircle') {
-    return <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={radius * 0.44} {...shared} />;
+    return <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={radius * 0.44} fill={fill} fillOpacity={fillOpacity} />;
   }
-  if (shape === 'star') return <path d={StarPath(radius)} {...shared} />;
-  if (shape === 'heart') return <path d={HeartPath(radius)} {...shared} />;
-  if (shape === 'egg') return <path d={EggPath(radius)} {...shared} />;
-  return <path d={FlowerPath(radius)} {...shared} />;
+  return <path d={pathOf(shape, radius)} fill={fill} fillOpacity={fillOpacity} />;
+};
+
+/* 尖角形状（星、心）收不住眼睛，用同一块外形做裁剪，眼睛只出现在脸里面。 */
+const ShapeClip = ({ shape, radius, id }: { shape: DialShape; radius: number; id: string }) => (
+  <clipPath id={id}>
+    {shape === 'circle' ? <circle r={radius} /> : shape === 'squircle'
+      ? <rect x={-radius} y={-radius} width={radius * 2} height={radius * 2} rx={radius * 0.44} />
+      : <path d={pathOf(shape, radius)} />}
+  </clipPath>
+);
+
+/* 星和心的胖处在偏上，眼睛要跟着抬一点，不然会挤在尖端。 */
+const ShapeEyeLift: Record<DialShape, number> = {
+  circle: 0,
+  squircle: 0,
+  egg: 0.02,
+  flower: 0.02,
+  star: 0.04,
+  heart: 0.12,
 };
 
 /* 单只眼睛，画在自己的原点（0,0）上——球面计算只负责把它整体挪到该在的位置。
    十种眼神都是同一套笔画：竖条、圆点、笑眼、平眼、怒眉、半睁、斜看、闭眼笑、细高、厚眼皮。 */
 const EyeArt = ({ variant, side, ink, unit: base }: { variant: number; side: number; ink: string; unit: number }) => {
-  const unit = base * 1.18;
+  const unit = base * 1.3;
   const bar = (height = 8.6, width = 4.2) => (
     <rect
       x={-(width * unit) / 2}
@@ -230,7 +250,7 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
  *
  * 每帧直接写 DOM（transform 与 opacity），不走 React 状态：一次张望不是一次渲染。
  */
-const OrbitEyes = ({ variant, ink, unit, index }: { variant: number; ink: string; unit: number; index: number }) => {
+const OrbitEyes = ({ variant, unit, index }: { variant: number; unit: number; index: number }) => {
   const eyes = useRef<(SVGGElement | null)[]>([]);
 
   useEffect(() => {
@@ -349,7 +369,7 @@ const OrbitEyes = ({ variant, ink, unit, index }: { variant: number; ink: string
           }}
         >
           <g className="team-dial-eye-art">
-            <EyeArt variant={variant} side={side === 0 ? -1 : 1} ink={ink} unit={unit} />
+            <EyeArt variant={variant} side={side === 0 ? -1 : 1} ink={EyeInk} unit={unit} />
           </g>
         </g>
       ))}
@@ -358,121 +378,161 @@ const OrbitEyes = ({ variant, ink, unit, index }: { variant: number; ink: string
 };
 
 interface FaceProps {
-  shape: AgentShape;
+  shape: DialShape;
   variant: number;
   index: number;
   unit?: number;
+  faceUnit?: number;
   picked?: boolean;
+  center?: boolean;
   onPick?: () => void;
 }
 
-const Face = ({ shape, variant, index, unit = 1, picked = false, onPick }: FaceProps) => {
+/**
+ * 一张脸 = 一块实色外形 + 偏移的实色投影 + 一对眼睛。
+ * 没有描边，也不留白底，参考图的"动画风"就是这两层实色。
+ */
+const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, center = false, onPick }: FaceProps) => {
   const radius = 21 * unit;
+  const clipId = 'dial-face-' + useId().replace(/:/g, '');
   return (
     <g
       className="team-dial-face"
       data-shape={shape}
+      data-eyes={variant}
+      data-center={center ? 'true' : undefined}
       data-picked={picked ? 'true' : undefined}
       onClick={onPick}
     >
-      {picked ? <circle r={radius * 1.38} fill={Ink} fillOpacity={0.12} /> : null}
-      <ShapeBody shape={shape} radius={radius * 1.1} fill="var(--bg-base)" />
-      <g transform={'translate(' + round(1.9 * unit) + ' ' + round(2.6 * unit) + ')'}>
-        <ShapeBody shape={shape} radius={radius} fill={Ink} fillOpacity={0.46} />
+      {picked ? <circle r={radius * 1.42} fill="rgb(var(--text-primary))" fillOpacity={0.08} /> : null}
+      <g transform={'translate(' + round(2.2 * unit) + ' ' + round(3.1 * unit) + ')'}>
+        <ShapeBody shape={shape} radius={radius} fill={Ink} />
       </g>
-      <ShapeBody
-        shape={shape}
-        radius={radius}
-        fill={Ink}
-        fillOpacity={0.18}
-        stroke={Ink}
-        strokeOpacity={0.62}
-        strokeWidth={1.2}
-      />
-      <OrbitEyes variant={variant} ink="rgb(var(--text-primary))" unit={unit} index={index} />
-      {picked ? (
-        <circle r={radius * 1.24} fill="none" stroke={Ink} strokeOpacity={0.9} strokeWidth={1.6} />
-      ) : null}
+      <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
+      <ShapeClip shape={shape} radius={radius} id={clipId} />
+      <g clipPath={'url(#' + clipId + ')'} transform={'translate(0 ' + round(-ShapeEyeLift[shape] * radius) + ')'}>
+        <OrbitEyes variant={variant} unit={faceUnit ?? unit} index={index} />
+      </g>
     </g>
   );
 };
 
-const Agents = AgentPresets.map((agent, index) => ({
-  ...agent,
-  point: polar(AgentOrbit, (index * 360) / AgentPresets.length + 12),
+const AgentOrbitRadius = 150;
+
+const RingFaces = Expressions.map((variant, index) => ({
+  variant,
+  index,
+  point: polar(AgentOrbitRadius, (index * 360) / Expressions.length + 12),
 }));
+
+/* 底部那排形状：和参考图一样是一块实色 + 偏移投影，没有描边。 */
+const ShapeChip = ({ shape, picked, onPick }: { shape: DialShape; picked: boolean; onPick: () => void }) => (
+  <button
+    type="button"
+    data-shape={shape}
+    data-picked={picked ? 'true' : undefined}
+    aria-pressed={picked}
+    onClick={onPick}
+    className="team-dial-chip"
+  >
+    <svg viewBox="-30 -30 60 60" className="h-10 w-10">
+      <g transform="translate(2.4 3.2)">
+        <ShapeBody shape={shape} radius={20} fill={Ink} />
+      </g>
+      <ShapeBody shape={shape} radius={20} fill={BodyInk} />
+    </svg>
+  </button>
+);
 
 /**
  * 分发盘的占位：四分之三的圆盘，剩下四分之一被面板右上角切走。
  *
- * 刻度、虚线轨道都去掉了，只留纯色圆环和一圈可点选的 agent。
+ * 环上全是表情，底部一排是形状，中间只负责展示当前选中的组合。
  * 之后任务分发的每条链路（谁派给谁、跑在哪个阶段）都会落在这几圈同心轨道上。
  */
 const ResultDial = () => {
-  const [picked, setPicked] = useState(AgentPresets[0].id);
+  const [expression, setExpression] = useState(4);
+  const [shape, setShape] = useState<DialShape>('flower');
+
   return (
-    <div
-      aria-hidden
-      data-testid="result-dial"
-      className="team-dial pointer-events-none absolute -right-[99px] -top-[99px] hidden h-[440px] w-[440px] select-none lg:block"
-    >
-      <svg viewBox={'0 0 ' + Size + ' ' + Size} className="h-full w-full">
-        <g className="team-dial-rings" fill="none" stroke="currentColor">
-          {RingRadius.map((radius, index) => (
-            <circle
-              key={radius}
-              cx={Center}
-              cy={Center}
-              r={radius}
-              strokeWidth={index === 0 ? 1.2 : 0.8}
-              strokeOpacity={index === 0 ? 0.38 : 0.16}
-            />
-          ))}
-        </g>
+    <div data-testid="result-dial" className="pointer-events-none absolute inset-0 select-none">
+      <div className="absolute -right-[99px] -top-[99px] hidden h-[440px] w-[440px] lg:block">
+        <svg viewBox={'0 0 ' + Size + ' ' + Size} className="h-full w-full">
+          <g className="team-dial-rings" fill="none" stroke="currentColor">
+            {RingRadius.map((radius, index) => (
+              <circle
+                key={radius}
+                cx={Center}
+                cy={Center}
+                r={radius}
+                strokeWidth={index === 0 ? 1.2 : 0.8}
+                strokeOpacity={index === 0 ? 0.38 : 0.16}
+              />
+            ))}
+          </g>
 
-        <circle cx={Center} cy={Center} r={RingRadius[3]} fill={Ink} fillOpacity={0.05} />
+          <circle cx={Center} cy={Center} r={RingRadius[3]} fill={Ink} fillOpacity={0.06} />
 
-        <path
-          d={arc(RingRadius[0], 90, 360)}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeOpacity={0.46}
-          strokeLinecap="round"
-        />
+          <path
+            d={arc(RingRadius[0], 90, 360)}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeOpacity={0.46}
+            strokeLinecap="round"
+          />
 
-        <path
-          d={arc(LaneRadius[1], 96, 354)}
-          fill="none"
-          stroke={Ink}
-          strokeWidth={2.4}
-          strokeOpacity={0.55}
-          strokeLinecap="round"
-        />
+          <path
+            d={arc(LaneRadius[1], 96, 354)}
+            fill="none"
+            stroke={Ink}
+            strokeWidth={2.4}
+            strokeOpacity={0.55}
+            strokeLinecap="round"
+          />
 
-        <g className="team-dial-agents">
-          {Agents.map((agent, index) => (
-            <g
-              key={agent.id}
-              transform={'translate(' + round(agent.point.x) + ' ' + round(agent.point.y) + ')'}
-            >
-              <g className="team-dial-agent">
-                <Face
-                  shape={agent.shape}
-                  variant={agent.face}
-                  index={index}
-                  picked={picked === agent.id}
-                  onPick={() => setPicked(agent.id)}
-                />
+          <g className="team-dial-agents">
+            {RingFaces.map((face) => (
+              <g
+                key={face.index}
+                transform={'translate(' + round(face.point.x) + ' ' + round(face.point.y) + ')'}
+              >
+                <g className="team-dial-agent">
+                  <Face
+                    shape="circle"
+                    variant={face.variant}
+                    index={face.index}
+                    picked={expression === face.index}
+                    onPick={() => setExpression(face.index)}
+                  />
+                </g>
               </g>
-            </g>
-          ))}
-        </g>
+            ))}
+          </g>
 
-        <g transform={'translate(' + Center + ' ' + Center + ')'}>
-          <Face shape="flower" variant={4} index={3} unit={2.5} />
-        </g>
-      </svg>
+          <g transform={'translate(' + Center + ' ' + Center + ')'}>
+            <Face
+              shape={shape}
+              variant={Expressions[expression]}
+              index={3}
+              unit={shape === 'star' ? 3 : shape === 'heart' ? 2.9 : 2.5}
+              faceUnit={shape === 'star' ? 1.5 : shape === 'heart' ? 1.9 : 2.5}
+              center
+            />
+          </g>
+        </svg>
+      </div>
+
+      <div className="pointer-events-auto absolute inset-x-0 top-[352px] hidden justify-center gap-1.5 px-4 lg:flex">
+        {ShapeChoices.map((choice) => (
+          <ShapeChip
+            key={choice}
+            shape={choice}
+            picked={shape === choice}
+            onPick={() => setShape(choice)}
+          />
+        ))}
+      </div>
     </div>
   );
 };

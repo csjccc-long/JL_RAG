@@ -1,46 +1,54 @@
 import { fireEvent, render } from '@testing-library/react';
 
-import { AgentPresets } from './agent-presets';
-import ResultDial from './result-dial';
+import ResultDial, { Expressions, ShapeChoices } from './result-dial';
+
+const ringFaces = (container: HTMLElement) =>
+  Array.from(container.querySelectorAll('.team-dial-agent .team-dial-face'));
+
+const centerFace = (container: HTMLElement) => container.querySelector('.team-dial-face[data-center="true"]');
 
 describe('ResultDial', () => {
-  // 盘上的头像就是预置名单本身：将来点选 agent 时，位置和数量都得对得上。
-  it('每个预置 agent 都在盘上占一个位置', () => {
+  // 参考图：外面一圈是表情，而且都是圆的。
+  it('环上一圈都是表情', () => {
     const { container } = render(<ResultDial />);
-    const faces = container.querySelectorAll('.team-dial-agent');
-    expect(faces).toHaveLength(AgentPresets.length);
+    const faces = ringFaces(container);
+    expect(faces).toHaveLength(Expressions.length);
+    faces.forEach((face) => expect(face.getAttribute('data-shape')).toBe('circle'));
   });
 
-  it('名单不重复', () => {
-    const ids = AgentPresets.map((agent) => agent.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  // 参考图里每种外形都有：圆形、圆角方、蛋形、花、星、心。
-  it('每个头像都带自己的外形', () => {
+  // 参考图：形状是下面单独一排，不是环上的位置。
+  it('形状在底部单独一排', () => {
     const { container } = render(<ResultDial />);
-    const shapes = new Set(
-      Array.from(container.querySelectorAll('.team-dial-face')).map((face) => face.getAttribute('data-shape')),
-    );
-    ['circle', 'squircle', 'egg', 'flower', 'star', 'heart'].forEach((shape) => {
-      expect(shapes.has(shape)).toBe(true);
-    });
+    expect(container.querySelectorAll('.team-dial-chip')).toHaveLength(ShapeChoices.length);
   });
 
-  // 每张脸都是一对球面上的眼睛，圆心那张召集者也要有。
   it('每张脸都装了一对眼睛', () => {
     const { container } = render(<ResultDial />);
-    expect(container.querySelectorAll('.team-dial-eye')).toHaveLength((AgentPresets.length + 1) * 2);
+    expect(container.querySelectorAll('.team-dial-eye')).toHaveLength((Expressions.length + 1) * 2);
   });
 
-  // 「对形状的选择」：点哪个，选中环就移到哪个，而不是同时亮好几个。
-  it('点选一个头像后只有它被选中', () => {
+  // 中间只负责展示：换形状，中心跟着换。
+  it('选一个形状，中间就换成它', () => {
     const { container } = render(<ResultDial />);
-    const star = container.querySelector('.team-dial-face[data-shape="star"]');
-    expect(star).not.toBeNull();
+    expect(centerFace(container)?.getAttribute('data-shape')).toBe('flower');
+
+    const star = container.querySelector('.team-dial-chip[data-shape="star"]');
     fireEvent.click(star as Element);
-    const picked = container.querySelectorAll('.team-dial-face[data-picked="true"]');
+    expect(centerFace(container)?.getAttribute('data-shape')).toBe('star');
+
+    const picked = container.querySelectorAll('.team-dial-chip[data-picked="true"]');
     expect(picked).toHaveLength(1);
     expect(picked[0].getAttribute('data-shape')).toBe('star');
+  });
+
+  // 换表情同理：点环上哪张脸，中心就用哪双眼睛。
+  it('选一个表情，中间就换成它', () => {
+    const { container } = render(<ResultDial />);
+    const faces = ringFaces(container);
+    fireEvent.click(faces[2]);
+    expect(centerFace(container)?.getAttribute('data-eyes')).toBe(String(Expressions[2]));
+
+    const picked = container.querySelectorAll('.team-dial-agent .team-dial-face[data-picked="true"]');
+    expect(picked).toHaveLength(1);
   });
 });
