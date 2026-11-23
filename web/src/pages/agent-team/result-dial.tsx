@@ -339,7 +339,7 @@ const alignOutline = (from: Pt[], to: Pt[]): Pt[] => {
   return out;
 };
 
-const MorphMs = 560;
+const MorphMs = 1050;
 
 /* 星和心的胖处在偏上，眼睛要跟着抬一点，不然会挤在尖端。 */
 const ShapeEyeLift: Record<DialShape, number> = {
@@ -663,16 +663,26 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
 
     const paint = (now: number) => {
       const raw = Math.min(1, (now - started) / MorphMs);
-      const t = 1 - Math.pow(1 - raw, 3);
-      const points = start.map((point, at) => ({
-        x: point.x + (end[at].x - point.x) * t,
-        y: point.y + (end[at].y - point.y) * t,
-      }));
+      /* 参考视频里是匀速、连绵地把旧形状揉成新形状，不是"啪"一下到位：
+         所以走线性，靠下面的波纹和挤压做出橡皮泥的软，不靠缓动曲线抢时间。 */
+      const t = raw;
+      /* 液体感：轮廓上有一圈跑动的波，中点最明显，首尾归零，所以两端形状永远精确。 */
+      const sway = Math.sin(Math.PI * raw);
+      const points = start.map((point, at) => {
+        const x = point.x + (end[at].x - point.x) * t;
+        const y = point.y + (end[at].y - point.y) * t;
+        const length = Math.hypot(x, y) || 1;
+        const wave = Math.sin(at * 0.47 + raw * 7.4) * 0.045 * radius * sway;
+        return { x: x + (x / length) * wave, y: y + (y / length) * wave };
+      });
       const data = smoothClosed(points);
       elements.forEach((element) => element?.setAttribute('d', data));
-      /* 捏的动作：中点最胖，收尾回到正形。 */
-      const belly = Math.sin(Math.PI * raw);
-      skin.current?.setAttribute('transform', 'scale(' + round(1 + 0.06 * belly) + ' ' + round(1 - 0.07 * belly) + ')');
+      /* 捏的动作：中点最胖、略微歪一点，收尾回到正形。 */
+      const tilt = round(sway * 1.6);
+      skin.current?.setAttribute(
+        'transform',
+        'rotate(' + tilt + ') scale(' + round(1 + 0.05 * sway) + ' ' + round(1 - 0.06 * sway) + ')',
+      );
       if (raw < 1) raf = requestAnimationFrame(paint);
       else skin.current?.removeAttribute('transform');
     };
@@ -783,6 +793,17 @@ export const AgentAvatar = ({
 
 const AgentOrbitRadius = 130;
 
+/* 舞台是 440px 见方的 div，里面是 400 单位的 viewBox（缩放 1.1）。
+   面板真正露出来的左上角在舞台 (99px, 99px)，换成 viewBox 就是 90 单位：
+   右边线 x = 400 - 90 = 310、上边线 y = 90。脸转到这两条线附近就开始糊、变淡。 */
+const AgentClipRight = Size - 90;
+const AgentClipTop = 90;
+/* 羽化从离边 47 单位（约 52px）就开始，贴到边上刚好糊成一团、看不见。 */
+const AgentFadeSpan = 47;
+/* 模糊比淡出晚一点开始：边缘的脸先变淡，再糊开，否则一离开中心就全是毛毛的。 */
+const AgentBlurSpan = 34;
+const AgentBlurMax = 2.2;
+
 const RingFaces = Expressions.map((variant, index) => ({
   variant,
   index,
@@ -822,6 +843,28 @@ const ResultDial = () => {
   const [shape, setShape] = useState<DialShape>('cloud');
   const stage = useRef<HTMLDivElement | null>(null);
   const spin = useRef({ angle: 0, dragging: false, moved: false, startX: 0, base: 0, lastDrag: 0 });
+  /* 环上每张脸自己的节点：边缘羽化的模糊是逐张算的，不是整块遮罩一刀切。 */
+  const agents = useRef<Array<SVGGElement | null>>([]);
+  const agentBlur = useRef<number[]>([]);
+
+  /* 转到边缘那几张：越贴边越糊、越淡。参考视频里被裁掉的那一截是糊进背景的。 */
+  const featherAgents = (angle: number) => {
+    RingFaces.forEach((_, index) => {
+      const node = agents.current[index];
+      if (!node) return;
+      const theta = (((index * 360) / Expressions.length + 12 + angle) - 90) * (Math.PI / 180);
+      const x = Center + Math.cos(theta) * AgentOrbitRadius;
+      const y = Center + Math.sin(theta) * AgentOrbitRadius;
+      const edge = Math.min(AgentClipRight - x, y - AgentClipTop);
+      const near = Math.min(1, Math.max(0, (AgentFadeSpan - edge) / AgentFadeSpan));
+      const blur = Math.min(1, Math.max(0, (AgentBlurSpan - edge) / AgentBlurSpan)) * AgentBlurMax;
+      if (Math.abs(blur - (agentBlur.current[index] ?? 0)) > 0.18) {
+        agentBlur.current[index] = blur;
+        node.style.filter = blur > 0.18 ? 'blur(' + blur.toFixed(1) + 'px)' : '';
+        node.style.opacity = (1 - near * 0.22).toFixed(2);
+      }
+    });
+  };
 
   /* 环自己慢慢转，鼠标按住可以直接拖；拖动时暂停自转，松手后从当前角度继续。 */
   useEffect(() => {
@@ -841,6 +884,7 @@ const ResultDial = () => {
       previous = now;
       if (!still && !spin.current.dragging && !hovered) spin.current.angle += (delta / 1000) * 3.75;
       apply();
+      featherAgents(spin.current.angle);
       raf = requestAnimationFrame(paint);
     };
 
@@ -908,7 +952,12 @@ const ResultDial = () => {
                 key={face.index}
                 transform={'translate(' + round(face.point.x) + ' ' + round(face.point.y) + ')'}
               >
-                <g className="team-dial-agent">
+                <g
+                  className="team-dial-agent"
+                  ref={(node) => {
+                    agents.current[face.index] = node;
+                  }}
+                >
                   <Face
                     shape="circle"
                     variant={face.variant}
