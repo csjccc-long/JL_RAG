@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react';
 
-import ResultDial, { AgentAvatar, Expressions, ShapeChoices, avatarOf } from './result-dial';
+import ResultDial, { AgentAvatar, Expressions, ShapeChoices, avatarOf, morphOutline } from './result-dial';
 
 const ringFaces = (container: HTMLElement) =>
   Array.from(container.querySelectorAll('.team-dial-agent .team-dial-face'));
@@ -29,20 +29,43 @@ describe('ResultDial', () => {
 
   // 塑形过渡要在同一条轮廓上做：影、脸、裁剪三张 path 必须共用一份 d，
   // 否则换形状时影子会比脸慢半拍，边缘还会露出没被裁掉的眼睛。
-  it('影、脸、裁剪共用同一条轮廓', () => {
+  it('影、脸、裁剪始终共用同一条轮廓', () => {
     const { container } = render(<ResultDial />);
     const center = centerFace(container) as HTMLElement;
     const paths = Array.from(center.querySelectorAll('path'));
     expect(paths).toHaveLength(3);
-    const cloudOutline = paths[0].getAttribute('d');
-    expect(paths[1].getAttribute('d')).toBe(cloudOutline);
-    expect(paths[2].getAttribute('d')).toBe(cloudOutline);
+    expect(paths[1].getAttribute('d')).toBe(paths[0].getAttribute('d'));
+    expect(paths[2].getAttribute('d')).toBe(paths[0].getAttribute('d'));
 
     fireEvent.click(container.querySelector('.team-dial-chip[data-shape="heart"]') as Element);
     const after = Array.from(center.querySelectorAll('path'));
-    expect(after[0].getAttribute('d')).not.toBe(cloudOutline);
     expect(after[1].getAttribute('d')).toBe(after[0].getAttribute('d'));
     expect(after[2].getAttribute('d')).toBe(after[0].getAttribute('d'));
+  });
+
+  // 换形状是从"此刻画着的那圈点"插到新轮廓：两端必须精确落到起止形状上，
+  // 中途只能是中间态（否则要么跳变、要么永远到不了）。
+  it('塑形过渡两端精确、中途是中间态', () => {
+    const from = [
+      { x: 10, y: 0 },
+      { x: 0, y: 10 },
+      { x: -10, y: 0 },
+      { x: 0, y: -10 },
+    ];
+    const to = [
+      { x: 20, y: 0 },
+      { x: 0, y: 20 },
+      { x: -20, y: 0 },
+      { x: 0, y: -20 },
+    ];
+    const radiusOf = (point: { x: number; y: number }) => Math.hypot(point.x, point.y);
+
+    expect(morphOutline(from, to, 0, 10).map(radiusOf)).toEqual(from.map(radiusOf));
+    expect(morphOutline(from, to, 1, 10).map(radiusOf)).toEqual(to.map(radiusOf));
+
+    const mid = radiusOf(morphOutline(from, to, 0.5, 10)[0]);
+    expect(mid).toBeGreaterThan(14.4);
+    expect(mid).toBeLessThan(15.6);
   });
 
   // 中间只负责展示：换形状，中心跟着换。

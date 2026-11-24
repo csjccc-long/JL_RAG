@@ -254,20 +254,6 @@ const roundedRectLoop = (radius: number, corner: number): Pt[] => {
 
 const sampleCache = new Map<string, Pt[]>();
 
-/* 把一条现成的 path 摊成同一圈点：连续换形状时从"此刻正在变的那张脸"接着捏，
-   而不是从上一个形状的终点重新起手。jsdom 没有路径测量，返回 null 交给调用方兜底。 */
-const sampleElement = (node: SVGPathElement | null): Pt[] | null => {
-  if (!node || typeof node.getTotalLength !== 'function') return null;
-  const total = node.getTotalLength();
-  if (!total) return null;
-  const points: Pt[] = [];
-  for (let index = 0; index < MorphSamples; index += 1) {
-    const point = node.getPointAtLength((index / MorphSamples) * total);
-    points.push({ x: point.x, y: point.y });
-  }
-  return points;
-};
-
 /* 把形状摊成 MorphSamples 个等距点（局部坐标、未套 transform）。 */
 const faceOutline = (shape: DialShape, radius: number): Pt[] => {
   const key = shape + ':' + radius.toFixed(2);
@@ -339,7 +325,25 @@ const alignOutline = (from: Pt[], to: Pt[]): Pt[] => {
   return out;
 };
 
-const MorphMs = 1050;
+const MorphMs = 480;
+
+/* 视频里换形状约 0.47s：头三成时间只走一成（先"吸"一下），中间几乎匀速，
+   最后一段收得很慢；没有回弹、没有旋转。 */
+const morphEase = (raw: number): number => {
+  if (raw < 0.3) return 0.15 * (raw / 0.3) ** 2;
+  if (raw < 0.85) return 0.15 + (raw - 0.3) * 0.898;
+  return 0.644 + 0.356 * (1 - (1 - (raw - 0.85) / 0.15) ** 2);
+};
+
+/* 两套轮廓之间逐点插值；中途沿法线鼓起一点点让边像软的，首尾归零所以两端形状永远精确。 */
+export const morphOutline = (from: Pt[], to: Pt[], t: number, radius: number): Pt[] =>
+  from.map((point, at) => {
+    const x = point.x + (to[at].x - point.x) * t;
+    const y = point.y + (to[at].y - point.y) * t;
+    const length = Math.hypot(x, y) || 1;
+    const wave = Math.sin(at * 0.47 + t * 7.4) * 0.022 * radius * Math.sin(Math.PI * t);
+    return { x: x + (x / length) * wave, y: y + (y / length) * wave };
+  });
 
 /* 星和心的胖处在偏上，眼睛要跟着抬一点，不然会挤在尖端。 */
 const ShapeEyeLift: Record<DialShape, number> = {
@@ -639,52 +643,59 @@ const Face = ({ shape, variant, index, unit = 1, faceUnit, picked = false, cente
   const clipPathRef = useRef<SVGPathElement | null>(null);
   const wasShape = useRef(shape);
   const wasRadius = useRef(radius);
+  /* 此刻真正画在屏幕上的那圈点。换形状时从它出发，半路再换就接着揉。 */
+  const live = useRef<Pt[]>(faceOutline(shape, radius));
   /* 参考图是一块浅色贴纸 + 一块深色侧面：上层往左上错开一点，右下就露出一条厚度。 */
   const shift = radius * (shape === 'star' || shape === 'cloud' || shape === 'shield' ? 0.11 : 0.085);
   const outline = smoothClosed(faceOutline(shape, radius));
 
-  /* 换形状 = 捏：起手把三条路径换回旧形状（在绘制前发生，所以看不到回跳），
-     再把 120 个采样点从旧轮廓插到新轮廓，中途整张脸横向鼓一下、纵向压一下。 */
+  /* 换形状 = 捏：起手先把"此刻真正画在屏幕上的那圈点"写回去（发生在绘制之前，所以不会闪一下新形状），
+     再从这圈点插到新形状。中途又换形状，就从半路接着揉。 */
   useLayoutEffect(() => {
     const fromShape = wasShape.current;
     const fromRadius = wasRadius.current;
     wasShape.current = shape;
     wasRadius.current = radius;
     const elements = [shadePath.current, topPath.current, clipPathRef.current];
-    if (fromShape === shape || !elements[0]) return;
+    if (!elements[0]) return;
+
+    const end = alignOutline(live.current, faceOutline(shape, radius));
+    if (fromShape === shape && fromRadius === radius) {
+      live.current = end;
+      return;
+    }
     const still =
       typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (still) return;
+    if (still) {
+      live.current = end;
+      const settled = smoothClosed(end);
+      elements.forEach((element) => element?.setAttribute('d', settled));
+      return;
+    }
 
-    const start = sampleElement(topPath.current) ?? faceOutline(fromShape, fromRadius);
-    const end = alignOutline(start, faceOutline(shape, radius));
+    const start = live.current;
+    const seed = smoothClosed(start);
+    elements.forEach((element) => element?.setAttribute('d', seed));
     const started = performance.now();
     let raf = 0;
 
     const paint = (now: number) => {
       const raw = Math.min(1, (now - started) / MorphMs);
-      /* 参考视频里是匀速、连绵地把旧形状揉成新形状，不是"啪"一下到位：
-         所以走线性，靠下面的波纹和挤压做出橡皮泥的软，不靠缓动曲线抢时间。 */
-      const t = raw;
-      /* 液体感：轮廓上有一圈跑动的波，中点最明显，首尾归零，所以两端形状永远精确。 */
-      const sway = Math.sin(Math.PI * raw);
-      const points = start.map((point, at) => {
-        const x = point.x + (end[at].x - point.x) * t;
-        const y = point.y + (end[at].y - point.y) * t;
-        const length = Math.hypot(x, y) || 1;
-        const wave = Math.sin(at * 0.47 + raw * 7.4) * 0.045 * radius * sway;
-        return { x: x + (x / length) * wave, y: y + (y / length) * wave };
-      });
+      const points = morphOutline(start, end, morphEase(raw), radius);
+      live.current = points;
       const data = smoothClosed(points);
       elements.forEach((element) => element?.setAttribute('d', data));
-      /* 捏的动作：中点最胖、略微歪一点，收尾回到正形。 */
-      const tilt = round(sway * 1.6);
+      /* 捏的那一下：中点略鼓、略压，收尾回到正形。 */
+      const sway = Math.sin(Math.PI * raw);
       skin.current?.setAttribute(
         'transform',
-        'rotate(' + tilt + ') scale(' + round(1 + 0.05 * sway) + ' ' + round(1 - 0.06 * sway) + ')',
+        'scale(' + round(1 + 0.03 * sway) + ' ' + round(1 - 0.035 * sway) + ')',
       );
       if (raw < 1) raf = requestAnimationFrame(paint);
-      else skin.current?.removeAttribute('transform');
+      else {
+        live.current = end;
+        skin.current?.removeAttribute('transform');
+      }
     };
     raf = requestAnimationFrame(paint);
     return () => cancelAnimationFrame(raf);
