@@ -16,6 +16,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
+import { chime } from '@/lib/sound';
+
 import './orbital-universe.css';
 
 const VERTEX = [
@@ -82,9 +84,10 @@ const LINE_VERTEX = [
   'uniform mat4 uProj;',
   'uniform mat4 uView;',
   'uniform vec3 uOffset;',
+  'uniform float uScale;',
   '',
   'void main() {',
-  '  vec4 clip = uProj * uView * vec4(uRot * (aPos + uOffset), 1.0);',
+  '  vec4 clip = uProj * uView * vec4(uRot * (aPos * uScale + uOffset), 1.0);',
   '  gl_Position = clip;',
   '}',
 ].join('\n');
@@ -106,8 +109,6 @@ const LINE_FRAGMENT = [
 const TAU = Math.PI * 2;
 /** The star at the middle: the module itself. */
 const CORE_COUNT = 48000;
-/** The ring the features sit on. */
-const RING_COUNT = 46000;
 /** Far stars, so the module looks like it sits in a universe. */
 const FIELD_COUNT = 9000;
 /** The overview module is the galaxy itself: a small spiral disc. */
@@ -120,6 +121,18 @@ const ORBIT_RADIUS = 1.06;
 const PLANET_RADIUS = 0.2;
 /** The orbit lives in the ring plane, so it needs no tilt of its own. */
 const ORBIT_TILT = 0;
+/** How much room around a star's centre the framing has to leave: the ball
+ *  itself is drawn at radius 1 (the neighbours a little smaller), not at
+ *  STAR_RADIUS, so the camera must stand back from the bigger of the two. */
+const STAR_CLEARANCE = 1.06;
+/** What a join throws off: not a ball bursting in the middle of the link, but
+ *  sparks breaking loose from the star the link arrives at and drifting apart. */
+const SPRAY_COUNT = 640;
+/** How far the burst reaches, in world units, once it has fully opened. */
+const SPRAY_SPAN = 1.5;
+/** Seconds from the first spark to the last one gone. */
+const SPRAY_LIFE = 1.7;
+const SPRAY_ALPHA = 0.9;
 
 export type StarKey = 'overview' | 'memories' | 'reflect' | 'knowledge' | 'governance';
 
@@ -144,6 +157,10 @@ const CONSTELLATION_PATH: StarKey[] = [
 ];
 /** Neighbour stars are drawn smaller than the one we fly to. */
 const NEIGHBOUR_RADIUS = 0.92;
+/** Where the other stars gather once the camera lands: the same directions,
+ *  pulled in close enough to stay in frame, so this module still sits in its
+ *  constellation instead of standing alone in the dark. */
+const NEIGHBOUR_SETTLE = 2.5;
 /* The whole flight, in seconds from the moment the view opens. It is one
    continuous move: the camera pushes into the galaxy, and because the stars
    live inside that galaxy they light up as we come closer, join up, and slide
@@ -156,6 +173,8 @@ const OPEN_DISTANCE = 1.34;
 const CLOSE_DISTANCE = 0.8;
 /** Wide enough for the whole constellation once the galaxy is gone. */
 const WIDE_DISTANCE = 2.15;
+/** Whatever it takes to hold the whole constellation, never further than this. */
+const WIDE_DISTANCE_MAX = 3.4;
 /** The constellation comes up in one breath, after the galaxy has dissolved. */
 const STAR_APPEAR = 0.3;
 const STAR_FADE = 0.08;
@@ -164,6 +183,13 @@ const LINK_START = 0.44;
 const LINK_STEP = 0.05;
 const LINK_GROW = 0.08;
 const DISTANCE = 3.9;
+/** A hop from one module to the next: pull back, swing across, push in. */
+const TRAVEL_SECONDS = 2.6;
+
+/** Where the reader just was, so a hop between two modules starts from the
+ *  star they were already sitting on instead of replaying the galaxy intro. */
+type ViewMemory = { key: StarKey; from: StarKey | null; at: number };
+let lastView: ViewMemory | null = null;
 
 const createRandom = (seed: number) => {
   let state = seed >>> 0;
@@ -209,51 +235,86 @@ const buildCore = () =>
     const r = Math.sqrt(Math.max(0, 1 - z * z));
     const phi = random() * TAU;
     const y = z * radius;
-    // The ring's shadow: a dark band across the ball, as in the reference.
-    const band = Math.exp(-((y / 0.12) ** 2));
+    // A bare ball: no rings, no band across it, just the sphere itself.
     push(
       Math.cos(phi) * r * radius,
       y,
       Math.sin(phi) * r * radius,
       0.44 + 0.5 * random(),
-      ((shell ? 1.02 : 0.72) + 0.3 * random() + 0.22 * (1 - depth)) * (1 - 0.3 * band),
+      (shell ? 1.02 : 0.72) + 0.3 * random() + 0.22 * (1 - depth),
     );
   });
 
-const RING_BANDS = [
-  [0.88, 0.97, 0.9],
-  [1.0, 1.11, 1],
-  [1.17, 1.29, 0.58],
-];
-
-const buildRing = () =>
-  cloud(RING_COUNT, (_slot, push, random) => {
-    const pick = random();
-    let inner = RING_BANDS[0][0];
-    let outer = RING_BANDS[0][1];
-    let gain = RING_BANDS[0][2];
-    if (pick > 0.34) {
-      inner = RING_BANDS[1][0];
-      outer = RING_BANDS[1][1];
-      gain = RING_BANDS[1][2];
-    }
-    if (pick > 0.78) {
-      inner = RING_BANDS[2][0];
-      outer = RING_BANDS[2][1];
-      gain = RING_BANDS[2][2];
-    }
-    const radius = inner + (outer - inner) * random();
-    const angle = random() * TAU;
-    const flare = inner > 1.03 ? 1.5 : 0.45;
-    const y = gaussOf(random) * (0.005 + 0.014 * random()) * flare;
-    push(
-      Math.cos(angle) * radius,
-      y,
-      Math.sin(angle) * radius,
-      0.1 + 0.24 * random(),
-      gain * (0.52 + 0.44 * random()),
-    );
+/**
+ * One splash, built in unit space around the origin: sparks thrown off a star,
+ * each joined to its two nearest neighbours, so it reads as a little
+ * constellation breaking loose from that star rather than a cloud of dust.
+ */
+const buildSpray = () => {
+  const random = createRandom(0x51ed270b);
+  const points: number[][] = [];
+  for (let n = 0; n < SPRAY_COUNT; n += 1) {
+    // Even over a sphere, then pushed out: a shell that thickens as it flies,
+    // so the splash opens on every side of the star it left.
+    const up = random() * 2 - 1;
+    const phi = random() * TAU;
+    const ring = Math.sqrt(Math.max(0, 1 - up * up));
+    // A full volume, not a shell: a thin skin of points would read as a ring
+    // around the star, which is exactly what this must not look like.
+    const shell = 0.42 + 1.25 * Math.pow(random(), 0.7);
+    points.push([
+      Math.cos(phi) * ring * shell,
+      up * shell,
+      Math.sin(phi) * ring * shell,
+    ]);
+  }
+  const joins: number[] = [];
+  const seen = new Set<string>();
+  points.forEach((point, index) => {
+    const near = points
+      .map((other, slot) => ({
+        slot,
+        gap:
+          (point[0] - other[0]) ** 2 +
+          (point[1] - other[1]) ** 2 +
+          (point[2] - other[2]) ** 2,
+      }))
+      .filter((item) => item.slot !== index)
+      .sort((a, b) => a.gap - b.gap)
+      .slice(0, 2);
+    near.forEach((item) => {
+      // Never twice, and never a line long enough to read as a stray scratch.
+      if (item.gap > 0.18 * 0.18) return;
+      const low = Math.min(index, item.slot);
+      const high = Math.max(index, item.slot);
+      const key = low + ':' + high;
+      if (seen.has(key)) return;
+      seen.add(key);
+      joins.push(
+        points[low][0], points[low][1], points[low][2],
+        points[high][0], points[high][1], points[high][2],
+      );
+    });
   });
+
+  const position = new Float32Array(points.length * 3);
+  const meta = new Float32Array(points.length * 3);
+  points.forEach((point, index) => {
+    const slot = index * 3;
+    position[slot] = point[0];
+    position[slot + 1] = point[1];
+    position[slot + 2] = point[2];
+    meta[slot] = random();
+    // Dead centre of the cool/warm blend: the spray is white, never tinted.
+    meta[slot + 1] = 0.5;
+    meta[slot + 2] = 0.95 + 0.45 * random();
+  });
+  return {
+    cloud: { position, meta, count: points.length },
+    joins: new Float32Array(joins),
+    joinCount: joins.length / 3,
+  };
+};
 
 const buildField = () =>
   cloud(FIELD_COUNT, (_slot, push, random) => {
@@ -358,6 +419,8 @@ type OrbitalUniverseProps = {
   className?: string;
   onHover?: (key: string) => void;
   onSelect?: (key: string) => void;
+  /** A click on a neighbouring star: hand the reader over to that module. */
+  onNavigate?: (key: StarKey) => void;
 };
 
 /**
@@ -373,11 +436,12 @@ export function OrbitalUniverse({
   className = '',
   onHover,
   onSelect,
+  onNavigate,
 }: OrbitalUniverseProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const handlers = useRef({ onHover, onSelect });
-  handlers.current = { onHover, onSelect };
+  const handlers = useRef({ onHover, onSelect, onNavigate });
+  handlers.current = { onHover, onSelect, onNavigate };
   const activeKeyRef = useRef(activeKey);
   activeKeyRef.current = activeKey;
 
@@ -477,6 +541,7 @@ export function OrbitalUniverse({
       offset: gl.getUniformLocation(lineProgram, 'uOffset'),
       ink: gl.getUniformLocation(lineProgram, 'uInk'),
       alpha: gl.getUniformLocation(lineProgram, 'uAlpha'),
+      scale: gl.getUniformLocation(lineProgram, 'uScale'),
     };
     const lineAttrs = { pos: gl.getAttribLocation(lineProgram, 'aPos') };
 
@@ -501,9 +566,15 @@ export function OrbitalUniverse({
 
     const galaxy = upload(buildGalaxy());
     const core = upload(buildCore());
-    const ring = upload(buildRing());
     const field = upload(buildField());
     const planet = upload(buildPlanet());
+    // One plume, run out along every link as that link arrives, at whatever size
+    // it has drifted to by then.
+    const spray = buildSpray();
+    const sprayPoints = upload(spray.cloud);
+    const sprayJoins = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, sprayJoins);
+    gl.bufferData(gl.ARRAY_BUFFER, spray.joins, gl.STATIC_DRAW);
 
     const projection = new Float32Array(16);
     const viewMatrix = new Float32Array(16);
@@ -526,6 +597,9 @@ export function OrbitalUniverse({
     let dragging = false;
     let lastX = 0;
     let lastY = 0;
+    let downX = 0;
+    let downY = 0;
+    let moved = false;
     let velocity = 0;
     let lastInteract = 0;
     let raf = 0;
@@ -564,6 +638,32 @@ export function OrbitalUniverse({
           offset: [node[0] - focus[0], node[1] - focus[1], node[2] - focus[2]],
         };
       });
+    // Where this view starts from. A hop between two modules is a journey of
+    // its own — back out, across, in — and never the galaxy intro again.
+    const openedAt = Date.now();
+    const remount =
+      lastView !== null &&
+      lastView.key === starKey &&
+      openedAt - lastView.at < 2000;
+    const fromKey = remount
+      ? lastView!.from
+      : lastView && lastView.key !== starKey
+        ? lastView.key
+        : null;
+    lastView = { key: starKey, from: fromKey, at: openedAt };
+    const travels =
+      Boolean(fromKey) && fromKey !== 'overview' && starKey !== 'overview';
+    const fromNode = travels && fromKey ? CONSTELLATION[fromKey] : null;
+
+    // A join is a sound as much as a sight: a bell as each link lands,
+    // climbing, and one deeper note when the camera settles on the star. The
+    // bell itself lives in lib/sound, shared with the chat's message sound.
+    const sounded = new Set<string>();
+
+    // Where the neighbour stars are on screen this frame, so a click can carry
+    // the reader to that module instead of only turning the view.
+    const targets: { key: StarKey; x: number; y: number; r: number }[] = [];
+
     /** Where we are in the push-in, 0 at the galaxy and 1 on the landed star. */
     const progressOf = (time: number) =>
       Math.min(1, Math.max(0, time / FLIGHT_SECONDS));
@@ -642,6 +742,55 @@ export function OrbitalUniverse({
       element.style.pointerEvents = fade > 0.6 ? 'auto' : 'none';
     };
 
+    /** The same projection the labels use, for anything that must be hit-tested. */
+    const project = (
+      p: number[],
+      distance: number,
+    ): [number, number, number, number] => {
+      const x = rotation[0] * p[0] + rotation[3] * p[1] + rotation[6] * p[2];
+      const y = rotation[1] * p[0] + rotation[4] * p[1] + rotation[7] * p[2];
+      const z = rotation[2] * p[0] + rotation[5] * p[1] + rotation[8] * p[2];
+      const w = distance - z;
+      if (w <= 0.35) return [-1, -1, 0, 0];
+      const sx = ((x * focal) / (width / height) / w) * 0.5 + 0.5;
+      const sy = (y * focal / w) * 0.5 + 0.5;
+      return [
+        sx * width,
+        (1 - sy) * height,
+        1,
+        ((STAR_CLEARANCE * focal) / w) * 0.5 * height,
+      ];
+    };
+
+    /** The constellation is only worth watching if all of it is in frame, so
+        the camera backs off far enough for the widest star this tab shows,
+        measured in camera space so turning the view never crops anyone. */
+    const frameDistance = (shift: number[]) => {
+      // The data drawer always keeps a strip of the right edge, so the stars have
+      // to fit in what is left of the frame rather than in all of it.
+      const rail = width >= 768 ? 96 : 0;
+      const aspect = Math.max(0.45, (width - rail) / height);
+      const margin = 0.84;
+      let need = 0;
+      const stars = [[0, 0, 0], ...neighbours.map((item) => item.offset)];
+      stars.forEach((star) => {
+        const dx = star[0] - shift[0];
+        const dy = star[1] - shift[1];
+        const dz = star[2] - shift[2];
+        const x = rotation[0] * dx + rotation[3] * dy + rotation[6] * dz;
+        const y = rotation[1] * dx + rotation[4] * dy + rotation[7] * dz;
+        const z = rotation[2] * dx + rotation[5] * dy + rotation[8] * dz;
+        const across = ((Math.abs(x) + STAR_CLEARANCE) * focal) / (aspect * margin);
+        const down = ((Math.abs(y) + STAR_CLEARANCE) * focal) / margin;
+        need = Math.max(need, z + Math.max(across, down));
+      });
+      // Whatever it takes, but never so far that the stars stop reading.
+      return Math.min(
+        DISTANCE * WIDE_DISTANCE_MAX,
+        Math.max(DISTANCE * WIDE_DISTANCE, need),
+      );
+    };
+
     const render = () => {
       if (!gl) return;
       const dark = document.documentElement.classList.contains('dark');
@@ -650,33 +799,77 @@ export function OrbitalUniverse({
       // constellation comes up, the links are drawn between the stars, and only
       // then does the camera close on this module's star.
       const progress = progressOf(flightTime);
+      // A hop between two modules is its own move: back off until the whole
+      // constellation is in frame, swing across to the new star, close in.
+      const travel = travels
+        ? Math.min(1, Math.max(0, flightTime / TRAVEL_SECONDS))
+        : 0;
+      const retreat = smoothstep(0.02, 0.38, travel);
+      const travelPan = smoothstep(0.3, 0.7, travel);
+      const arrival = smoothstep(0.68, 1, travel);
       // The camera falls into the disc, opens back up on the whole
       // constellation, and only then closes on this star.
-      const fall = smoothstep(0.02, 0.3, progress);
-      const widen = smoothstep(0.3, 0.46, progress);
-      const dive = smoothstep(0.72, 1, progress);
-      const near = DISTANCE * CLOSE_DISTANCE;
-      const wide = DISTANCE * WIDE_DISTANCE;
-      let distance = DISTANCE * OPEN_DISTANCE;
-      distance += (near - distance) * fall;
-      distance += (wide - distance) * widen;
-      distance += (DISTANCE - distance) * dive;
-      distance *= zoom;
-      const landed = smoothstep(0.86, 1, progress);
-      // The neighbours are only there while the constellation is: they are gone
-      // before the camera settles, so none of them hangs at the edge of frame.
-      const leave = 1 - smoothstep(0.68, 0.86, progress);
+      const fall = travels ? 0 : smoothstep(0.02, 0.3, progress);
+      const widen = travels ? 0 : smoothstep(0.3, 0.46, progress);
+      const dive = travels ? 0 : smoothstep(0.72, 1, progress);
+      const landed = travels ? arrival : smoothstep(0.86, 1, progress);
+
+      writeRotation(yaw, pitch, rotation);
+      writeRotation(yaw * 0.32, pitch * 0.32, drift);
+
       // The camera pans from the galaxy to the middle of the constellation, and
       // only after the links are finished does it swing onto the target star.
       const shift = [0, 0, 0];
       for (let axis = 0; axis < 3; axis += 1) {
+        if (fromNode) {
+          // The camera is still standing on the star we came from, and swings
+          // across to this one while it is held wide.
+          shift[axis] = (fromNode[axis] - focus[axis]) * (1 - travelPan);
+          continue;
+        }
         const hubX = galaxyNode[axis] + (HUB[axis] - galaxyNode[axis]) * widen;
         const cam = hubX + (focus[axis] - hubX) * dive;
         shift[axis] = cam - focus[axis];
       }
 
-      writeRotation(yaw, pitch, rotation);
-      writeRotation(yaw * 0.32, pitch * 0.32, drift);
+      // Where each star of the constellation sits this frame: at its own place
+      // in the sky while we fly, and gathered in around this star once we land,
+      // so the module keeps its neighbours (and its links) after the flight.
+      // On a narrow screen the neighbours gather tighter, or the outermost of
+      // them ends up clipped by the edge once the flight lands.
+      const settleRadius =
+        NEIGHBOUR_SETTLE * (0.58 + 0.42 * Math.min(1, width / height));
+      const settle = (offset: number[]) => {
+        if (landed <= 0.001) return offset;
+        const length = Math.hypot(offset[0], offset[1], offset[2]) || 1;
+        const pull = (settleRadius / length - 1) * landed;
+        return [offset[0] * (1 + pull), offset[1] * (1 + pull), offset[2] * (1 + pull)];
+      };
+      const place: Record<string, number[]> = {};
+      CONSTELLATION_PATH.forEach((key) => {
+        const node = CONSTELLATION[key];
+        place[key] = settle([
+          node[0] - focus[0],
+          node[1] - focus[1],
+          node[2] - focus[2],
+        ]);
+      });
+
+      const near = DISTANCE * CLOSE_DISTANCE;
+      // Standing back far enough that every star of the constellation is on
+      // screen while the links are traced between them.
+      const wide = frameDistance(shift);
+      let distance = DISTANCE * OPEN_DISTANCE;
+      if (travels) {
+        // Out of the old star, wide over the constellation, into the new one.
+        distance = DISTANCE + (wide - DISTANCE) * retreat;
+        distance += (DISTANCE - distance) * arrival;
+      } else {
+        distance += (near - distance) * fall;
+        distance += (wide - distance) * widen;
+        distance += (DISTANCE - distance) * dive;
+      }
+      distance *= zoom;
 
       viewMatrix.fill(0);
       viewMatrix[0] = 1;
@@ -688,7 +881,7 @@ export function OrbitalUniverse({
       gl.clearColor(0, 0, 0, 0);
       gl.clearDepth(1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      // Depth keeps the near half of the ring in front of the star.
+      // Depth keeps the near half of each ball in front of the far half.
       gl.enable(gl.DEPTH_TEST);
       gl.depthFunc(gl.LEQUAL);
       gl.useProgram(program);
@@ -718,6 +911,9 @@ export function OrbitalUniverse({
         radius: number,
         boost: number,
         alpha = 1,
+        // Sparks need a fatter pixel than the dust they are drawn with, or at
+        // this distance they are sub-pixel and only the joins show.
+        grain = 1,
       ) => {
         gl.uniformMatrix3fv(uniforms.rot, false, matrix);
         gl.uniform3f(
@@ -728,6 +924,7 @@ export function OrbitalUniverse({
         );
         gl.uniform1f(uniforms.radius, radius);
         gl.uniform1f(uniforms.boost, boost);
+        if (grain !== 1) gl.uniform1f(uniforms.pixel, pixel * grain);
         gl.uniform1f(uniforms.alpha, (dark ? 1 : 0.86) * alpha);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer.position);
         gl.enableVertexAttribArray(attrs.pos);
@@ -736,11 +933,13 @@ export function OrbitalUniverse({
         gl.enableVertexAttribArray(attrs.meta);
         gl.vertexAttribPointer(attrs.meta, 3, gl.FLOAT, false, 0, 0);
         gl.drawArrays(gl.POINTS, 0, buffer.count);
+        // Back to the shared grain, so the next cloud is drawn as usual.
+        if (grain !== 1) gl.uniform1f(uniforms.pixel, pixel);
       };
 
       // The same galaxy that sits on the overview tab, nothing scaled or rebuilt:
       // the camera simply falls into it, so it magnifies in place and dissolves.
-      const galaxyFade = 1 - smoothstep(0.06, 0.3, progress);
+      const galaxyFade = travels ? 0 : 1 - smoothstep(0.06, 0.3, progress);
 
       const zero = [0, 0, 0];
       // The far stars barely move, which is what makes turning the view feel
@@ -750,27 +949,59 @@ export function OrbitalUniverse({
       // only ever grows and dims while the stars come up around it.
       draw(galaxy, rotation, shift, GALAXY_SPAN, 1.25, galaxyFade);
       // The neighbours are the same stars as the one we are going to, not
-      // markers: every one of them comes up as a full sphere.
+      // markers: every one of them comes up as a full sphere, and stays on as a
+      // smaller, dimmer one once we land, so the module is seen sitting in its
+      // constellation rather than alone.
+      // A hop already has the constellation lit, so nothing fades up again.
+      const reveal = travels ? 1 : revealOf();
+      targets.length = 0;
       neighbours.forEach((item, index) => {
         const pulse = 0.9 + 0.1 * Math.sin(phase * 1.3 + index * 2.1);
-        const reveal = revealOf();
         if (reveal <= 0.001) return;
         // The brightening belongs to the tracing, so it lets go as we land.
-        const glow = glowOf(item.key) * (1 - landed);
-        const radius = NEIGHBOUR_RADIUS * (1 + 0.12 * glow);
-        draw(
-          core,
-          rotation,
-          item.offset,
-          radius,
-          1 + 2.2 * glow,
-          reveal * (0.72 + 0.28 * Math.min(1, glow)) * leave * pulse,
+        const glow = travels ? 0 : glowOf(item.key) * (1 - landed);
+        const radius = NEIGHBOUR_RADIUS * (1 - 0.74 * landed) * (1 + 0.12 * glow);
+        const alpha =
+          reveal * (0.72 + 0.28 * Math.min(1, glow)) * (1 - 0.62 * landed) * pulse;
+        // Only the ball itself: no ring, nothing circling it.
+        draw(core, rotation, place[item.key], radius, 1 + 2.2 * glow, alpha);
+        // Once the camera has settled the other stars step back: a soft,
+        // half-there ghost rather than a sharp ball in the way of this one.
+        if (landed > 0.02) {
+          draw(
+            core,
+            rotation,
+            place[item.key],
+            radius * (1 + 0.85 * landed),
+            1 + 0.4 * glow,
+            alpha * 0.42,
+          );
+        }
+        const spot = project(
+          [
+            place[item.key][0] - shift[0],
+            place[item.key][1] - shift[1],
+            place[item.key][2] - shift[2],
+          ],
+          distance,
         );
-        draw(ring, rotation, item.offset, radius, 1, reveal * 0.55 * leave * pulse);
+        if (spot[2] > 0 && reveal > 0.5) {
+          targets.push({
+            key: item.key,
+            x: spot[0],
+            y: spot[1],
+            r: Math.max(18, spot[3]),
+          });
+        }
       });
-      const home = revealOf();
-      const homeGlow = glowOf(starKey) * (1 - landed);
-      draw(ring, rotation, zero, 1, 1, (0.16 + 0.84 * landed) * home);
+      if (import.meta.env.DEV) {
+        // Development only: lets the visual checks aim at a star by name
+        // instead of guessing where one landed on screen.
+        (window as unknown as { __orbitalTargets?: unknown }).__orbitalTargets =
+          targets;
+      }
+      const home = reveal;
+      const homeGlow = travels ? 0 : glowOf(starKey) * (1 - landed);
       draw(core, rotation, zero, 1, 1 + 2.2 * homeGlow, home);
 
       const active = activeKeyRef.current;
@@ -794,13 +1025,17 @@ export function OrbitalUniverse({
       });
 
       // The link line: each segment grows out of the star it starts from, in
-      // order, so the constellation is traced rather than dropped in.
+      // order, so the constellation is traced rather than dropped in, and the
+      // lines stay on once we land, holding the module in its constellation.
+      const linksGone = travels ? 0 : smoothstep(0.74, 0.9, progress);
+      const linkAlpha = 0.55 - 0.37 * linksGone;
       let drawn = 0;
       for (let index = 0; index < LINK_COUNT; index += 1) {
-        const grow = linkOf(index);
+        // A hop starts with the constellation already joined up.
+        const grow = travels ? 1 : linkOf(index);
         if (grow <= 0) break;
-        const from = CONSTELLATION[CONSTELLATION_PATH[index + 1]];
-        const to = CONSTELLATION[CONSTELLATION_PATH[index + 2]];
+        const from = place[CONSTELLATION_PATH[index + 1]];
+        const to = place[CONSTELLATION_PATH[index + 2]];
         const at = drawn * 6;
         linkData[at] = from[0];
         linkData[at + 1] = from[1];
@@ -814,26 +1049,140 @@ export function OrbitalUniverse({
       gl.uniformMatrix3fv(lineUniforms.rot, false, rotation);
       gl.uniformMatrix4fv(lineUniforms.proj, false, projection);
       gl.uniformMatrix4fv(lineUniforms.view, false, viewMatrix);
-      gl.uniform3f(
-        lineUniforms.offset,
-        -focus[0] - shift[0],
-        -focus[1] - shift[1],
-        -focus[2] - shift[2],
-      );
+      gl.uniform3f(lineUniforms.offset, -shift[0], -shift[1], -shift[2]);
       gl.uniform3f(
         lineUniforms.ink,
         ink[0] + (0.52 - ink[0]) * soften,
         ink[1] + (0.53 - ink[1]) * soften,
         ink[2] + (0.58 - ink[2]) * soften,
       );
-      // The links belong to passing the constellation; they let go as we land.
-      gl.uniform1f(lineUniforms.alpha, 0.55 * Math.max(0, 1 - smoothstep(0.74, 0.9, progress)));
+      gl.uniform1f(lineUniforms.scale, 1);
       if (drawn > 0) {
         gl.bindBuffer(gl.ARRAY_BUFFER, linkBuffer);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, linkData, 0, drawn * 6);
         gl.enableVertexAttribArray(lineAttrs.pos);
         gl.vertexAttribPointer(lineAttrs.pos, 3, gl.FLOAT, false, 0, 0);
-        gl.drawArrays(gl.LINES, 0, drawn * 2);
+        for (let index = 0; index < drawn; index += 1) {
+          // The first segment reaches back to the galaxy, which has dissolved by
+          // the time we land; the rest are what keep the constellation together.
+          const toGalaxy =
+            CONSTELLATION_PATH[index + 1] === 'overview' ? 1 - landed : 0;
+          gl.uniform1f(lineUniforms.alpha, linkAlpha * (1 - toGalaxy));
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, linkData, index * 6, 6);
+          gl.drawArrays(gl.LINES, 0, 2);
+        }
+      }
+
+      // The join throws sparks: the moment a segment reaches its star, a burst
+      // of white dust breaks loose from that star, opens outward and drifts
+      // apart, its little web of joins letting go first. It belongs to the star
+      // the link arrives at — never a ball on the middle of the link.
+      const sprayFade = travels
+        ? 1 - smoothstep(0.9, 1, travel)
+        : 1 - smoothstep(0.86, 0.98, progress);
+      // The star's own splash keeps going after the camera has landed, so this
+      // gate outlives the flight rather than following its fade.
+      const splashing = travels
+        ? flightTime < TRAVEL_SECONDS + SPRAY_LIFE
+        : flightTime < FLIGHT_SECONDS + SPRAY_LIFE;
+      if (splashing) {
+        const plumes: {
+          at: number[];
+          size: number;
+          alpha: number;
+          web: number;
+        }[] = [];
+        /** One splash on one star: it opens out and drifts apart with age. */
+        const splash = (at: number[], age: number, fade = sprayFade) => {
+          if (age <= 0 || age > SPRAY_LIFE) return;
+          const loose = Math.pow(Math.min(1, age / SPRAY_LIFE), 0.62);
+          const alpha =
+            SPRAY_ALPHA *
+            smoothstep(0, 0.18, age) *
+            (1 - smoothstep(SPRAY_LIFE * 0.34, SPRAY_LIFE, age)) *
+            fade;
+          if (alpha <= 0.01) return;
+          plumes.push({
+            at,
+            // It starts on the surface and keeps opening out as it goes.
+            size: SPRAY_SPAN * (0.3 + 0.62 * loose),
+            alpha,
+            // The web lets go first, so what is left is dust drifting apart.
+            web: alpha * 0.55 * (1 - smoothstep(0.22, 0.9, loose)),
+          });
+        };
+        if (travels) {
+          // Landing on the new star is the one join left to celebrate.
+          const settles = TRAVEL_SECONDS * 0.72;
+          // Not tied to the flight fade: the star keeps bursting into dust
+          // after the camera has come to rest on it.
+          splash([0, 0, 0], flightTime - settles, 1);
+          if (flightTime >= settles && !sounded.has('landing')) {
+            sounded.add('landing');
+            chime(783.99, 0.055);
+          }
+        } else {
+          for (let index = 0; index < LINK_COUNT; index += 1) {
+            const arrives =
+              (LINK_START + index * LINK_STEP + LINK_GROW) * FLIGHT_SECONDS;
+            // Thrown off the star the line arrives at, never mid-link.
+            splash(
+              place[CONSTELLATION_PATH[index + 2]].slice(),
+              flightTime - arrives,
+            );
+            if (flightTime >= arrives && !sounded.has('link' + index)) {
+              sounded.add('link' + index);
+              chime(1318.51 * Math.pow(1.1225, index), 0.05);
+            }
+          }
+          // The star this module lives on is the first one met, so it gets the
+          // same splash as the others when the camera settles on it.
+          const settles = FLIGHT_SECONDS * 0.8;
+          splash([0, 0, 0], flightTime - settles, 1);
+          if (flightTime >= settles && !sounded.has('landing')) {
+            sounded.add('landing');
+            chime(783.99, 0.055);
+          }
+        }
+        if (plumes.length > 0) {
+          // White, not gold: the spray is the one bright thing on screen.
+          const spark: [number, number, number] = dark
+            ? [1, 1, 1]
+            : [0.16, 0.17, 0.2];
+          gl.useProgram(program);
+          gl.uniform3f(uniforms.ink, spark[0], spark[1], spark[2]);
+          plumes.forEach((plume) => {
+            draw(
+              sprayPoints,
+              rotation,
+              plume.at,
+              plume.size,
+              dark ? 1.9 : 1.4,
+              plume.alpha,
+              3.4,
+            );
+          });
+
+          gl.useProgram(lineProgram);
+          gl.uniformMatrix4fv(lineUniforms.proj, false, projection);
+          gl.uniformMatrix4fv(lineUniforms.view, false, viewMatrix);
+          gl.uniform3f(lineUniforms.ink, spark[0], spark[1], spark[2]);
+          gl.bindBuffer(gl.ARRAY_BUFFER, sprayJoins);
+          gl.enableVertexAttribArray(lineAttrs.pos);
+          gl.vertexAttribPointer(lineAttrs.pos, 3, gl.FLOAT, false, 0, 0);
+          plumes.forEach((plume) => {
+            if (plume.web <= 0.01) return;
+            gl.uniformMatrix3fv(lineUniforms.rot, false, rotation);
+            gl.uniform3f(
+              lineUniforms.offset,
+              plume.at[0] - shift[0],
+              plume.at[1] - shift[1],
+              plume.at[2] - shift[2],
+            );
+            gl.uniform1f(lineUniforms.scale, plume.size);
+            gl.uniform1f(lineUniforms.alpha, plume.web);
+            gl.drawArrays(gl.LINES, 0, spray.joinCount);
+          });
+        }
       }
     };
 
@@ -862,11 +1211,27 @@ export function OrbitalUniverse({
       raf = window.requestAnimationFrame(frame);
     };
 
+    /** The neighbouring star under this point, if the reader aimed at one. */
+    const pickAt = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      for (const target of targets) {
+        // Generous: a star is a fuzzy ball, not a bullseye.
+        const slop = Math.max(target.r, 24);
+        if (Math.hypot(target.x - x, target.y - y) <= slop) return target.key;
+      }
+      return null;
+    };
+
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0 && event.pointerType === 'mouse') return;
       dragging = true;
       lastX = event.clientX;
       lastY = event.clientY;
+      downX = event.clientX;
+      downY = event.clientY;
+      moved = false;
       velocity = 0;
       lastInteract = performance.now();
       canvas.dataset.dragging = 'on';
@@ -874,7 +1239,17 @@ export function OrbitalUniverse({
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      if (!dragging) return;
+      if (!dragging) {
+        // Nothing to drag: the only thing to say is whether a star is under
+        // the pointer, so the reader knows it can be clicked.
+        canvas.style.cursor = pickAt(event.clientX, event.clientY)
+          ? 'pointer'
+          : '';
+        return;
+      }
+      if (Math.hypot(event.clientX - downX, event.clientY - downY) > 6) {
+        moved = true;
+      }
       const dx = event.clientX - lastX;
       const dy = event.clientY - lastY;
       lastX = event.clientX;
@@ -892,6 +1267,12 @@ export function OrbitalUniverse({
       delete canvas.dataset.dragging;
       canvas.releasePointerCapture?.(event.pointerId);
       lastInteract = performance.now();
+      // A click that never turned the view is a request to go to a star.
+      if (!moved) {
+        const key = pickAt(event.clientX, event.clientY);
+        if (key) handlers.current.onNavigate?.(key);
+      }
+      moved = false;
       wake();
     };
 
@@ -956,10 +1337,11 @@ export function OrbitalUniverse({
       canvas.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('webglcontextlost', onContextLost);
       document.removeEventListener('visibilitychange', onVisibility);
-      [core, ring, field, planet].forEach((item) => {
+      [core, field, planet, sprayPoints].forEach((item) => {
         gl?.deleteBuffer(item.position);
         gl?.deleteBuffer(item.meta);
       });
+      gl.deleteBuffer(sprayJoins);
       gl.deleteBuffer(linkBuffer);
       gl.deleteBuffer(galaxy.position);
       gl.deleteBuffer(galaxy.meta);

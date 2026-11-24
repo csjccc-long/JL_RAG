@@ -75,13 +75,11 @@ export function Header({
               aria-current={pathname === Routes.Root ? 'page' : undefined}
               className="group relative flex size-10 shrink-0 items-center justify-center"
             >
-              <img src={'/logo.svg'} alt={`${APP_NAME} logo`} className="size-10" />
-              {/* The tile stays still: only the transparent mark spins on hover. */}
+              {/* No tile: only the transparent white mark, which spins on hover. */}
               <img
                 src={'/logo-mark.png'}
-                alt=""
-                aria-hidden
-                className="pointer-events-none absolute inset-0 size-10 transition-transform duration-700 ease-out group-hover:rotate-[360deg] motion-reduce:transition-none"
+                alt={`${APP_NAME} logo`}
+                className="size-10 transition-transform duration-700 ease-out group-hover:rotate-[360deg] motion-reduce:transition-none"
               />
             </Link>
           </div>

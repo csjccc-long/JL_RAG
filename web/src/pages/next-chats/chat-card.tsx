@@ -4,6 +4,7 @@ import { MoreButton } from "@/components/more-button";
 import { TruncatedText } from "@/components/truncated-text";
 import { useNavigatePage } from "@/hooks/logic-hooks/navigate-hooks";
 import { IDialog } from "@/interfaces/database/chat";
+import { playSend } from "@/lib/sound";
 import { formatDate } from "@/utils/date";
 import { useState } from "react";
 import { ChatDropdown } from "./chat-dropdown";
@@ -65,7 +66,11 @@ export function ChatCard({ data, showChatRenameModal }: IProps) {
   // while the card is actually unfolded.
   const [backend, setBackend] = useState(false);
 
-  const handlePointerEnter = () => setBackend(true);
+  const handlePointerEnter = () => {
+    setBackend(true);
+    // Unfolding a chat also sounds like one leaving.
+    playSend();
+  };
   const handlePointerLeave = () => setBackend(false);
   const handleFocus = () => setBackend(true);
   const handleBlur = () => setBackend(false);

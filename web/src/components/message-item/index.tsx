@@ -22,6 +22,7 @@ import {
   IReferenceChunk,
   UploadResponseDataType,
 } from "@/interfaces/database/chat";
+import { playSend } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 import classNames from "classnames";
 import { isEmpty } from "lodash";
@@ -108,6 +109,9 @@ const MessageItem = ({
 
   return (
     <div
+      // Passing over the thread is the one gesture the chat makes a sound for:
+      // the soft "sent" of a message, once per message entered.
+      onPointerEnter={() => playSend()}
       className={classNames(styles.messageItem, {
         [styles.messageItemLeft]: item.role === MessageType.Assistant,
         [styles.messageItemRight]: item.role === MessageType.User,

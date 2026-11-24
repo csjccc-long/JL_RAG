@@ -38,6 +38,9 @@ export type OrbitalFeature = {
 
 const ActiveFeature = createContext<string>('');
 
+/** Hand the reader from one module's sky to another module's tab. */
+export const OrbitalNav = createContext<((key: StarKey) => void) | null>(null);
+
 type OrbitalPanelProps = {
   /** Must match the feature key this panel belongs to. */
   id: string;
@@ -79,6 +82,8 @@ const OrbitalTab = ({
   features,
   children,
 }: OrbitalTabProps) => {
+  // Set by the console page, so a click on a neighbouring star can open it.
+  const navigate = useContext(OrbitalNav);
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [pinnedKey, setPinnedKey] = useState<string | null>(null);
   const [shownKey, setShownKey] = useState<string>(features[0]?.key ?? '');
@@ -113,6 +118,7 @@ const OrbitalTab = ({
         activeKey={activeKey ?? shownKey}
         onHover={handleHover}
         onSelect={handleSelect}
+        onNavigate={navigate ?? undefined}
       />
       <p className="memory-sky__hint">{hint}</p>
       <MemoryDrawer

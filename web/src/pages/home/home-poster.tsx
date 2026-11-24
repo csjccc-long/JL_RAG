@@ -460,23 +460,6 @@ export function HomePoster() {
             ))}
           </ol>
         </div>
-
-        <span
-          className="home-poster__crop home-poster__crop--tl"
-          aria-hidden="true"
-        />
-        <span
-          className="home-poster__crop home-poster__crop--tr"
-          aria-hidden="true"
-        />
-        <span
-          className="home-poster__crop home-poster__crop--bl"
-          aria-hidden="true"
-        />
-        <span
-          className="home-poster__crop home-poster__crop--br"
-          aria-hidden="true"
-        />
       </section>
     </PageContainer>
   );

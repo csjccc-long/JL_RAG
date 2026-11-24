@@ -6,14 +6,18 @@
   --hp-muted: rgb(245 242 234 / 0.58);
   --hp-line: rgb(245 242 234 / 0.16);
   --hp-accent: #00beb4;
+  /* The header floats above the poster, so its height is part of the poster's
+     own top padding: nothing is left unpainted above the fold. */
+  --hp-header: 80px;
+  --hp-pad-top: clamp(30px, 3.6vw, 52px);
   position: relative;
   isolation: isolate;
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-template-rows: 1fr auto;
-  min-height: calc(100svh - 80px);
-  padding: clamp(30px, 3.6vw, 52px) clamp(20px, 4.2vw, 66px)
-    clamp(24px, 3vw, 42px);
+  min-height: 100svh;
+  padding: calc(var(--hp-header) + var(--hp-pad-top))
+    clamp(20px, 4.2vw, 66px) clamp(24px, 3vw, 42px);
   overflow: hidden;
   background: var(--hp-bg);
   color: var(--hp-ink);
@@ -227,7 +231,7 @@ html.light .home-poster__core img {
 
 .home-poster__quick {
   position: absolute;
-  top: clamp(28px, 4.2vh, 52px);
+  top: calc(var(--hp-header) + var(--hp-pad-top));
   right: clamp(20px, 4.2vw, 66px);
   z-index: 12;
 }
@@ -259,7 +263,7 @@ html.light .home-poster__core img {
 
 .home-poster__view {
   position: absolute;
-  top: calc(clamp(28px, 4.2vh, 52px) + 50px);
+  top: calc(var(--hp-header) + var(--hp-pad-top) + 50px);
   right: clamp(20px, 4.2vw, 66px);
   z-index: 13;
   display: flex;
@@ -483,45 +487,6 @@ html.light .home-poster__core img {
   opacity: 0.9;
 }
 
-/* --- Crop marks --- */
-
-.home-poster__crop {
-  position: absolute;
-  z-index: 10;
-  width: 10px;
-  height: 10px;
-  opacity: 0.38;
-  pointer-events: none;
-}
-
-.home-poster__crop--tl {
-  top: 12px;
-  left: 12px;
-  border-top: 1px solid var(--hp-ink);
-  border-left: 1px solid var(--hp-ink);
-}
-
-.home-poster__crop--tr {
-  top: 12px;
-  right: 12px;
-  border-top: 1px solid var(--hp-ink);
-  border-right: 1px solid var(--hp-ink);
-}
-
-.home-poster__crop--bl {
-  bottom: 12px;
-  left: 12px;
-  border-bottom: 1px solid var(--hp-ink);
-  border-left: 1px solid var(--hp-ink);
-}
-
-.home-poster__crop--br {
-  right: 12px;
-  bottom: 12px;
-  border-right: 1px solid var(--hp-ink);
-  border-bottom: 1px solid var(--hp-ink);
-}
-
 @keyframes home-poster-spin {
   to {
     transform: rotate(360deg);
@@ -559,8 +524,14 @@ html.light .home-poster__core img {
 }
 
 @media (max-width: 820px) {
+  .home-poster {
+    /* the compact header is 72px tall */
+    --hp-header: 72px;
+    --hp-pad-top: 18px;
+  }
+
   .home-poster__view {
-    top: 64px;
+    top: calc(var(--hp-header) + var(--hp-pad-top) + 46px);
     right: 20px;
   }
 
@@ -575,8 +546,8 @@ html.light .home-poster__core img {
   .home-poster {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto auto auto auto;
-    min-height: calc(100svh - 72px);
-    padding: 18px 20px 28px;
+    min-height: 100svh;
+    padding: calc(var(--hp-header) + var(--hp-pad-top)) 20px 28px;
   }
 
   .home-poster__quick {
@@ -650,10 +621,6 @@ html.light .home-poster__core img {
     top: 12%;
     left: -8vw;
     font-size: 30vw;
-  }
-
-  .home-poster__crop {
-    display: none;
   }
 }
 

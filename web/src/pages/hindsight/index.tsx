@@ -14,6 +14,8 @@
  *  limitations under the License.
  */
 
+import { OrbitalNav } from '@/components/orbital-tab';
+import { StarKey } from '@/components/orbital-universe';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { RAGFlowSelect } from '@/components/ui/select';
@@ -22,7 +24,7 @@ import {
   useHindsightBanks,
   useHindsightStatus,
 } from '@/hooks/use-hindsight-request';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import GovernanceTab from './components/governance-tab';
 import KnowledgeTab from './components/knowledge-tab';
@@ -50,6 +52,10 @@ const HindsightPage = () => {
   const { data: status, isLoading } = useHindsightStatus();
   const { data: banks } = useHindsightBanks();
   const [pickedBank, setPickedBank] = useState('');
+  // The tabs are driven by state so a click on a neighbouring star in one
+  // module's sky can open that module's tab.
+  const [tab, setTab] = useState('overview');
+  const gotoModule = useCallback((key: StarKey) => setTab(key), []);
 
   // Work mode keeps one bank per project (work-<hash>), so the console has to
   // let the reader pick which one to inspect. The configured bank stays the
@@ -123,7 +129,8 @@ const HindsightPage = () => {
       )}
 
       <Tabs
-        defaultValue="overview"
+        value={tab}
+        onValueChange={setTab}
         className="flex min-h-0 flex-1 flex-col"
       >
         <TabsList className="w-fit">
@@ -135,21 +142,23 @@ const HindsightPage = () => {
         </TabsList>
 
         <div className="min-h-0 flex-1 overflow-auto pt-4">
-          <TabsContent value="overview" className="mt-0 h-full">
-            <OverviewTab status={status} bank={bank} />
-          </TabsContent>
-          <TabsContent value="memories" className="mt-0 h-full">
-            <MemoriesTab bank={bank} />
-          </TabsContent>
-          <TabsContent value="reflect" className="mt-0 h-full">
-            <ReflectTab bank={bank} />
-          </TabsContent>
-          <TabsContent value="knowledge" className="mt-0 h-full">
-            <KnowledgeTab bank={bank} />
-          </TabsContent>
-          <TabsContent value="governance" className="mt-0 h-full">
-            <GovernanceTab bank={bank} />
-          </TabsContent>
+          <OrbitalNav.Provider value={gotoModule}>
+            <TabsContent value="overview" className="mt-0 h-full">
+              <OverviewTab status={status} bank={bank} />
+            </TabsContent>
+            <TabsContent value="memories" className="mt-0 h-full">
+              <MemoriesTab bank={bank} />
+            </TabsContent>
+            <TabsContent value="reflect" className="mt-0 h-full">
+              <ReflectTab bank={bank} />
+            </TabsContent>
+            <TabsContent value="knowledge" className="mt-0 h-full">
+              <KnowledgeTab bank={bank} />
+            </TabsContent>
+            <TabsContent value="governance" className="mt-0 h-full">
+              <GovernanceTab bank={bank} />
+            </TabsContent>
+          </OrbitalNav.Provider>
         </div>
       </Tabs>
     </section>

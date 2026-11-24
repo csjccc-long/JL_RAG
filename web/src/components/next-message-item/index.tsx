@@ -34,6 +34,7 @@ import {
 
 import { IRegenerateMessage, IRemoveMessageById } from '@/hooks/logic-hooks';
 import { INodeEvent, MessageEventType } from '@/hooks/use-send-message';
+import { playSend } from '@/lib/sound';
 import { cn } from '@/lib/utils';
 import { AgentChatContext } from '@/pages/agent/context';
 import { WorkFlowTimeline } from '@/pages/agent/log-sheet/workflow-timeline';
@@ -191,6 +192,8 @@ function MessageItem({
 
   return (
     <div
+      // The same soft "sent" the chat makes: one per message entered.
+      onPointerEnter={() => playSend()}
       className={classNames(styles.messageItem, {
         [styles.messageItemLeft]: item.role === MessageType.Assistant,
         [styles.messageItemRight]: item.role === MessageType.User,
