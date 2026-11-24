@@ -33,7 +33,6 @@ const BELL: [ratio: number, weight: number][] = [
 ];
 
 let audio: AudioContext | null = null;
-let lastSend = 0;
 
 const context = () => {
   if (audio) {
@@ -123,72 +122,5 @@ export const chime = (freq: number, level = 0.05) => {
     });
   } catch {
     // No audio here: the constellation still draws itself.
-  }
-};
-
-/**
- * The alert itself: a marimba playing D5, A5, D6 — the tonic, its fifth, then
- * the octave. Three tones in a hurry, which is where the name comes from (the
- * intervals are a fourth and a fifth, not a tritone: it was originally filed as
- * "158-marimba" and the name Apple kept is a misnomer).
- */
-const TRI_TONE = [587.33, 880, 1174.66] as const;
-
-/**
- * A marimba bar rings on 1 : 4 : 10. The fundamental is the note, the fourth
- * is the wood of the bar, and the tenth is the mallet hitting it — and the
- * higher a partial sits, the faster it dies, which is what makes the strike
- * read as a knock rather than a tone.
- */
-const BAR: [ratio: number, weight: number, decay: number][] = [
-  [1, 1, 1],
-  [3.93, 0.26, 0.42],
-  [9.2, 0.07, 0.2],
-];
-
-const strike = (
-  ctx: AudioContext,
-  at: number,
-  freq: number,
-  level: number,
-  ring: number,
-) => {
-  BAR.forEach(([ratio, weight, decay]) => {
-    const osc = ctx.createOscillator();
-    const amp = ctx.createGain();
-    const length = ring * decay;
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq * ratio, at);
-    amp.gain.setValueAtTime(0.0001, at);
-    amp.gain.exponentialRampToValueAtTime(level * weight, at + 0.006);
-    amp.gain.exponentialRampToValueAtTime(0.0001, at + length);
-    osc.connect(amp);
-    amp.connect(ctx.destination);
-    osc.start(at);
-    osc.stop(at + length + 0.02);
-  });
-};
-
-/**
- * The message alert, rate limited because it fires on hover and a list of
- * messages would otherwise machine-gun it.
- */
-export const playSend = () => {
-  if (quiet()) return;
-  const now = performance.now();
-  if (now - lastSend < 240) return;
-  lastSend = now;
-  note('send');
-  const ctx = context();
-  if (!ctx) return;
-  try {
-    const at = ctx.currentTime + 0.004;
-    // Three strikes, ~85ms apart: far enough to be heard as three notes, close
-    // enough to be one gesture.
-    strike(ctx, at, TRI_TONE[0], 0.062, 0.32);
-    strike(ctx, at + 0.085, TRI_TONE[1], 0.062, 0.36);
-    strike(ctx, at + 0.17, TRI_TONE[2], 0.075, 0.55);
-  } catch {
-    // A blocked context is not a broken chat.
   }
 };
