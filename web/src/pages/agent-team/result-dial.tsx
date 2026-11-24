@@ -341,7 +341,7 @@ export const morphOutline = (from: Pt[], to: Pt[], t: number, radius: number): P
     const x = point.x + (to[at].x - point.x) * t;
     const y = point.y + (to[at].y - point.y) * t;
     const length = Math.hypot(x, y) || 1;
-    const wave = Math.sin(at * 0.47 + t * 7.4) * 0.022 * radius * Math.sin(Math.PI * t);
+    const wave = Math.sin(at * 0.47 + t * 7.4) * 0.014 * radius * Math.sin(Math.PI * t);
     return { x: x + (x / length) * wave, y: y + (y / length) * wave };
   });
 
