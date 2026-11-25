@@ -848,12 +848,18 @@ export function OrbitalUniverse({
       // Four beats: the galaxy swells and dissolves where it stands, the whole
       // constellation comes up, the links are drawn between the stars, and only
       // then does the camera close on this module's star.
-      const progress = progressOf(flightTime);
+      // On paper the sky is a set of solid worlds, not a galaxy to fly out of,
+      // so arriving from the overview is instant: the view opens already
+      // standing on the star. A hop between two modules still gets its own move.
+      const instant = !dark && !travels;
+      const progress = instant ? 1 : progressOf(flightTime);
       // A hop between two modules is its own move: back off until the whole
       // constellation is in frame, swing across to the new star, close in.
       const travel = travels
         ? Math.min(1, Math.max(0, flightTime / TRAVEL_SECONDS))
-        : 0;
+        : instant
+          ? 1
+          : 0;
       const retreat = smoothstep(0.02, 0.38, travel);
       const travelPan = smoothstep(0.3, 0.7, travel);
       const arrival = smoothstep(0.68, 1, travel);

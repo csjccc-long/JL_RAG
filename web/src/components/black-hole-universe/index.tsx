@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
 
 import './black-hole-universe.css';
 
+import { setBlackHoleCollapse } from './collapse';
+
 /**
  * The light theme's universe: a black hole instead of a galaxy.
  *
@@ -39,6 +41,7 @@ uniform float uTime;
 uniform float uTilt;
 uniform float uYaw;
 uniform float uAlpha;
+uniform float uCollapse;
 
 out vec4 outColor;
 
@@ -80,6 +83,21 @@ void main() {
   // Everything is measured in shadow radii, so the drawing keeps its shape
   // whatever the canvas size.
   vec2 p = (gl_FragCoord.xy - uCenter) / uScale;
+
+  // Falling in: the frame is pushed through the shadow while space itself
+  // twists around it, so the page spirals into the dark instead of just zooming.
+  if (uCollapse > 0.0) {
+    // Shrinking the measure of a pixel means the shadow covers more of the
+    // frame: the hole grows until there is nothing left but itself.
+    float pull = 1.0 - 0.94 * uCollapse;
+    vec2 q = p * max(0.06, pull);
+    float twist = uCollapse * 1.45 * (0.3 + 1.1 / (1.0 + length(q)));
+    float cs = cos(twist);
+    float sn = sin(twist);
+    p = mat2(cs, -sn, sn, cs) * q;
+    p *= 1.0 + 0.055 * sin(length(p) * 9.0 - uTime * 3.5) * uCollapse;
+  }
+
   float radius = length(p);
   float angle = atan(p.y, p.x);
 
@@ -191,6 +209,7 @@ uniform float uZoom;
 uniform vec2 uCenter;
 uniform vec2 uRes;
 uniform float uPixel;
+uniform float uCollapse;
 
 out float vAlpha;
 out float vWarm;
@@ -212,7 +231,8 @@ void main() {
   float vis = 1.0;
   if (uKind < 0.5 && length(p) < 1.04 && p.y > 0.0) vis = 0.0;
 
-  vec2 screen = uCenter + p * uScale * uZoom;
+  // The sky rushes outward as the hole swallows the frame.
+  vec2 screen = uCenter + p * uScale * uZoom * (1.0 + 2.6 * uCollapse);
   gl_Position = vec4(screen / uRes * 2.0 - 1.0, 0.0, 1.0);
 
   // Like the drawing itself, no particle may end on a hard canvas edge.
@@ -222,7 +242,7 @@ void main() {
 
   float swell = uKind < 0.5 ? 1.0 : clamp(uZoom, 0.8, 1.4);
   gl_PointSize = clamp(aMeta.x * uPixel * swell, 1.0, 7.0);
-  vAlpha = vis * aMeta.y * edge;
+  vAlpha = vis * aMeta.y * edge * (1.0 - uCollapse);
   vWarm = aMeta.z;
 }
 `;
@@ -385,6 +405,7 @@ const BlackHoleUniverse = ({ className = '' }: BlackHoleUniverseProps) => {
         'uTilt',
         'uYaw',
         'uAlpha',
+        'uCollapse',
       ]);
       points = createProgram(gl, POINT_VERTEX, POINT_FRAGMENT, [
         'uKind',
@@ -399,6 +420,7 @@ const BlackHoleUniverse = ({ className = '' }: BlackHoleUniverseProps) => {
         'uInk',
         'uHeat',
         'uAlpha',
+        'uCollapse',
       ]);
     } catch (error) {
       console.warn('[black-hole] shader failed', error);
@@ -452,11 +474,22 @@ const BlackHoleUniverse = ({ className = '' }: BlackHoleUniverseProps) => {
     let last = performance.now();
     let elapsed = 0;
 
+    // Falling in: the drawing pushes in and twists, then reports that it is
+    // done so the page can swap the tab behind the black.
+    const COLLAPSE_MS = 620;
+    let collapseStart = 0;
+    let collapseDone: (() => void) | null = null;
+
     const render = (now: number) => {
       frame = 0;
       const step = Math.min(0.05, (now - last) / 1000);
       last = now;
       if (!reduced.matches) elapsed += step;
+
+      const sinkRaw = collapseStart
+        ? Math.min(1, (now - collapseStart) / COLLAPSE_MS)
+        : 0;
+      const sink = sinkRaw * sinkRaw * (3 - 2 * sinkRaw);
 
       // Released turns coast a little before settling.
       if (!view.dragging) {
@@ -496,6 +529,7 @@ const BlackHoleUniverse = ({ className = '' }: BlackHoleUniverseProps) => {
       gl.uniform1f(points.uniforms.uTime, elapsed);
       gl.uniform1f(points.uniforms.uScale, scale);
       gl.uniform1f(points.uniforms.uZoom, view.zoom);
+      gl.uniform1f(points.uniforms.uCollapse, sink);
       gl.uniform2f(points.uniforms.uCenter, centerX, centerY);
       gl.uniform2f(points.uniforms.uRes, width, height);
       gl.uniform1f(points.uniforms.uPixel, ratio);
@@ -514,6 +548,7 @@ const BlackHoleUniverse = ({ className = '' }: BlackHoleUniverseProps) => {
       gl.uniform1f(disc.uniforms.uTilt, view.tilt);
       gl.uniform1f(disc.uniforms.uYaw, view.yaw);
       gl.uniform1f(disc.uniforms.uAlpha, 1);
+      gl.uniform1f(disc.uniforms.uCollapse, sink);
       gl.bindVertexArray(quad);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -527,12 +562,34 @@ const BlackHoleUniverse = ({ className = '' }: BlackHoleUniverseProps) => {
       gl.drawArrays(gl.POINTS, STAR_COUNT, DUST_COUNT);
       gl.bindVertexArray(null);
 
+      if (sinkRaw >= 1 && collapseDone) {
+        const done = collapseDone;
+        collapseDone = null;
+        done();
+      }
+
       if (!reduced.matches) frame = requestAnimationFrame(render);
     };
 
     const kick = () => {
       if (!frame) frame = requestAnimationFrame(render);
     };
+
+    const collapse = () =>
+      new Promise<void>((resolve) => {
+        if (reduced.matches) {
+          resolve();
+          return;
+        }
+        collapseStart = performance.now();
+        collapseDone = resolve;
+        kick();
+      });
+    const releaseCollapse = setBlackHoleCollapse(collapse);
+    if (import.meta.env.DEV) {
+      (window as unknown as { __bhCollapse?: unknown }).__bhCollapse =
+        collapse;
+    }
 
     const handlePointerDown = (event: PointerEvent) => {
       view.dragging = true;
@@ -595,6 +652,7 @@ const BlackHoleUniverse = ({ className = '' }: BlackHoleUniverseProps) => {
 
     return () => {
       cancelAnimationFrame(frame);
+      releaseCollapse();
       observer.disconnect();
       canvas.removeEventListener('pointerdown', handlePointerDown);
       canvas.removeEventListener('pointermove', handlePointerMove);

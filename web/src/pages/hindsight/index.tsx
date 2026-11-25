@@ -14,17 +14,17 @@
  *  limitations under the License.
  */
 
+import { collapseBlackHole } from '@/components/black-hole-universe/collapse';
 import { OrbitalNav } from '@/components/orbital-tab';
 import { StarKey } from '@/components/orbital-universe';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { RAGFlowSelect } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  useHindsightBanks,
-  useHindsightStatus,
-} from '@/hooks/use-hindsight-request';
-import { useCallback, useState } from 'react';
+import { useHindsightBanks, useHindsightStatus } from '@/hooks/use-hindsight-request';
+import { useIsDarkTheme } from '@/components/theme-provider';
+import { cn } from '@/lib/utils';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import GovernanceTab from './components/governance-tab';
 import KnowledgeTab from './components/knowledge-tab';
@@ -55,7 +55,53 @@ const HindsightPage = () => {
   // The tabs are driven by state so a click on a neighbouring star in one
   // module's sky can open that module's tab.
   const [tab, setTab] = useState('overview');
-  const gotoModule = useCallback((key: StarKey) => setTab(key), []);
+  const isDarkTheme = useIsDarkTheme();
+  const [covered, setCovered] = useState(false);
+  const [revealing, setRevealing] = useState(false);
+  const timers = useRef<number[]>([]);
+
+  useEffect(
+    () => () => {
+      timers.current.forEach((timer) => window.clearTimeout(timer));
+    },
+    [],
+  );
+
+  /**
+   * Leaving the overview means falling into the hole: the drawing pushes in and
+   * twists, the page fades to black behind it, and only then does the next tab
+   * appear, revealed from the dark. Other moves stay instant.
+   */
+  const switchTab = useCallback(
+    (next: string) => {
+      if (next === tab) return;
+      const fallsIn =
+        tab === 'overview' &&
+        !isDarkTheme &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!fallsIn) {
+        setTab(next);
+        return;
+      }
+      setCovered(true);
+      void collapseBlackHole().then(() => {
+        setTab(next);
+        timers.current.push(
+          window.setTimeout(() => {
+            setRevealing(true);
+            timers.current.push(
+              window.setTimeout(() => {
+                setCovered(false);
+                setRevealing(false);
+              }, 480),
+            );
+          }, 90),
+        );
+      });
+    },
+    [isDarkTheme, tab],
+  );
+  const gotoModule = useCallback((key: StarKey) => switchTab(key), [switchTab]);
 
   // Work mode keeps one bank per project (work-<hash>), so the console has to
   // let the reader pick which one to inspect. The configured bank stays the
@@ -130,7 +176,7 @@ const HindsightPage = () => {
 
       <Tabs
         value={tab}
-        onValueChange={setTab}
+        onValueChange={switchTab}
         className="flex min-h-0 flex-1 flex-col"
       >
         <TabsList className="w-fit">
@@ -141,7 +187,7 @@ const HindsightPage = () => {
           ))}
         </TabsList>
 
-        <div className="min-h-0 flex-1 overflow-auto pt-4">
+        <div className="relative min-h-0 flex-1 overflow-auto pt-4">
           <OrbitalNav.Provider value={gotoModule}>
             <TabsContent value="overview" className="mt-0 h-full">
               <OverviewTab status={status} bank={bank} />
@@ -159,6 +205,21 @@ const HindsightPage = () => {
               <GovernanceTab bank={bank} />
             </TabsContent>
           </OrbitalNav.Provider>
+
+          {/* The black the hole swallows its own panel into before the next tab
+              opens. It stays inside the panel, so the header and the tabs keep
+              standing in the light. */}
+          <div
+            aria-hidden="true"
+            className={cn(
+              'pointer-events-none absolute inset-0 z-[80] bg-black transition-opacity',
+              covered
+                ? revealing
+                  ? 'opacity-0 duration-500 ease-out'
+                  : 'opacity-100 duration-700 ease-in'
+                : 'opacity-0',
+            )}
+          />
         </div>
       </Tabs>
     </section>
