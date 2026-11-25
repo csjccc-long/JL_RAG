@@ -14,6 +14,11 @@
     var(--bg-base);
 }
 
+/* The black hole carries its own ink, so the frame stops painting a haze. */
+.memory-sky--ink {
+  background: var(--bg-base);
+}
+
 .memory-sky__field {
   position: absolute;
   inset: 0;

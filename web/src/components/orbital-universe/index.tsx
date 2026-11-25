@@ -18,6 +18,8 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { chime } from '@/lib/sound';
 
+import { createMoonRig } from './moon-rig';
+
 import './orbital-universe.css';
 
 const VERTEX = [
@@ -106,6 +108,8 @@ const LINE_FRAGMENT = [
   '}',
 ].join('\n');
 
+
+
 const TAU = Math.PI * 2;
 /** The star at the middle: the module itself. */
 const CORE_COUNT = 48000;
@@ -133,6 +137,8 @@ const SPRAY_SPAN = 1.5;
 /** Seconds from the first spark to the last one gone. */
 const SPRAY_LIFE = 1.7;
 const SPRAY_ALPHA = 0.9;
+/** Seconds for the plates of the shell to let go, one after another. */
+const SHATTER_SECONDS = 2.9;
 
 export type StarKey = 'overview' | 'memories' | 'reflect' | 'knowledge' | 'governance';
 
@@ -377,6 +383,9 @@ const buildPlanet = () =>
     );
   });
 
+
+
+
 const perspective = (fov: number, aspect: number, near: number, far: number) => {
   const f = 1 / Math.tan(fov / 2);
   return new Float32Array([
@@ -460,6 +469,13 @@ export function OrbitalUniverse({
     const canvas = document.createElement('canvas');
     canvas.className = 'orbital-universe__canvas';
     container.prepend(canvas);
+    // The light theme's moons get their own canvas: three.js owns that context,
+    // so the rigid-body solver can push plates around without touching the star
+    // field's GL state. It sits above the star canvas and lets pointers through.
+    const rigCanvas = document.createElement('canvas');
+    rigCanvas.className = 'orbital-universe__rig';
+    container.appendChild(rigCanvas);
+    const rig = createMoonRig(rigCanvas);
     const fail = () => {
       canvas.remove();
       container.dataset.fallback = 'on';
@@ -545,6 +561,36 @@ export function OrbitalUniverse({
     };
     const lineAttrs = { pos: gl.getAttribLocation(lineProgram, 'aPos') };
 
+
+
+    // The lunar map the card puts on its sphere: an equirectangular photograph,
+    // sampled on the ball and, in patches, on every stone of the belt.
+    const mapTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, mapTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      1,
+      1,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array([148, 144, 138, 255]),
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    const mapImage = new Image();
+    mapImage.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, mapTexture);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, mapImage);
+      gl.generateMipmap(gl.TEXTURE_2D);
+    };
+    mapImage.src = '/moon-map.jpg';
+
     // The link line is rebuilt every frame, because each segment grows from one
     // star to the next instead of appearing all at once. The galaxy is the
     // universe those stars sit in, so it is never joined to them.
@@ -575,6 +621,7 @@ export function OrbitalUniverse({
     const sprayJoins = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, sprayJoins);
     gl.bufferData(gl.ARRAY_BUFFER, spray.joins, gl.STATIC_DRAW);
+
 
     const projection = new Float32Array(16);
     const viewMatrix = new Float32Array(16);
@@ -617,6 +664,9 @@ export function OrbitalUniverse({
       canvas.height = Math.max(1, Math.round(height * ratio));
       canvas.style.width = width + 'px';
       canvas.style.height = height + 'px';
+      rigCanvas.style.width = width + 'px';
+      rigCanvas.style.height = height + 'px';
+      rig?.resize(width, height, ratio);
       projection.set(perspective(0.82, width / height, 0.1, 60));
       focal = 1 / Math.tan(0.82 / 2);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -955,6 +1005,28 @@ export function OrbitalUniverse({
       // A hop already has the constellation lit, so nothing fades up again.
       const reveal = travels ? 1 : revealOf();
       targets.length = 0;
+
+      // Every star in the light theme is a moon, and every one of them comes
+      // apart as the camera settles: the sweep is timed off the landing, so a
+      // ball only breaks open while the reader is looking straight at it.
+      const shatterFrom = travels ? TRAVEL_SECONDS * 0.72 : FLIGHT_SECONDS * 0.8;
+      const settleAt = (delay: number) =>
+        Math.min(
+          1,
+          Math.max(0, (flightTime - shatterFrom - delay) / SHATTER_SECONDS),
+        );
+      const shatter = settleAt(0);
+      type Body = {
+        offset: number[];
+        alpha: number;
+        progress: number;
+        // Neighbours are drawn smaller: they are background, not the subject.
+        scale: number;
+        /** The operations of the module, in moon radii from its centre. */
+        marks?: number[][];
+      };
+      const bodies: Body[] = [];
+      const homeNode = place[starKey];
       neighbours.forEach((item, index) => {
         const pulse = 0.9 + 0.1 * Math.sin(phase * 1.3 + index * 2.1);
         if (reveal <= 0.001) return;
@@ -963,20 +1035,6 @@ export function OrbitalUniverse({
         const radius = NEIGHBOUR_RADIUS * (1 - 0.74 * landed) * (1 + 0.12 * glow);
         const alpha =
           reveal * (0.72 + 0.28 * Math.min(1, glow)) * (1 - 0.62 * landed) * pulse;
-        // Only the ball itself: no ring, nothing circling it.
-        draw(core, rotation, place[item.key], radius, 1 + 2.2 * glow, alpha);
-        // Once the camera has settled the other stars step back: a soft,
-        // half-there ghost rather than a sharp ball in the way of this one.
-        if (landed > 0.02) {
-          draw(
-            core,
-            rotation,
-            place[item.key],
-            radius * (1 + 0.85 * landed),
-            1 + 0.4 * glow,
-            alpha * 0.42,
-          );
-        }
         const spot = project(
           [
             place[item.key][0] - shift[0],
@@ -985,6 +1043,37 @@ export function OrbitalUniverse({
           ],
           distance,
         );
+        if (dark) {
+          // Only the ball itself: no ring, nothing circling it.
+          draw(core, rotation, place[item.key], radius, 1 + 2.2 * glow, alpha);
+          // Once the camera has settled the other stars step back: a soft,
+          // half-there ghost rather than a sharp ball in the way of this one.
+          if (landed > 0.02) {
+            draw(
+              core,
+              rotation,
+              place[item.key],
+              radius * (1 + 0.85 * landed),
+              1 + 0.4 * glow,
+              alpha * 0.42,
+            );
+          }
+        } else if (spot[2] > 0) {
+          // They sit further off than the star the reader is on, so they stay
+          // quieter: rubble in the background, never the subject.
+          const far = alpha * (0.62 - 0.26 * landed);
+          bodies.push({
+            offset: [
+              place[item.key][0] - shift[0],
+              place[item.key][1] - shift[1],
+              place[item.key][2] - shift[2],
+            ],
+            alpha: far,
+            // Halfway is the look: a crust breaking up, not one exploded.
+            progress: 0.5 * settleAt(0.22 * (index + 1)),
+            scale: 0.62,
+          });
+        }
         if (spot[2] > 0 && reveal > 0.5) {
           targets.push({
             key: item.key,
@@ -1002,16 +1091,49 @@ export function OrbitalUniverse({
       }
       const home = reveal;
       const homeGlow = travels ? 0 : glowOf(starKey) * (1 - landed);
-      draw(core, rotation, zero, 1, 1 + 2.2 * homeGlow, home);
+      if (dark) {
+        draw(core, rotation, zero, 1, 1 + 2.2 * homeGlow, home);
+      } else {
+        // The star the reader is on: the one moon in the frame that is whole,
+        // and the only one whose ring is allowed to be obvious.
+        const spot = project([-shift[0], -shift[1], -shift[2]], distance);
+        if (spot[2] > 0 && home > 0.001) {
+          bodies.push({
+            offset: [-shift[0], -shift[1], -shift[2]],
+            alpha: home,
+            progress: 0.55 * shatter,
+            scale: 1,
+          });
+        }
+      }
 
       const active = activeKeyRef.current;
       const point: number[] = [0, 0, 0];
+      // Where the module's operations sit, in moon radii from the star: the rig
+      // parks one stone of the belt under each label.
+      const marks: number[][] = [];
       planets.forEach((item, index) => {
         orbitPoint(index, planets.length, point);
+        // On paper the moon is solid, so its belt has to stand clear of the
+        // disc: the same orbit, opened out, keeps every stone and its label off
+        // the face of the moon.
+        if (!dark) {
+          point[0] *= 1.55;
+          point[1] *= 1.55;
+          point[2] *= 1.55;
+        }
         const isActive = item.key === active;
         const radius =
           PLANET_RADIUS * (1 + 0.06 * Math.sin(phase * 1.8 + index * 1.7));
-        draw(planet, rotation, point, radius, isActive ? 1.9 : 1, landed);
+        if (dark) {
+          draw(planet, rotation, point, radius, isActive ? 1.9 : 1, landed);
+        } else if (landed > 0.02) {
+          marks.push([
+            (point[0] - homeNode[0]) / STAR_RADIUS,
+            (point[1] - homeNode[1]) / STAR_RADIUS,
+            (point[2] - homeNode[2]) / STAR_RADIUS,
+          ]);
+        }
         const node = nodeRefs.current[index];
         if (node) {
           node.dataset.active = isActive ? 'on' : 'off';
@@ -1023,6 +1145,11 @@ export function OrbitalUniverse({
           );
         }
       });
+
+      if (!dark) {
+        const homeBody = bodies.find((item) => item.scale === 1);
+        if (homeBody) homeBody.marks = marks;
+      }
 
       // The link line: each segment grows out of the star it starts from, in
       // order, so the constellation is traced rather than dropped in, and the
@@ -1057,7 +1184,9 @@ export function OrbitalUniverse({
         ink[2] + (0.58 - ink[2]) * soften,
       );
       gl.uniform1f(lineUniforms.scale, 1);
-      if (drawn > 0) {
+      // On paper the constellation is joined by the moons themselves, not by
+      // a line: the ink theme drops the link entirely.
+      if (drawn > 0 && dark) {
         gl.bindBuffer(gl.ARRAY_BUFFER, linkBuffer);
         gl.enableVertexAttribArray(lineAttrs.pos);
         gl.vertexAttribPointer(lineAttrs.pos, 3, gl.FLOAT, false, 0, 0);
@@ -1143,7 +1272,9 @@ export function OrbitalUniverse({
             chime(783.99, 0.055);
           }
         }
-        if (plumes.length > 0) {
+        // On paper the moon's own shatter is the burst; the star dust would only
+        // sit on top of it as a web of scratches.
+        if (dark && plumes.length > 0) {
           // White, not gold: the spray is the one bright thing on screen.
           const spark: [number, number, number] = dark
             ? [1, 1, 1]
@@ -1183,6 +1314,15 @@ export function OrbitalUniverse({
             gl.drawArrays(gl.LINES, 0, spray.joinCount);
           });
         }
+      }
+
+      // The light theme's moon, the ring of dust it sheds and the belt around it
+      // go down last, in one pass: no depth test, hand-ordered, so a stone in
+      // front of a moon still reads as being in front of it.
+      // The moon, the dust it sheds and its belt are drawn by the three.js pass
+      // on its own canvas, against this exact projection.
+      if (!dark && bodies.length > 0) {
+        rig?.render(bodies, projection, viewMatrix, rotation);
       }
     };
 
@@ -1343,8 +1483,11 @@ export function OrbitalUniverse({
       });
       gl.deleteBuffer(sprayJoins);
       gl.deleteBuffer(linkBuffer);
+      gl.deleteTexture(mapTexture);
       gl.deleteBuffer(galaxy.position);
       gl.deleteBuffer(galaxy.meta);
+      rig?.dispose();
+      rigCanvas.remove();
       gl.deleteProgram(program);
       gl.deleteProgram(lineProgram);
       gl.deleteShader(vertex);

@@ -240,7 +240,7 @@ export function MobileNavbar({ renderFooter }: MobileNavbarProps) {
           <img
             src="/logo-mark.png"
             alt={`${APP_NAME} logo`}
-            className="size-9"
+            className="size-9 invert dark:invert-0"
           />
         </div>
 

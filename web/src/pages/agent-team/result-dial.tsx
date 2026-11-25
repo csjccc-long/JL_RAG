@@ -512,8 +512,10 @@ const OrbitEyes = ({
          基准偏移留 0.62，所以右下那道边永远都在，只是随视线宽窄。 */
       const board = layer.current;
       if (board) {
-        board.style.setProperty('--face-lx', clamp(-0.62 + turn.x * 0.55, -0.95, -0.3).toFixed(3));
-        board.style.setProperty('--face-ly', clamp(-0.6 + turn.y * 0.55, -0.95, -0.3).toFixed(3));
+        /* 0.55 时视线走到头也只挪出半个像素，厚度看着是死的；提到 0.95 后
+           一次回头能让上层滑出小半个脸，露出的那道影跟着视线走。 */
+        board.style.setProperty('--face-lx', clamp(-0.62 + turn.x * 0.95, -0.98, -0.2).toFixed(3));
+        board.style.setProperty('--face-ly', clamp(-0.6 + turn.y * 0.95, -0.98, -0.2).toFixed(3));
       }
 
       for (let side = 0; side < 2; side += 1) {
@@ -768,7 +770,9 @@ export const AgentAvatar = ({
   const id = 'avatar-' + useId().replace(/:/g, '');
   const board = useRef<SVGGElement | null>(null);
   const radius = 21;
-  const shift = (shape === 'star' || shape === 'cloud' || shape === 'shield' ? 0.1 : 0.08) * radius;
+  /* 小头像上的厚度要比盘上更醒目：38px 的贴纸里 0.08 的位移只有半个像素，
+     看起来就是一块平的色块。这里按"脸的十分之三"给，落在屏幕上约 2.5px。 */
+  const shift = radius * 0.3;
   return (
     <svg
       viewBox="-30 -30 60 60"
@@ -781,7 +785,9 @@ export const AgentAvatar = ({
       data-avatar={shape + ':' + variant}
     >
       <g ref={board}>
-        <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
+        <g className="team-dial-shade">
+          <ShapeBody shape={shape} radius={radius} fill={ShadeInk} />
+        </g>
         <g className="team-dial-top" style={{ '--face-shift': shift + 'px' } as CSSProperties}>
           <ShapeBody shape={shape} radius={radius} fill={BodyInk} />
         </g>

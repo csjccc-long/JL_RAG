@@ -14,9 +14,11 @@
  *  limitations under the License.
  */
 
+import { BlackHoleUniverse } from '@/components/black-hole-universe';
 import { CosmicUniverse } from '@/components/cosmic-universe';
 import MemoryDrawer from '@/components/memory-drawer';
 import MemorySky from '@/components/memory-sky';
+import { useIsDarkTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
 import { Spin } from '@/components/ui/spin';
 import {
@@ -42,6 +44,8 @@ const OverviewTab = ({ status, bank }: OverviewTabProps) => {
   const { t } = useTranslation();
   const { data: stats, isLoading } = useHindsightStats(bank);
   const consolidate = useConsolidate(bank);
+  // Two skies: the galaxy reads on black, the black hole on paper.
+  const isDark = useIsDarkTheme();
   const [pinned, setPinned] = useState(false);
 
   const rows: { label: string; value: string }[] = [
@@ -92,8 +96,12 @@ const OverviewTab = ({ status, bank }: OverviewTabProps) => {
   }, [consolidate]);
 
   return (
-    <MemorySky>
-      <CosmicUniverse className="memory-sky__field" />
+    <MemorySky className={isDark ? undefined : 'memory-sky--ink'}>
+      {isDark ? (
+        <CosmicUniverse className="memory-sky__field" />
+      ) : (
+        <BlackHoleUniverse className="memory-sky__field" />
+      )}
 
       <p className="memory-sky__hint">{t('hindsight.universeHint')}</p>
 

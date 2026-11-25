@@ -52,6 +52,11 @@
   );
 }
 
+/* 贴纸的下层：边缘比上层软一档，挪出来的那一圈读成影子，而不是一圈描边。 */
+.team-dial-shade {
+  filter: blur(0.6px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .team-dial-top {
     transform: translate(

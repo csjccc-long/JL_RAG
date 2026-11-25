@@ -1,0 +1,23 @@
+/* Light theme draws the console's universe as a black hole: a pocket of ink
+   on the paper, one hot disc turning inside it, and the ink particles the dark
+   sky is built from. The frame keeps its own footing; the canvas is the handle
+   you drag, so it does take the pointer -- but it sits under the drawer. */
+.black-hole-universe {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.black-hole-universe__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+  cursor: grab;
+  /* A finger may still scroll the page; only a sideways drag turns the disc. */
+  touch-action: pan-y;
+}
+
+.black-hole-universe__canvas.is-dragging {
+  cursor: grabbing;
+}
