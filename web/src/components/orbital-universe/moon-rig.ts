@@ -539,10 +539,11 @@ const buildPlates = (surface: THREE.BufferGeometry) => {
  * switches the surface off. Cracks are displaced into the vertices and shaded.
  */
 const buildCrust = (cuts: PlateCut[]) => {
-  // 256 keeps the crater rims smooth once their vertices are snapped onto the
-  // plate outlines, and halves the triangles the page has to chew through on
-  // the way into a module.
-  const SEGMENTS = 256;
+  // The crater rims are clipped against the plate outlines, so their smoothness
+  // no longer depends on the tessellation; what still does is the crack shading,
+  // which is interpolated per vertex. 384 keeps that reading as a line rather
+  // than a stair while staying affordable on the way into a module.
+  const SEGMENTS = 384;
   const geometry = new THREE.SphereGeometry(MOON_RADIUS, SEGMENTS, SEGMENTS);
   const position = geometry.attributes.position as THREE.BufferAttribute;
   const unit = new THREE.Vector3();
@@ -616,7 +617,6 @@ const buildCrust = (cuts: PlateCut[]) => {
   const holeByCell = new Map<number, Hole>();
   holes.forEach((hole) => holeByCell.set(hole.id, hole));
 
-  const probe = new THREE.Vector3();
   const tangent = new THREE.Vector3();
   const scratch: number[] = [0, 0, 0];
   const radiusAt = (hole: Hole, a: number) => {
@@ -626,112 +626,150 @@ const buildCrust = (cuts: PlateCut[]) => {
     const frac = f - Math.floor(f);
     return hole.radii[i0] * (1 - frac) + hole.radii[(i0 + 1) % n] * frac;
   };
-  const holeAt = (point: THREE.Vector3): Hole | null => {
+  const holeAt = (point: THREE.Vector3, scale = 1): Hole | null => {
     const site = siteAtUnit(point.x, point.y, point.z, scratch);
     const hole = holeByCell.get(site.id);
     if (!hole) return null;
     tangent.copy(point).addScaledVector(hole.centre, -point.dot(hole.centre));
     const r = tangent.length();
     const a = Math.atan2(tangent.dot(hole.ay), tangent.dot(hole.ax));
-    // Leave a rim of crust beyond the plate's footprint: that rim, the gap under
-    // the hovering plate and the wall behind it are the glowing crack.
-    return r < radiusAt(hole, a) * 0.93 ? hole : null;
+    return r < radiusAt(hole, a) * scale ? hole : null;
   };
 
   const index = geometry.getIndex();
   if (!index) return { geometry, wallGeometry: new THREE.BufferGeometry() };
   const triCount = index.count / 3;
-  const removed = new Uint8Array(triCount);
-  const vertices: number[][] = [];
+
+  // Which side of a crater each vertex falls on. The test is the plate's own
+  // outline rather than the triangles under it, so the cut that follows lands on
+  // the shape of the piece. Cutting whole triangles instead left a staircase on
+  // the rim and kept corners poking into the hole as black needles.
+  const vertexHole: (Hole | null | undefined)[] = new Array(position.count);
+  const dirOf = new THREE.Vector3();
+  const holeOfVertex = (i: number) => {
+    if (vertexHole[i] !== undefined) return vertexHole[i] as Hole | null;
+    dirOf.set(position.getX(i), position.getY(i), position.getZ(i)).normalize();
+    const hole = holeAt(dirOf, 1);
+    vertexHole[i] = hole;
+    return hole;
+  };
+
+  const uv = geometry.getAttribute('uv') as THREE.BufferAttribute;
+  const outPosition: number[] = [];
+  const outUv: number[] = [];
+  const outGroove: number[] = [];
+  const outSeam: number[] = [];
+  const outTail: number[] = [];
+  const remap = new Map<number, number>();
+  const copyVertex = (i: number) => {
+    const known = remap.get(i);
+    if (known !== undefined) return known;
+    const next = outSeam.length;
+    remap.set(i, next);
+    outPosition.push(position.getX(i), position.getY(i), position.getZ(i));
+    outUv.push(uv.getX(i), uv.getY(i));
+    outGroove.push(grooveMask[i]);
+    outSeam.push(seamMask[i]);
+    outTail.push(tailMask[i]);
+    return next;
+  };
+
+  const vA = new THREE.Vector3();
+  const vB = new THREE.Vector3();
+  const vP = new THREE.Vector3();
+  const unitP = new THREE.Vector3();
+  // Bisect the edge between an outside vertex and an inside one until the point
+  // sits on the plate outline itself; the result is a rim vertex, not a corner of
+  // whatever triangle happened to straddle the boundary.
+  const crossing = (outside: number, inside: number) => {
+    vA.set(position.getX(outside), position.getY(outside), position.getZ(outside));
+    vB.set(position.getX(inside), position.getY(inside), position.getZ(inside));
+    let lo = 0;
+    let hi = 1;
+    for (let k = 0; k < 14; k += 1) {
+      const mid = (lo + hi) / 2;
+      vP.lerpVectors(vA, vB, mid);
+      unitP.copy(vP).normalize();
+      if (holeAt(unitP, 1)) hi = mid;
+      else lo = mid;
+    }
+    const t = (lo + hi) / 2;
+    vP.lerpVectors(vA, vB, t);
+    const next = outSeam.length;
+    outPosition.push(vP.x, vP.y, vP.z);
+    outUv.push(
+      uv.getX(outside) + (uv.getX(inside) - uv.getX(outside)) * t,
+      uv.getY(outside) + (uv.getY(inside) - uv.getY(outside)) * t,
+    );
+    outGroove.push(grooveMask[outside] + (grooveMask[inside] - grooveMask[outside]) * t);
+    // The rim is not where the light escapes; the wall behind it is. Letting the
+    // interpolated peak run to the rim painted a bright outline on every crater.
+    outSeam.push(0);
+    outTail.push(0);
+    return next;
+  };
+
+  const kept: number[] = [];
+  const wallPosition: number[] = [];
+  const ring: number[] = [];
   for (let t = 0; t < triCount; t += 1) {
     const ia = index.getX(t * 3);
     const ib = index.getX(t * 3 + 1);
     const ic = index.getX(t * 3 + 2);
-    probe.set(0, 0, 0);
-    for (const v of [ia, ib, ic]) {
-      probe.x += position.getX(v);
-      probe.y += position.getY(v);
-      probe.z += position.getZ(v);
+    const ha = holeOfVertex(ia);
+    const hb = holeOfVertex(ib);
+    const hc = holeOfVertex(ic);
+    const insideCount = (ha ? 1 : 0) + (hb ? 1 : 0) + (hc ? 1 : 0);
+    if (insideCount === 0) {
+      kept.push(copyVertex(ia), copyVertex(ib), copyVertex(ic));
+      continue;
     }
-    probe.normalize();
-    removed[t] = holeAt(probe) ? 1 : 0;
-    vertices.push([ia, ib, ic]);
-  }
+    if (insideCount === 3) continue;
 
-  // Keep every triangle that is not inside a plate; the rest becomes the crater.
-  const kept: number[] = [];
-  for (let t = 0; t < triCount; t += 1) {
-    if (removed[t]) continue;
-    kept.push(vertices[t][0], vertices[t][1], vertices[t][2]);
-  }
-  geometry.setIndex(kept.length ? new THREE.Uint32BufferAttribute(kept, 1) : null);
-
-  // The crater wall: every edge between a removed triangle and a kept one gets a
-  // skirt dropped inward, so the hole has depth and its own lit lip.
-  const N = position.count;
-  const edgeTris = new Map<number, number[]>();
-  const keyOf = (a: number, b: number) => (a < b ? a * N + b : b * N + a);
-  for (let t = 0; t < triCount; t += 1) {
-    const [a, b, c] = vertices[t];
-    for (const [u, v] of [[a, b], [b, c], [c, a]]) {
-      const key = keyOf(u, v);
-      const list = edgeTris.get(key);
-      if (list) list.push(t);
-      else edgeTris.set(key, [t]);
-    }
-  }
-
-  const wallPosition: number[] = [];
-  const wallNormal: number[] = [];
-  // The rim of a triangle-cut hole is a staircase. Pull every rim vertex onto the
-  // plate's own outline, so the hole the piece leaves is the shape of the piece.
-  const rimVertex = new Map<number, { hole: Hole; angle: number }>();
-  const pa = new THREE.Vector3();
-  const pb = new THREE.Vector3();
-  const nrm = new THREE.Vector3();
-  for (let t = 0; t < triCount; t += 1) {
-    if (!removed[t]) continue;
-    const [a, b, c] = vertices[t];
-    for (const [u, v] of [[a, b], [b, c], [c, a]]) {
-      const list = edgeTris.get(keyOf(u, v));
-      if (!list) continue;
-      const other = list.find((id) => id !== t);
-      if (other !== undefined && removed[other]) continue;
-      pa.set(position.getX(u), position.getY(u), position.getZ(u));
-      pb.set(position.getX(v), position.getY(v), position.getZ(v));
-      probe.copy(pa).add(pb).normalize();
-      const hole = holeAt(probe);
-      if (!hole) continue;
-      const aIn = pa.clone().multiplyScalar(0.9);
-      const bIn = pb.clone().multiplyScalar(0.9);
-      for (const [vi, vp] of [[u, pa], [v, pb]] as const) {
-        if (rimVertex.has(vi)) continue;
-        const t = vp.clone().addScaledVector(hole.centre, -vp.dot(hole.centre));
-        rimVertex.set(vi, { hole, angle: Math.atan2(t.dot(hole.ay), t.dot(hole.ax)) });
+    // Straddling: clip the triangle against the outline, keep the outside part.
+    ring.length = 0;
+    const cross: number[] = [];
+    const tri = [ia, ib, ic];
+    const holes = [ha, hb, hc];
+    for (let e = 0; e < 3; e += 1) {
+      const tailIndex = (e + 1) % 3;
+      const i = tri[e];
+      const j = tri[tailIndex];
+      const hi = holes[e];
+      const hj = holes[tailIndex];
+      if (!hi) ring.push(copyVertex(i));
+      if (Boolean(hi) !== Boolean(hj)) {
+        const id = hi ? crossing(j, i) : crossing(i, j);
+        ring.push(id);
+        cross.push(id);
       }
-      nrm.crossVectors(pb.clone().sub(pa), aIn.clone().sub(pa)).normalize();
-      if (nrm.dot(hole.centre.clone().sub(pa)) < 0) nrm.negate();
-      wallPosition.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z, bIn.x, bIn.y, bIn.z);
-      wallPosition.push(pa.x, pa.y, pa.z, bIn.x, bIn.y, bIn.z, aIn.x, aIn.y, aIn.z);
-      for (let k = 0; k < 6; k += 1) wallNormal.push(nrm.x, nrm.y, nrm.z);
+    }
+    for (let k = 1; k + 1 < ring.length; k += 1) kept.push(ring[0], ring[k], ring[k + 1]);
+
+    // The wall behind the rim, dropped inward from this triangle's own span.
+    if (cross.length === 2) {
+      const [p0, p1] = cross;
+      const ax = outPosition[p0 * 3];
+      const ay = outPosition[p0 * 3 + 1];
+      const az = outPosition[p0 * 3 + 2];
+      const bx = outPosition[p1 * 3];
+      const by = outPosition[p1 * 3 + 1];
+      const bz = outPosition[p1 * 3 + 2];
+      wallPosition.push(ax, ay, az, bx, by, bz, bx * 0.9, by * 0.9, bz * 0.9);
+      wallPosition.push(ax, ay, az, bx * 0.9, by * 0.9, bz * 0.9, ax * 0.9, ay * 0.9, az * 0.9);
     }
   }
-  rimVertex.forEach(({ hole, angle }, vi) => {
-    const r = radiusAt(hole, angle) * 0.928;
-    const dir = hole.centre
-      .clone()
-      .multiplyScalar(Math.sqrt(Math.max(0, 1 - r * r)))
-      .addScaledVector(hole.ax, Math.cos(angle) * r)
-      .addScaledVector(hole.ay, Math.sin(angle) * r)
-      .normalize();
-    position.setXYZ(vi, dir.x * MOON_RADIUS, dir.y * MOON_RADIUS, dir.z * MOON_RADIUS);
-  });
-  position.needsUpdate = true;
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(outPosition, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(outUv, 2));
+  geometry.setAttribute('aGroove', new THREE.Float32BufferAttribute(outGroove, 1));
+  geometry.setAttribute('aSeam', new THREE.Float32BufferAttribute(outSeam, 1));
+  geometry.setAttribute('aTail', new THREE.Float32BufferAttribute(outTail, 1));
+  geometry.setIndex(new THREE.Uint32BufferAttribute(kept, 1));
   geometry.computeVertexNormals();
 
   const wallGeometry = new THREE.BufferGeometry();
   wallGeometry.setAttribute('position', new THREE.Float32BufferAttribute(wallPosition, 3));
-  wallGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(wallNormal, 3));
 
   return { geometry, wallGeometry };
 };
@@ -933,8 +971,12 @@ export const createMoonRig = (canvas: HTMLCanvasElement): MoonRig | null => {
           '  float hotA = smoothstep(0.88, 0.995, dot(normalize(vObjPos), normalize(vec3(0.55, 0.38, 0.74))));',
           '  float hotB = smoothstep(0.95, 0.999, dot(normalize(vObjPos), normalize(vec3(-0.62, 0.26, 0.74))));',
           '  float hotspot = clamp(hotA + hotB * 0.5, 0.0, 1.0);',
-          '  float coreGlow = pow(seam, 1.4) * (1.5 + 2.4 * hotspot) * heat;',
-          '  vec3 spill = mix(vec3(1.0, 0.55, 0.16), vec3(1.0, 0.93, 0.75), smoothstep(0.60, 1.0, seam + hotspot));',
+          // A thin channel, not a painted band: the exponent narrows the glowing
+          // line to the bottom of the crack, and only the two hotspots are
+          // allowed to go pale. Tinting the whole seam white made every vertex
+          // step of the mask read as a white sliver.
+          '  float coreGlow = pow(seam, 2.4) * (1.0 + 2.6 * hotspot) * heat;',
+          '  vec3 spill = mix(vec3(1.0, 0.42, 0.10), vec3(1.0, 0.86, 0.58), clamp(hotspot + smoothstep(0.90, 1.0, seam) * 0.18, 0.0, 1.0));',
           '  totalEmissiveRadiance += spill * coreGlow;',
         ].join('\n'),
       );
