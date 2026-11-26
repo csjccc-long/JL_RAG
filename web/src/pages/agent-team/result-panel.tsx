@@ -135,9 +135,23 @@ const ResultPanel = ({
     t,
   );
 
+  // 还没跑过也没有结果时，空态直接占满整块面板——弹出的结论区很高，贴着顶部
+  // 放一行提示会显得像没渲染完。
+  if (!snapshot && !answer && !finalError) {
+    return (
+      <div className="flex h-full items-center justify-center px-2 text-center text-xs text-text-secondary">
+        {t(
+          running
+            ? 'flow.agentTeam.page.resultPending'
+            : 'flow.agentTeam.page.resultEmpty',
+        )}
+      </div>
+    );
+  }
+
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col gap-4 p-4">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
         {finalError && (
           <div className="rounded-md border border-state-error bg-bg-card p-2 text-xs text-state-error">
             {finalError}
@@ -147,16 +161,6 @@ const ResultPanel = ({
         {warning && (
           <div className="rounded-md border border-border-button bg-bg-card p-2 text-xs text-text-secondary">
             {warning}
-          </div>
-        )}
-
-        {!snapshot && !answer && (
-          <div className="flex min-h-[160px] items-center justify-center px-2 text-center text-xs text-text-secondary">
-            {t(
-              running
-                ? 'flow.agentTeam.page.resultPending'
-                : 'flow.agentTeam.page.resultEmpty',
-            )}
           </div>
         )}
 

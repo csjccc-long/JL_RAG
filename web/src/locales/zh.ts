@@ -3317,6 +3317,18 @@ NER：使用 spaCy NER 和基于规则的关键词提取来抽取 Entities 和 R
             failed: '失败',
           },
           boardEmpty: '暂无任务',
+          dock: {
+            title: '任务状态',
+            expand: '展开',
+            collapse: '收起',
+          },
+          workerStatus: {
+            running: '正在执行任务',
+            waiting: '等待任务',
+            waitingResult: '等待结果',
+            done: '已完成',
+            failed: '失败',
+          },
           result: '协作结果',
           resultEmpty: '运行后在这里查看团队结论',
           resultPending: '团队正在协作，结论会出现在这里',

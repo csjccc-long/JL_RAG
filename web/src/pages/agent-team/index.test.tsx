@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const mockRun = jest.fn();
 const mockStop = jest.fn();
@@ -8,6 +8,11 @@ let mockSearchParams = new URLSearchParams();
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
+}));
+
+jest.mock('./vote-core-visual', () => ({
+  __esModule: true,
+  default: () => <div data-testid="vote-core-visual" />,
 }));
 
 jest.mock('react-router', () => ({
@@ -136,11 +141,35 @@ describe('AgentTeamPage', () => {
     );
   });
 
-  it('renders the three panels', () => {
+  it('keeps the board and the result behind the bottom dock', () => {
     render(<AgentTeamPage />);
+    // 团队栏也收起来了：默认只剩左边缘的竖标签，指上去才铺开。
+    expect(screen.queryByTestId('team-list')).not.toBeInTheDocument();
+    fireEvent.mouseEnter(screen.getByTestId('team-hover'));
     expect(screen.getByTestId('team-list')).toBeInTheDocument();
+    // 看板和结论都不再常驻：默认只留底部工作条，点哪块才铺出哪块。
+    expect(screen.queryByTestId('dispatch-board')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('result-panel')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('dispatch-dock-toggle'));
     expect(screen.getByTestId('dispatch-board')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('result-dock-toggle'));
     expect(screen.getByTestId('result-panel')).toBeInTheDocument();
+  });
+
+  it('keeps the dial and puts the vote orbit in the middle', async () => {
+    mockTeams = [buildTeam({ process: 'vote' })];
+    mockSearchParams = new URLSearchParams();
+    render(<AgentTeamPage />);
+
+    // 分发盘始终在右上角；投票模式只是在中间空区多一张纯色圆盘。
+    await waitFor(() =>
+      expect(screen.getByTestId('vote-orbit')).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('vote-stage')).toBeInTheDocument();
+    expect(screen.getByTestId('vote-disc')).toBeInTheDocument();
+    expect(screen.getByTestId('result-dial')).toBeInTheDocument();
   });
 
   it('prefills the task from the url query', () => {
@@ -173,7 +202,7 @@ describe('AgentTeamPage', () => {
     mockSearchParams = new URLSearchParams('task=帮我分别调研供应链风险');
     render(<AgentTeamPage />);
     await waitFor(() =>
-      expect(screen.getByTestId('dispatch-board')).toBeInTheDocument(),
+      expect(screen.getByTestId('dispatch-dock-toggle')).toBeInTheDocument(),
     );
     expect(mockRun).not.toHaveBeenCalled();
   });

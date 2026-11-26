@@ -1,0 +1,38 @@
+.vote-particle {
+  animation: vote-particle-flicker 5.2s ease-in-out infinite;
+}
+
+@keyframes vote-particle-flicker {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.vote-port-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vote-port-pulse 2.4s ease-out infinite;
+}
+
+@keyframes vote-port-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vote-particle,
+  .vote-port-pulse {
+    animation: none;
+  }
+}

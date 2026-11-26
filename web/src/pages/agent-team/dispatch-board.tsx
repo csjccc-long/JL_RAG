@@ -25,7 +25,7 @@ const DispatchBoard = ({ cards }: DispatchBoardProps) => {
   const grouped = groupCardsByColumn(cards);
 
   return (
-    <div className="grid h-full grid-cols-4 gap-3">
+    <div data-testid="dispatch-board" className="grid h-full grid-cols-4 gap-3">
       {BOARD_COLUMNS.map((column) => (
         <div key={column} className="flex min-h-0 flex-col">
           <div className="mb-2 flex items-center justify-between px-1">

@@ -3739,6 +3739,18 @@ This process aggregates variables from multiple branches into a single variable 
             failed: 'Failed',
           },
           boardEmpty: 'No tasks',
+          dock: {
+            title: 'Task status',
+            expand: 'Expand',
+            collapse: 'Collapse',
+          },
+          workerStatus: {
+            running: 'Working',
+            waiting: 'Waiting for task',
+            waitingResult: 'Waiting for result',
+            done: 'Done',
+            failed: 'Failed',
+          },
           result: 'Result',
           resultEmpty: 'Run the team to see its conclusion here',
           dialHint: 'Drag the ring to pick an expression; tap a shape below to restyle it',

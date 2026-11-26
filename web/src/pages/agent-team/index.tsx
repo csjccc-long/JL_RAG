@@ -8,9 +8,8 @@ import {
   useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
-import DispatchBoard from './dispatch-board';
+import WorkbenchDock from './workbench-dock';
 import DispatchSeek from './dispatch-seek';
 import NewTeamDialog from './new-team-dialog';
 import { AgentTeamProcess } from '@/interfaces/database/agent';
@@ -22,17 +21,20 @@ import ProcessMenu from './process-menu';
 import { useTeamProgress } from './hooks/use-team-progress';
 import { useTeamRun } from './hooks/use-team-run';
 import ResultDial from './result-dial';
-import ResultDrawer from './result-drawer';
-import TeamList, { teamKey } from './team-list';
+import { teamKey } from './team-list';
+import TeamHover from './team-hover';
+import VoteOrbit from './vote-orbit';
 import { IDelegationLike, buildBoardCards } from './utils/board';
 import { IAgentTeamSummary } from './utils/extract-teams';
 
 /**
  * 多智能体协作台。
  *
- * 一个独立页面把"团队 → 任务分发 → 结果"摆在同一屏：左侧选团队，中间四列
- * 看板实时显示每个子任务的分发状态（后端 team_progress 通道，1s 轮询），
- * 右侧是团队结论与逐条分发记录。
+ * 一个独立页面把"团队 → 任务分发 → 结果"摆在同一屏：左边缘悬停展开团队，
+ * 右侧始终是保持原位的分发盘；投票模式在中间空区另放一张纯色圆盘，队伍成员
+ * 卡片围着它，其余模式中间留白。看板和协作结果都不占主区，收进底部一条
+ * 工作条，实时汇总每个子任务的分发状态（后端 team_progress 通道，1s 轮询）；
+ * 点状态展开四列，点结果展开结论，运行结束时结论自动弹出。
  */
 const AgentTeamPage = () => {
   const { t } = useTranslation();
@@ -161,6 +163,8 @@ const AgentTeamPage = () => {
     run(selectedTeam.agentId, task.trim());
   }, [searchParams, selectedTeam, task, run]);
 
+  const isVoteTeam = selectedTeam?.process === 'vote';
+
   const cards = useMemo(
     () =>
       buildBoardCards({
@@ -225,73 +229,54 @@ const AgentTeamPage = () => {
         ) : null}
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_340px] gap-4">
-        <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border-button">
-          <div className="flex items-center justify-between gap-2 border-b border-border-button py-1.5 pl-3 pr-2">
-            <span className="text-sm font-medium text-text-primary">
-              {t('flow.agentTeam.page.teams')}
-            </span>
-            <button
-              type="button"
-              data-testid="new-team"
-              className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-accent hover:text-text-primary"
-              onClick={handleOpenCreate}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t('flow.agentTeam.page.newTeamCta')}
-            </button>
-          </div>
-          <div className="min-h-0 flex-1">
-            {teamsError ? (
-              <div className="flex h-full flex-col items-center justify-center gap-2 px-3 text-center">
-                <p className="text-xs text-text-secondary">
-                  {t('flow.agentTeam.page.teamsError')}
-                </p>
-                <p className="break-all text-xs text-text-disabled">
-                  {teamsError}
-                </p>
-                <Button variant="transparent" onClick={handleRetry}>
-                  {t('flow.agentTeam.page.retry')}
-                </Button>
-              </div>
-            ) : (
-              <TeamList
-                teams={teams}
-                loading={loading}
-                selectedKey={selectedKey}
-                onSelect={handleSelect}
-                onOpenCanvas={handleOpenCanvas}
-                roster={roster}
-                onAssign={handleAssign}
-                assigningKey={
-                  assign.isPending ? teamKey(assign.variables!.team) : undefined
-                }
-                assignFailedKey={
-                  assign.error && assign.variables
-                    ? teamKey(assign.variables.team)
-                    : undefined
-                }
-                assignFailure={assign.error?.message}
+      <div className="relative min-h-0 flex-1">
+        <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_340px] gap-4">
+          <div className="flex min-h-0 items-center justify-center">
+            {isVoteTeam ? (
+              <VoteOrbit
+                workers={selectedTeam?.workers ?? []}
+                cards={cards}
+                running={running}
               />
-            )}
+            ) : null}
+          </div>
+
+          <div className="relative min-h-0 overflow-hidden">
+            <ResultDial />
           </div>
         </div>
 
-        <div className="min-h-0">
-          <DispatchBoard cards={cards} />
-        </div>
-
-        <div className="relative min-h-0 overflow-hidden">
-          <ResultDial />
-          <ResultDrawer
-            team={selectedTeam}
-            snapshot={snapshot}
-            answer={answer}
-            error={error}
-            running={running}
-          />
-        </div>
+        <TeamHover
+          teams={teams}
+          loading={loading}
+          selectedKey={selectedKey}
+          teamsError={teamsError}
+          roster={roster}
+          assigningKey={
+            assign.isPending ? teamKey(assign.variables!.team) : undefined
+          }
+          assignFailedKey={
+            assign.error && assign.variables
+              ? teamKey(assign.variables.team)
+              : undefined
+          }
+          assignFailure={assign.error?.message}
+          onSelect={handleSelect}
+          onOpenCanvas={handleOpenCanvas}
+          onAssign={handleAssign}
+          onRetry={handleRetry}
+          onCreate={handleOpenCreate}
+        />
       </div>
+
+      <WorkbenchDock
+        cards={cards}
+        team={selectedTeam}
+        snapshot={snapshot}
+        answer={answer}
+        error={error}
+        running={running}
+      />
 
       <NewTeamDialog
         open={createOpen}
