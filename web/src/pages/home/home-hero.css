@@ -1,0 +1,195 @@
+/* Editorial hero — oversized name, ink reveal, ink spotlight. */
+
+.home-hero {
+  --hero-spot-x: -999px;
+  --hero-spot-y: -999px;
+  --hero-spot-r: 0px;
+  --hero-depth-x: 0px;
+  --hero-depth-y: 0px;
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.home-hero__layer {
+  position: absolute;
+  inset: 0;
+}
+
+.home-hero__name {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-family:
+    'Inter', 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.038em;
+  line-height: 0.82;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.home-hero__line {
+  display: block;
+  transform: translate3d(
+    calc(var(--hero-depth-x) * 1),
+    calc(var(--hero-depth-y) * 1),
+    0
+  );
+}
+
+.home-hero__line--a {
+  font-size: clamp(46px, 10.6vw, 168px);
+  color: var(--hp-ink);
+}
+
+.home-hero__line--b {
+  margin-top: 0.06em;
+  font-size: clamp(28px, 6vw, 95px);
+  color: var(--hp-accent);
+  letter-spacing: -0.03em;
+  transform: translate3d(
+    calc(var(--hero-depth-x) * -0.85),
+    calc(var(--hero-depth-y) * -0.85),
+    0
+  );
+}
+
+.home-hero__mask {
+  display: inline-block;
+  overflow: hidden;
+  /* room for ascenders/descenders so the mask never clips a glyph */
+  padding-block: 0.24em;
+  margin-block: -0.24em;
+  vertical-align: bottom;
+}
+
+.home-hero__letter {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* The "O" of KNOWLEDGE is the bloom itself: a live, one-letter canvas. */
+.home-hero__letter--o {
+  position: relative;
+  width: 0.82em;
+  height: 0.82em;
+  margin-inline: -0.04em;
+  vertical-align: -0.05em;
+}
+
+.home-hero__o {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.home-hero__o-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The base layer is painted everywhere except inside the spotlight; the ink
+   layer is an outlined copy painted only inside it. */
+.home-hero__layer--base {
+  -webkit-mask-image: radial-gradient(
+    circle var(--hero-spot-r) at var(--hero-spot-x) var(--hero-spot-y),
+    transparent calc(var(--hero-spot-r) - 1px),
+    #000 var(--hero-spot-r)
+  );
+  mask-image: radial-gradient(
+    circle var(--hero-spot-r) at var(--hero-spot-x) var(--hero-spot-y),
+    transparent calc(var(--hero-spot-r) - 1px),
+    #000 var(--hero-spot-r)
+  );
+}
+
+.home-hero__layer--ink {
+  -webkit-mask-image: radial-gradient(
+    circle var(--hero-spot-r) at var(--hero-spot-x) var(--hero-spot-y),
+    #000 calc(var(--hero-spot-r) + 1px),
+    transparent calc(var(--hero-spot-r) + 2px)
+  );
+  mask-image: radial-gradient(
+    circle var(--hero-spot-r) at var(--hero-spot-x) var(--hero-spot-y),
+    #000 calc(var(--hero-spot-r) + 1px),
+    transparent calc(var(--hero-spot-r) + 2px)
+  );
+}
+
+.home-hero__name--ink .home-hero__line--a,
+.home-hero__name--ink .home-hero__line--b {
+  color: transparent;
+  -webkit-text-stroke: 1.8px var(--hp-ink);
+}
+
+.home-hero__name--ink .home-hero__line--b {
+  -webkit-text-stroke-color: var(--hp-accent);
+}
+
+/* The intro: fixed plate, its own mask punched open from the centre. */
+.home-hero__splash {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: var(--hp-bg);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.home-hero__splash-svg {
+  width: min(94vw, 152vh);
+  height: auto;
+  overflow: visible;
+}
+
+.home-hero__splash-line {
+  text-anchor: middle;
+  font-family:
+    'Inter', 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.home-hero__splash-line--a {
+  font-size: 150px;
+  fill: var(--hp-accent);
+}
+
+.home-hero__splash-line--b {
+  font-size: 98px;
+  letter-spacing: -0.02em;
+  fill: var(--hp-ink);
+}
+
+@media (max-width: 1023px) {
+  .home-hero__name {
+    left: clamp(16px, 5vw, 40px);
+    bottom: clamp(40px, 9vh, 96px);
+  }
+
+  .home-hero__splash-line--a {
+    font-size: 128px;
+  }
+
+  .home-hero__splash-line--b {
+    font-size: 82px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-hero__line {
+    transform: none;
+  }
+}

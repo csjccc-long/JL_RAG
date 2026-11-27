@@ -7,6 +7,15 @@
   line-height: 1.2;
 }
 
+/* The scrim, prelayers and panel are portalled to <body>: a fixed overlay inside
+   an ancestor stacking context (the home poster sets `isolation: isolate`, and its
+   header floats above at z-40) would paint underneath that ancestor. The portal
+   wrapper only carries the menu's custom properties and state attributes, so it
+   must not create a box of its own. */
+.staggered-menu.sm-portal {
+  display: contents;
+}
+
 .sm-trigger {
   display: inline-flex;
   align-items: center;

@@ -1,0 +1,210 @@
+/*
+ * Copyright 2026 The InfiniFlow Authors. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+.mark-flower {
+  --mf-bg-top: #102452;
+  --mf-bg-bottom: #04060d;
+  --mf-ink: rgba(240, 247, 255, 0.94);
+  --mf-ink-soft: rgba(196, 216, 246, 0.62);
+  --mf-line: rgba(150, 190, 255, 0.18);
+  --mf-chip: rgba(10, 20, 42, 0.5);
+  --mf-glow: rgba(64, 122, 255, 0.5);
+  position: fixed;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  color: var(--mf-ink);
+  background:
+    radial-gradient(120% 90% at 78% 8%, var(--mf-bg-top) 0%, transparent 62%),
+    radial-gradient(90% 80% at 18% 100%, rgba(31, 74, 168, 0.45) 0%, transparent 60%),
+    var(--mf-bg-bottom);
+  isolation: isolate;
+}
+
+.mark-flower[data-theme='light'] {
+  --mf-bg-top: #ecf3ff;
+  --mf-bg-bottom: #dfe8f7;
+  --mf-ink: rgba(15, 28, 48, 0.92);
+  --mf-ink-soft: rgba(40, 63, 96, 0.6);
+  --mf-line: rgba(24, 48, 84, 0.16);
+  --mf-chip: rgba(255, 255, 255, 0.72);
+  --mf-glow: rgba(120, 170, 245, 0.42);
+  background:
+    radial-gradient(120% 90% at 80% 6%, #ffffff 0%, transparent 60%),
+    radial-gradient(90% 80% at 12% 100%, rgba(146, 178, 226, 0.5) 0%, transparent 62%),
+    var(--mf-bg-bottom);
+}
+
+.mark-flower__glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(78vw, 78vh);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, var(--mf-glow) 0%, transparent 62%);
+  filter: blur(40px);
+  opacity: 0.65;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.mark-flower__rings {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(96vw, 96vh);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.5;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle, transparent 0 33%, var(--mf-line) 33.05% 33.25%, transparent 33.3%),
+    radial-gradient(circle, transparent 0 46%, var(--mf-line) 46.05% 46.2%, transparent 46.25%),
+    radial-gradient(circle, transparent 0 62%, var(--mf-line) 62.05% 62.18%, transparent 62.23%),
+    radial-gradient(circle, transparent 0 78%, var(--mf-line) 78.05% 78.15%, transparent 78.2%);
+  -webkit-mask-image: radial-gradient(circle, #000 12%, rgba(0, 0, 0, 0.4) 58%, transparent 82%);
+  mask-image: radial-gradient(circle, #000 12%, rgba(0, 0, 0, 0.4) 58%, transparent 82%);
+}
+
+.mark-flower__stage {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+}
+
+.mark-flower__canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mark-flower__canvas.is-dragging {
+  cursor: grabbing;
+}
+
+.mark-flower__fallback {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(52vh, 520px);
+  transform: translate(-50%, -50%);
+  border-radius: 32px;
+}
+
+.mark-flower__brand {
+  position: absolute;
+  z-index: 2;
+  top: clamp(20px, 3.2vw, 40px);
+  left: clamp(20px, 3.2vw, 44px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.mark-flower__logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+}
+
+.mark-flower__brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.mark-flower__wordmark {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.mark-flower__subtitle {
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--mf-ink-soft);
+}
+
+.mark-flower__toolbar {
+  position: absolute;
+  z-index: 2;
+  top: clamp(20px, 3.2vw, 40px);
+  right: clamp(20px, 3.2vw, 44px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mark-flower__button {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--mf-line);
+  background: var(--mf-chip);
+  color: var(--mf-ink-soft);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  backdrop-filter: blur(14px) saturate(1.2);
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.mark-flower__button:hover {
+  color: var(--mf-ink);
+  border-color: color-mix(in srgb, var(--mf-ink) 34%, transparent);
+}
+
+.mark-flower__button[data-active] {
+  color: var(--mf-ink);
+  border-color: color-mix(in srgb, var(--mf-glow) 70%, transparent);
+  background: color-mix(in srgb, var(--mf-glow) 26%, transparent);
+}
+
+.mark-flower__hint {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: clamp(18px, 2.6vw, 32px);
+  left: 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--mf-ink-soft);
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .mark-flower__toolbar {
+    top: auto;
+    right: 50%;
+    bottom: 64px;
+    transform: translateX(50%);
+  }
+}

@@ -19,7 +19,7 @@ function loadMark() {
   if (loader) return loader;
   loader = new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = '/mark-petals.js?v=20261106p';
+    script.src = '/mark-petals.js?v=20261126w';
     script.async = true;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error('mark-petals load failed'));

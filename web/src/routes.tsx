@@ -38,6 +38,8 @@ export enum Routes {
   Root = '/',
   Login = '/login-next',
   Logout = '/logout',
+  /** Standalone stage for the 3D petal flower, see pages/mark-flower. */
+  MarkFlower = '/mark-flower',
   Home = '/home',
   Datasets = '/datasets',
   DatasetBase = '/dataset',
@@ -149,6 +151,11 @@ const routeConfigOptions = [
   {
     path: '/login-next',
     Component: () => import('@/pages/login-next'),
+    layout: false,
+  },
+  {
+    path: Routes.MarkFlower,
+    Component: () => import('@/pages/mark-flower'),
     layout: false,
   },
   {

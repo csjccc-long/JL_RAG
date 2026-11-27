@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { PageContainer } from '@/layouts/components/page-container';
 
+import { HomeHero } from './home-hero';
 import { HomeQuickAccess } from './home-quick-access';
 import { MarkPetals } from './mark-petals';
 import './home-poster.css';
@@ -64,38 +65,17 @@ const VIEW_COPY = {
   },
 };
 
-const COPY = {
-  zh: {
-    titleA: '让知识',
-    titleB: '成为答案',
-    ghost: 'KNOWLEDGE',
-    bodyA: '文档不该沉睡在文件夹里。',
-    bodyB: '把散落的知识，变成可以被追问、被引用、被验证的答案。',
-    index: ['知识库', '智能问答', '深度搜索', '智能体', '记忆', '知识图谱'],
-  },
-  en: {
-    titleA: 'Knowledge,',
-    titleB: 'answered.',
-    ghost: 'KNOWLEDGE',
-    bodyA: 'Documents should not sleep in folders.',
-    bodyB:
-      'Turn scattered knowledge into answers that can be questioned, cited, and verified.',
-    index: [
-      'Knowledge base',
-      'Q&A',
-      'Deep search',
-      'Agents',
-      'Memory',
-      'Knowledge graph',
-    ],
-  },
-};
-
 export function HomePoster() {
   const { i18n } = useTranslation();
   const language = i18n.language?.startsWith('en') ? 'en' : 'zh';
-  const copy = COPY[language];
+
   const viewCopy = VIEW_COPY[language];
+  // The tuning panel is an authoring tool: it stays out of the shipped page and
+  // only appears in dev builds or when ?markdebug is set.
+  const showTuning =
+    import.meta.env.DEV ||
+    (typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).has('markdebug'));
   const [view, setView] = useState<MarkView>(DEFAULT_VIEW);
   const [viewOpen, setViewOpen] = useState(false);
   const [shards, setShards] = useState<ShardTune[]>(makeDefaultShards);
@@ -222,29 +202,17 @@ export function HomePoster() {
   return (
     <PageContainer className="home-poster-page !px-0 !py-0">
       <section className="home-poster" data-lang={language}>
-        <div className="home-poster__grain" aria-hidden="true" />
-        <div className="home-poster__ghost" aria-hidden="true">
-          {copy.ghost}
-        </div>
-
         <div className="home-poster__stage" aria-hidden="true">
           <MarkPetals />
         </div>
 
-        <div className="home-poster__flow" aria-hidden="true">
-          <span className="home-poster__ring home-poster__ring--a" />
-          <span className="home-poster__ring home-poster__ring--b" />
-          <span className="home-poster__ring home-poster__ring--c" />
-          <span className="home-poster__core" />
-          <span className="home-poster__spark home-poster__spark--a" />
-          <span className="home-poster__spark home-poster__spark--b" />
-          <span className="home-poster__spark home-poster__spark--c" />
-        </div>
+        <HomeHero />
 
         <div className="home-poster__quick">
           <HomeQuickAccess />
         </div>
 
+        {showTuning && (
         <div className="home-poster__view">
           <div className="home-poster__view-row">
             <button
@@ -435,31 +403,8 @@ export function HomePoster() {
             </div>
           )}
         </div>
+        )}
 
-        <div className="home-poster__headline">
-          <h1>
-            <span className="home-poster__line">{copy.titleA}</span>
-            <span className="home-poster__line home-poster__line--accent">
-              {copy.titleB}
-            </span>
-          </h1>
-        </div>
-
-        <div className="home-poster__manifesto">
-          <p>
-            {copy.bodyA}
-            <br />
-            {copy.bodyB}
-          </p>
-        </div>
-
-        <div className="home-poster__index">
-          <ol>
-            {copy.index.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ol>
-        </div>
       </section>
     </PageContainer>
   );

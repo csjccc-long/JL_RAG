@@ -31,18 +31,7 @@ html.light .home-poster {
   --hp-line: rgb(17 17 19 / 0.16);
 }
 
-.home-poster::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(
-    circle at 76% 44%,
-    color-mix(in srgb, var(--hp-accent) 11%, transparent),
-    transparent 55%
-  );
-  pointer-events: none;
-}
+/* Solid ground: the poster paints one flat colour, nothing behind the mark. */
 
 .home-poster__grain {
   position: absolute;
